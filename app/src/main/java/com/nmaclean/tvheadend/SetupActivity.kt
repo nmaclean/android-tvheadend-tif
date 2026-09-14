@@ -34,14 +34,15 @@ class SetupActivity : FragmentActivity() {
             private const val TAG = "TvhSetupFragment"
             private const val ID_HOST = 1L
             private const val ID_PORT = 2L
-            private const val ID_USER = 3L
-            private const val ID_PASS = 4L
-            private const val ID_SAVE = 5L
+            private const val ID_HTTP_PORT = 3L
+            private const val ID_USER = 4L
+            private const val ID_PASS = 5L
+            private const val ID_SAVE = 6L
         }
 
         override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
             val title = "Tvheadend TIF Setup"
-            val description = "Enter your server credentials to import channels and complete setup."
+            val description = "Enter your server credentials and ports to import channels."
             val breadcrumb = "TV Input Setup"
             return GuidanceStylist.Guidance(title, description, breadcrumb, null)
         }
@@ -50,7 +51,8 @@ class SetupActivity : FragmentActivity() {
             val prefs = requireActivity().getSharedPreferences("TvhPrefs", Context.MODE_PRIVATE)
 
             val host = prefs.getString("host", "192.168.4.100") ?: "192.168.4.100"
-            val port = prefs.getInt("port", 9982).toString()
+            val htspPort = prefs.getInt("port", 9982).toString()
+            val httpPort = prefs.getInt("httpPort", 9981).toString()
             val user = prefs.getString("user", "admin") ?: "admin"
             val pass = prefs.getString("pass", "ab1903") ?: "ab1903"
 
@@ -67,7 +69,17 @@ class SetupActivity : FragmentActivity() {
                 GuidedAction.Builder(activity)
                     .id(ID_PORT)
                     .title("HTSP Port")
-                    .description(port)
+                    .description(htspPort)
+                    .editable(true)
+                    .editInputType(InputType.TYPE_CLASS_NUMBER)
+                    .build()
+            )
+
+            actions.add(
+                GuidedAction.Builder(activity)
+                    .id(ID_HTTP_PORT)
+                    .title("HTTP Stream Port")
+                    .description(httpPort)
                     .editable(true)
                     .editInputType(InputType.TYPE_CLASS_NUMBER)
                     .build()
@@ -105,6 +117,7 @@ class SetupActivity : FragmentActivity() {
             if (action.id == ID_SAVE) {
                 val host = findActionById(ID_HOST)?.description?.toString()?.trim() ?: "192.168.4.100"
                 val port = findActionById(ID_PORT)?.description?.toString()?.toIntOrNull() ?: 9982
+                val httpPort = findActionById(ID_HTTP_PORT)?.description?.toString()?.toIntOrNull() ?: 9981
                 val user = findActionById(ID_USER)?.description?.toString()?.trim() ?: "admin"
                 val pass = findActionById(ID_PASS)?.description?.toString()?.trim() ?: "ab1903"
 
@@ -112,6 +125,7 @@ class SetupActivity : FragmentActivity() {
                 prefs.edit()
                     .putString("host", host)
                     .putInt("port", port)
+                    .putInt("httpPort", httpPort)
                     .putString("user", user)
                     .putString("pass", pass)
                     .apply()
@@ -126,12 +140,7 @@ class SetupActivity : FragmentActivity() {
                             client.disconnect()
 
                             Log.d(TAG, "Fetched ${channels.size} channels from HTSP client.")
-                            for (c in channels) {
-                                Log.d(TAG, "Channel -> id=${c.id}, uuid='${c.uuid}', name='${c.name}', number=${c.number}")
-                            }
-
                             val resolver = requireActivity().contentResolver
-                            val httpPort = 9981
 
                             resolver.delete(
                                 TvContract.buildChannelsUriForInput(MainActivity.INPUT_ID),
@@ -141,7 +150,6 @@ class SetupActivity : FragmentActivity() {
                             for (ch in channels) {
                                 val logoUri = "http://$host:$httpPort/imagecache/channels/${ch.uuid}"
                                 val uuidToStore = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
-                                Log.d(TAG, "Inserting channel ${ch.name} with provider data: '$uuidToStore'")
 
                                 val values = ContentValues().apply {
                                     put(TvContract.Channels.COLUMN_INPUT_ID, MainActivity.INPUT_ID)
@@ -154,7 +162,6 @@ class SetupActivity : FragmentActivity() {
                                 resolver.insert(TvContract.Channels.CONTENT_URI, values)
                             }
 
-                            Log.d(TAG, "Setup finished successfully. Returning RESULT_OK.")
                             requireActivity().runOnUiThread {
                                 Toast.makeText(activity, "Setup SUCCESS! Imported ${channels.size} channels.", Toast.LENGTH_LONG).show()
                                 val activityRef = requireActivity()
@@ -162,7 +169,6 @@ class SetupActivity : FragmentActivity() {
                                 activityRef.finish()
                             }
                         } else {
-                            Log.w(TAG, "Authentication failed during setup.")
                             requireActivity().runOnUiThread {
                                 Toast.makeText(activity, "Authentication failed.", Toast.LENGTH_LONG).show()
                             }
