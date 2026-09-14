@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="TVHeadend Connection Settings">
+
+        <EditTextPreference
+            android:key="host"
+            android:title="Server IP / Hostname"
+            android:defaultValue="192.168.1.50"
+            android:summary="Enter your TVHeadend server IP address" />
+
+        <EditTextPreference
+            android:key="http_port"
+            android:title="HTTP Port"
+            android:defaultValue="9981"
+            android:summary="Default: 9981" />
+
+        <EditTextPreference
+            android:key="username"
+            android:title="Username"
+            android:summary="Optional TVHeadend HTTP/HTSP username" />
+
+        <EditTextPreference
+            android:key="password"
+            android:title="Password"
+            android:summary="Optional TVHeadend password" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

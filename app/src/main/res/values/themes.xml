@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.Tvheadend" parent="Theme.Leanback">
+        <!-- Leanback theme configurations -->
+    </style>
+</resources>
