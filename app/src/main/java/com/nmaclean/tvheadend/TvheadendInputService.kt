@@ -1,6 +1,7 @@
 package com.nmaclean.tvheadend
 
 import android.content.Context
+import android.media.tv.TvInputManager
 import android.media.tv.TvInputService
 import android.net.Uri
 import android.util.Log
@@ -37,6 +38,10 @@ class TvheadendInputService : TvInputService() {
             player?.volume = volume
         }
 
+        override fun onSetCaptionEnabled(enabled: Boolean) {
+            // Optional: Handle closed captions
+        }
+
         override fun onTune(uri: Uri): Boolean {
             Log.d(TAG, "Tune URI received: $uri")
             val cursor = contentResolver.query(
@@ -53,7 +58,7 @@ class TvheadendInputService : TvInputService() {
             if (cursor == null || !cursor.moveToFirst()) {
                 Log.e(TAG, "Cursor query failed or empty for URI: $uri")
                 cursor?.close()
-                notifyChannelUnavailable(TvInputService.TvInputCallback.REASON_NOT_TUNED)
+                notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING)
                 return false
             }
 
@@ -78,7 +83,7 @@ class TvheadendInputService : TvInputService() {
 
             if (streamKey.isEmpty()) {
                 Log.e(TAG, "ERROR: Channel UUID / StreamKey is empty! Cannot tune.")
-                notifyChannelUnavailable(TvInputService.TvInputCallback.REASON_NOT_TUNED)
+                notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING)
                 return false
             }
 
@@ -143,7 +148,6 @@ class TvheadendInputService : TvInputService() {
 
         override fun onRelease() {
             releasePlayer()
-            super.onRelease()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -152,7 +156,7 @@ class TvheadendInputService : TvInputService() {
 
         override fun onPlayerError(error: PlaybackException) {
             Log.e(TAG, "ExoPlayback error: ${error.errorCodeName} - ${error.message}", error)
-            notifyChannelUnavailable(TvInputService.TvInputCallback.REASON_TUNING_ERROR)
+            notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING)
         }
     }
 }
