@@ -70,6 +70,7 @@ class HtspClient(private val host: String, private val port: Int) {
         }
     }
 
+    // Fast, lightweight channel sync (epg = 0)
     fun fetchChannels(): List<TvhChannel> {
         val channels = mutableListOf<TvhChannel>()
         try {
@@ -78,7 +79,7 @@ class HtspClient(private val host: String, private val port: Int) {
                 "method" to "enableAsyncMetadata",
                 "seq" to seq,
                 "channels" to 1,
-                "epg" to 1
+                "epg" to 0
             )
             sendMessage(args)
             socket?.soTimeout = 3000
@@ -101,20 +102,14 @@ class HtspClient(private val host: String, private val port: Int) {
                         }
 
                         val name = msg["channelName"] as? String ?: msg["name"] as? String ?: "Channel"
-
-                        Log.d(TAG, "RAW HTSP MSG FULL PACKET KEYS: ${msg.keys.joinToString(", ")} -> channelId=${msg["channelId"]}, method=${msg["method"]}, channelNumber=${msg["channelNumber"]}, number=${msg["number"]}, num=${msg["num"]}")
-
-                        // Reverted to pure raw channel number format as requested
                         val channelNumberObj = msg["channelNumber"]
                         val number = (channelNumberObj as? Number)?.toInt() ?: 1
-
-                        Log.d(TAG, "RAW HTSP MSG channelNumber=$channelNumberObj, Kept Raw Int=$number")
+                        val channelIcon = msg["channelIcon"] as? String ?: msg["icon"] as? String ?: ""
 
                         if (uuid.isNotEmpty() || name.isNotEmpty()) {
-                            val channel = TvhChannel(id, uuid, name, number)
+                            val channel = TvhChannel(id, uuid, name, number, channelIcon)
                             if (!channels.any { it.id == id || (it.uuid.isNotEmpty() && it.uuid == uuid) }) {
                                 channels.add(channel)
-                                Log.d(TAG, "Parsed Channel -> id=$id, uuid/str='$uuid', name='$name', number=$number")
                             }
                         }
                     }
@@ -132,7 +127,59 @@ class HtspClient(private val host: String, private val port: Int) {
         return channels
     }
 
-    fun fetchEvents(): List<TvhProgram> = emptyList()
+    // Dedicated asynchronous EPG events fetcher (channels = 0, epg = 1)
+    fun fetchEvents(timeoutMs: Long = 8000): List<TvhProgram> {
+        val programs = mutableListOf<TvhProgram>()
+        try {
+            val seq = sequenceNumber++
+            val args = mapOf(
+                "method" to "enableAsyncMetadata",
+                "seq" to seq,
+                "channels" to 0,
+                "epg" to 1
+            )
+            sendMessage(args)
+            socket?.soTimeout = 3000
+
+            val startTime = System.currentTimeMillis()
+            while (System.currentTimeMillis() - startTime < timeoutMs) {
+                try {
+                    val msg = readMessage() ?: continue
+                    val method = msg["method"] as? String
+
+                    if (method == "eventAdd" || method == "eventUpdate" || msg.containsKey("eventId")) {
+                        val eventId = (msg["eventId"] as? Number)?.toLong() ?: 0L
+                        val chId = (msg["channelId"] as? Number)?.toLong() ?: 0L
+                        val title = msg["title"] as? String ?: "Unknown Program"
+                        val summary = msg["description"] as? String ?: msg["summary"] as? String
+
+                        val startSec = (msg["start"] as? Number)?.toLong() ?: 0L
+                        val stopSec = (msg["stop"] as? Number)?.toLong() ?: 0L
+
+                        val startTimeMs = if (startSec > 0) startSec * 1000 else System.currentTimeMillis()
+                        val stopTimeMs = if (stopSec > 0) stopSec * 1000 else startTimeMs + 3600000
+
+                        if (eventId > 0 && chId > 0) {
+                            val program = TvhProgram(eventId, chId, title, summary, startTimeMs, stopTimeMs)
+                            if (!programs.any { it.eventId == eventId }) {
+                                programs.add(program)
+                            }
+                        }
+                    }
+
+                    if (msg["initialSyncCompleted"] == true) break
+                } catch (e: java.net.SocketTimeoutException) {
+                    if (programs.isNotEmpty()) break
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching EPG events", e)
+        } finally {
+            try { socket?.soTimeout = 30000 } catch (ignored: Exception) {}
+        }
+        return programs
+    }
+
     fun subscribe(channelIdentifier: Any): Map<String, Any?>? {
         val identifier = channelIdentifier.toString()
         val subMsg = if (identifier.all { it.isDigit() }) {

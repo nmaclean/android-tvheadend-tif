@@ -31,6 +31,7 @@ class TvheadendInputService : TvInputService() {
         private var surface: Surface? = null
 
         override fun onSetSurface(surface: Surface?): Boolean {
+            Log.d(TAG, "onSetSurface called with surface: $surface")
             if (surface != null) {
                 this.surface = surface
             }
@@ -39,6 +40,7 @@ class TvheadendInputService : TvInputService() {
         }
 
         override fun onSetStreamVolume(volume: Float) {
+            Log.d(TAG, "onSetStreamVolume called with volume: $volume")
             player?.volume = volume
         }
 
@@ -74,7 +76,7 @@ class TvheadendInputService : TvInputService() {
             val channelId = if (idCol >= 0) cursor.getLong(idCol) else 0L
             val name = if (nameCol >= 0) cursor.getString(nameCol) else ""
             val number = if (numCol >= 0) cursor.getString(numCol) else ""
-            
+
             val providerDataBytes = if (dataCol >= 0) cursor.getBlob(dataCol) else null
             val streamKey = if (providerDataBytes != null) String(providerDataBytes, StandardCharsets.UTF_8).trim() else ""
 
@@ -83,7 +85,7 @@ class TvheadendInputService : TvInputService() {
             Log.d(TAG, "Column _id = $channelId")
             Log.d(TAG, "Column display_name = $name")
             Log.d(TAG, "Column display_number = $number")
-            Log.d(TAG, "Column internal_provider_data = $streamKey")
+            Log.d(TAG, "Column internal_provider_data (UUID/ID) = $streamKey")
 
             if (streamKey.isEmpty()) {
                 Log.e(TAG, "ERROR: Channel UUID / StreamKey is empty! Cannot tune.")
@@ -103,13 +105,21 @@ class TvheadendInputService : TvInputService() {
             val user = settings.username
             val pass = settings.password
 
+            Log.d(TAG, "Starting playback for streamKey: $uuid on host $host (HTSP port: $port, HTTP port: $httpPort)")
+
             kotlin.concurrent.thread {
                 try {
+                    Log.d(TAG, "Disconnecting previous HTSP client if any...")
                     htspClient?.disconnect()
                     val client = HtspClient(host, port)
+                    Log.d(TAG, "Connecting to HTSP server at $host:$port...")
                     if (client.connect(user, pass)) {
-                        client.subscribe(uuid)
+                        Log.d(TAG, "HTSP connected successfully. Subscribing to channel: $uuid")
+                        val subResponse = client.subscribe(uuid)
+                        Log.d(TAG, "HTSP subscription response: $subResponse")
                         htspClient = client
+                    } else {
+                        Log.e(TAG, "HTSP connection failed during tune for $uuid")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error in HTSP background tune notification", e)
@@ -125,8 +135,9 @@ class TvheadendInputService : TvInputService() {
                 val httpDataSourceFactory = DefaultHttpDataSource.Factory()
                     .setUserAgent("AndroidTV-TIFClient")
                     .setAllowCrossProtocolRedirects(true)
-                
+
                 if (user.isNotEmpty() && pass.isNotEmpty()) {
+                    Log.d(TAG, "Applying HTTP Basic Authentication credentials for ExoPlayer data source.")
                     httpDataSourceFactory.setDefaultRequestProperties(
                         mapOf("Authorization" to Credentials.basic(user, pass))
                     )
@@ -141,14 +152,18 @@ class TvheadendInputService : TvInputService() {
                 addListener(this@TvheadendSession)
             }
             player = exoPlayer
-            // Bind the active surface if one was already provided via onSetSurface
+
             if (this.surface != null) {
+                Log.d(TAG, "Binding existing surface to ExoPlayer.")
                 exoPlayer.setVideoSurface(this.surface)
+            } else {
+                Log.w(TAG, "Surface is null when starting playback; video surface not bound yet.")
             }
             notifyVideoAvailable()
         }
 
         private fun releasePlayer() {
+            Log.d(TAG, "Releasing player and disconnecting HTSP client...")
             kotlin.concurrent.thread {
                 try {
                     htspClient?.unsubscribe()
@@ -161,15 +176,23 @@ class TvheadendInputService : TvInputService() {
         }
 
         override fun onRelease() {
+            Log.d(TAG, "onRelease called on session.")
             releasePlayer()
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {
-            Log.d(TAG, "ExoPlayer playback state changed: $playbackState")
+            val stateStr = when (playbackState) {
+                Player.STATE_IDLE -> "STATE_IDLE"
+                Player.STATE_BUFFERING -> "STATE_BUFFERING"
+                Player.STATE_READY -> "STATE_READY"
+                Player.STATE_ENDED -> "STATE_ENDED"
+                else -> "UNKNOWN ($playbackState)"
+            }
+            Log.d(TAG, "ExoPlayer playback state changed: $stateStr ($playbackState)")
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            Log.e(TAG, "ExoPlayback error: ${error.errorCodeName} - ${error.message}", error)
+            Log.e(TAG, "ExoPlayback error encountered: errorCodeName = ${error.errorCodeName}, message = ${error.message}", error)
             notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING)
         }
     }

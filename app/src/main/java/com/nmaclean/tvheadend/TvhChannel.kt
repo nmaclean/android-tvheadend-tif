@@ -4,5 +4,6 @@ data class TvhChannel(
     val id: Long,
     val uuid: String,
     val name: String,
-    val number: Int
+    val number: Int,
+    val icon: String = ""
 )

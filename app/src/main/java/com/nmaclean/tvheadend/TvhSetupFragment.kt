@@ -1,9 +1,6 @@
 package com.nmaclean.tvheadend
 
 import android.app.Activity
-import android.content.ComponentName
-import android.content.ContentValues
-import android.media.tv.TvContract
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
@@ -28,7 +25,7 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = "Tvheadend TIF Setup"
-        val description = "Enter your server credentials and ports to import channels."
+        val description = "Enter your server credentials and ports to import channels and EPG."
         val breadcrumb = "TV Input Setup"
         return GuidanceStylist.Guidance(title, description, breadcrumb, null)
     }
@@ -89,12 +86,11 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
                 .build()
         )
 
-
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_SAVE)
                 .title("Save & Complete Setup")
-                .description("Import channels and finish configuration")
+                .description("Import channels and EPG program guide")
                 .build()
         )
 
@@ -111,7 +107,6 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
         if (action.id == ID_CLEAR) {
             TvhSettings(requireContext()).clear()
             Toast.makeText(activity, "Settings cleared", Toast.LENGTH_SHORT).show()
-            // Reload the fragment to refresh the UI
             parentFragmentManager.beginTransaction()
                 .replace(R.id.setup_fragment_container, TvhSetupFragment())
                 .commit()
@@ -144,9 +139,8 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
                 passText
             }
 
-
             Log.d(TAG, "Starting setup with Host: '$host', Port: $port, HTTP Port: $httpPort, User: '$user'")
-            
+
             val settings = TvhSettings(requireContext())
             settings.host = host
             settings.htspPort = port
@@ -154,52 +148,18 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
             settings.username = user
             settings.password = pass
 
-            Toast.makeText(activity, "Connecting to Tvheadend...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, "Connecting and syncing channels & EPG...", Toast.LENGTH_LONG).show()
 
             thread {
-                try {
-                    val client = HtspClient(host, port)
-                    if (client.connect(user, pass)) {
-                        val channels = client.fetchChannels()
-                        client.disconnect()
+                val result = TvhSyncManager.performSync(requireContext())
 
-                        Log.d(TAG, "Fetched ${channels.size} channels from HTSP client.")
-                        val resolver = requireActivity().contentResolver
-
-                        val inputId = TvContract.buildInputId(
-                            ComponentName(requireContext(), TvheadendInputService::class.java)
-                        )
-                        resolver.delete(TvContract.buildChannelsUriForInput(inputId), null, null)
-
-                        for (ch in channels) {
-                            val logoUri = "http://$host:$httpPort/imagecache/channels/${ch.uuid}"
-                            val uuidToStore = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
-
-                            val values = ContentValues().apply {
-                                put(TvContract.Channels.COLUMN_INPUT_ID, inputId)
-                                put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, ch.number.toString())
-                                put(TvContract.Channels.COLUMN_DISPLAY_NAME, ch.name)
-                                put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_OTHER)
-                                put(TvContract.Channels.COLUMN_APP_LINK_ICON_URI, logoUri)
-                                put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA, uuidToStore.toByteArray(Charsets.UTF_8))
-                            }
-                            resolver.insert(TvContract.Channels.CONTENT_URI, values)
-                        }
-
-                        requireActivity().runOnUiThread {
-                            Toast.makeText(activity, "Setup SUCCESS! Imported ${channels.size} channels.", Toast.LENGTH_LONG).show()
-                            requireActivity().setResult(Activity.RESULT_OK)
-                            requireActivity().finish()
-                        }
+                requireActivity().runOnUiThread {
+                    if (result.success) {
+                        Toast.makeText(activity, "Setup SUCCESS! Imported ${result.channelCount} channels & EPG.", Toast.LENGTH_LONG).show()
+                        requireActivity().setResult(Activity.RESULT_OK)
+                        requireActivity().finish()
                     } else {
-                        requireActivity().runOnUiThread {
-                            Toast.makeText(activity, "Authentication failed.", Toast.LENGTH_LONG).show()
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error during setup sync", e)
-                    requireActivity().runOnUiThread {
-                        Toast.makeText(activity, "Error: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(activity, "Error: ${result.error}", Toast.LENGTH_LONG).show()
                     }
                 }
             }
