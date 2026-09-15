@@ -11,18 +11,24 @@
             android:summary="Enter your TVHeadend server IP address" />
 
         <EditTextPreference
-            android:key="http_port"
+            android:key="httpPort"
             android:title="HTTP Port"
             android:defaultValue="9981"
             android:summary="Default: 9981" />
 
         <EditTextPreference
-            android:key="username"
+            android:key="port"
+            android:title="HTSP Port"
+            android:defaultValue="9982"
+            android:summary="Default: 9982" />
+
+        <EditTextPreference
+            android:key="user"
             android:title="Username"
             android:summary="Optional TVHeadend HTTP/HTSP username" />
 
         <EditTextPreference
-            android:key="password"
+            android:key="pass"
             android:title="Password"
             android:summary="Optional TVHeadend password" />
 

@@ -96,8 +96,10 @@ object Htsmsg {
                 TYPE_STR -> map[name] = String(data, StandardCharsets.UTF_8)
                 TYPE_S64 -> {
                     var l = 0L
+                    var shift = 0
                     for (b in data) {
-                        l = (l shl 8) or (b.toInt() and 0xFF).toLong()
+                        l = l or ((b.toInt() and 0xFF).toLong() shl shift)
+                        shift += 8
                     }
                     map[name] = l
                 }

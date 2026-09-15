@@ -33,11 +33,11 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         val channelIdentifier = currentUri?.lastPathSegment ?: currentUri?.host ?: "1"
         Log.d(TAG, "Subscribing to channel identifier: $channelIdentifier")
 
-        val prefs = context.getSharedPreferences("TvhPrefs", Context.MODE_PRIVATE)
-        val host = prefs.getString("host", "192.168.4.100") ?: "192.168.4.100"
-        val port = prefs.getInt("port", 9982)
-        val user = prefs.getString("user", "admin") ?: "admin"
-        val pass = prefs.getString("pass", "ab1903") ?: "ab1903"
+        val settings = TvhSettings(context)
+        val host = settings.host
+        val port = settings.htspPort
+        val user = settings.username
+        val pass = settings.password
 
         try {
             val newClient = HtspClient(host, port)

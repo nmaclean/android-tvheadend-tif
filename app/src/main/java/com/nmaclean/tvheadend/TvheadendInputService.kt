@@ -1,6 +1,5 @@
 package com.nmaclean.tvheadend
 
-import android.content.Context
 import android.media.tv.TvInputManager
 import android.media.tv.TvInputService
 import android.net.Uri
@@ -12,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import okhttp3.Credentials
 import java.nio.charset.StandardCharsets
 
 class TvheadendInputService : TvInputService() {
@@ -27,10 +27,14 @@ class TvheadendInputService : TvInputService() {
         private var player: ExoPlayer? = null
         private var currentChannelUuid: String? = null
         private var htspClient: HtspClient? = null
-        private val prefs = baseContext.getSharedPreferences("TvhPrefs", Context.MODE_PRIVATE)
+        private val settings = TvhSettings(baseContext)
+        private var surface: Surface? = null
 
         override fun onSetSurface(surface: Surface?): Boolean {
-            player?.setVideoSurface(surface)
+            if (surface != null) {
+                this.surface = surface
+            }
+            player?.setVideoSurface(this.surface)
             return true
         }
 
@@ -93,11 +97,11 @@ class TvheadendInputService : TvInputService() {
         }
 
         private fun startPlayback(uuid: String) {
-            val host = prefs.getString("host", "192.168.4.100") ?: "192.168.4.100"
-            val port = prefs.getInt("port", 9982)
-            val httpPort = prefs.getInt("httpPort", 9981)
-            val user = prefs.getString("user", "admin") ?: "admin"
-            val pass = prefs.getString("pass", "ab1903") ?: "ab1903"
+            val host = settings.host
+            val port = settings.htspPort
+            val httpPort = settings.httpPort
+            val user = settings.username
+            val pass = settings.password
 
             kotlin.concurrent.thread {
                 try {
@@ -120,7 +124,13 @@ class TvheadendInputService : TvInputService() {
             val exoPlayer = ExoPlayer.Builder(baseContext).build().apply {
                 val httpDataSourceFactory = DefaultHttpDataSource.Factory()
                     .setUserAgent("AndroidTV-TIFClient")
-                    .setDefaultRequestProperties(mapOf("Authorization" to okhttp3.Credentials.basic(user, pass)))
+                    .setAllowCrossProtocolRedirects(true)
+                
+                if (user.isNotEmpty() && pass.isNotEmpty()) {
+                    httpDataSourceFactory.setDefaultRequestProperties(
+                        mapOf("Authorization" to Credentials.basic(user, pass))
+                    )
+                }
 
                 val mediaSource = ProgressiveMediaSource.Factory(httpDataSourceFactory)
                     .createMediaSource(MediaItem.fromUri(streamUrl))
@@ -131,6 +141,10 @@ class TvheadendInputService : TvInputService() {
                 addListener(this@TvheadendSession)
             }
             player = exoPlayer
+            // Bind the active surface if one was already provided via onSetSurface
+            if (this.surface != null) {
+                exoPlayer.setVideoSurface(this.surface)
+            }
             notifyVideoAvailable()
         }
 

@@ -1,8 +1,10 @@
 package com.nmaclean.tvheadend
 
 import android.util.Log
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.net.InetSocketAddress
 import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
@@ -19,15 +21,18 @@ class HtspClient(private val host: String, private val port: Int) {
 
     fun connect(user: String, pass: String): Boolean {
         try {
-            socket = Socket(host, port)
-            socket?.soTimeout = 30000
-            inputStream = socket?.getInputStream()
-            outputStream = socket?.getOutputStream()
+            val sock = Socket()
+            socket = sock
+            Log.d(TAG, "Connecting to host: '$host', port: $port")
+            val targetHost = if (host.lowercase() == "localhost") "127.0.0.1" else host
+            sock.connect(InetSocketAddress(targetHost, port), 10000)
+            sock.soTimeout = 30000
+            inputStream = sock.getInputStream()
+            outputStream = sock.getOutputStream()
 
-            val helloArgs = mapOf(
+            val helloArgs = mutableMapOf<String, Any>(
                 "method" to "hello",
                 "seq" to sequenceNumber++,
-                "username" to user,
                 "clientname" to "AndroidTV-TIFClient",
                 "htspversion" to 34
             )
@@ -57,8 +62,12 @@ class HtspClient(private val host: String, private val port: Int) {
             return (authResp["success"] as? Boolean == true) || (noAccess == null && error == null)
         } catch (e: Exception) {
             Log.e(TAG, "Connection error", e)
+            if (e is IOException) {
+                throw e
+            } else {
+                throw IOException(e)
+            }
         }
-        return false
     }
 
     fun fetchChannels(): List<TvhChannel> {
@@ -82,8 +91,7 @@ class HtspClient(private val host: String, private val port: Int) {
 
                     if (msg.containsKey("channelId") || method == "channelAdd" || method == "channelUpdate") {
                         val id = (msg["channelId"] as? Number)?.toLong() ?: 0L
-                        
-                        // Check all possible string/uuid representations sent by Tvheadend
+
                         val uuidObj = msg["uuid"] ?: msg["confUuid"] ?: msg["channelIdStr"]
                         val uuid = when (uuidObj) {
                             is String -> uuidObj
@@ -93,7 +101,14 @@ class HtspClient(private val host: String, private val port: Int) {
                         }
 
                         val name = msg["channelName"] as? String ?: msg["name"] as? String ?: "Channel"
-                        val number = (msg["channelNumber"] as? Number)?.toInt() ?: 0
+
+                        Log.d(TAG, "RAW HTSP MSG FULL PACKET KEYS: ${msg.keys.joinToString(", ")} -> channelId=${msg["channelId"]}, method=${msg["method"]}, channelNumber=${msg["channelNumber"]}, number=${msg["number"]}, num=${msg["num"]}")
+
+                        // Reverted to pure raw channel number format as requested
+                        val channelNumberObj = msg["channelNumber"]
+                        val number = (channelNumberObj as? Number)?.toInt() ?: 1
+
+                        Log.d(TAG, "RAW HTSP MSG channelNumber=$channelNumberObj, Kept Raw Int=$number")
 
                         if (uuid.isNotEmpty() || name.isNotEmpty()) {
                             val channel = TvhChannel(id, uuid, name, number)
@@ -118,8 +133,35 @@ class HtspClient(private val host: String, private val port: Int) {
     }
 
     fun fetchEvents(): List<TvhProgram> = emptyList()
-    fun subscribe(channelIdentifier: Any): Map<String, Any?>? = null
-    fun unsubscribe() {}
+    fun subscribe(channelIdentifier: Any): Map<String, Any?>? {
+        val identifier = channelIdentifier.toString()
+        val subMsg = if (identifier.all { it.isDigit() }) {
+            mapOf(
+                "method" to "subscribe",
+                "seq" to sequenceNumber++,
+                "subscriptionId" to 1,
+                "channelId" to identifier.toInt()
+            )
+        } else {
+            mapOf(
+                "method" to "subscribe",
+                "seq" to sequenceNumber++,
+                "subscriptionId" to 1,
+                "channelUuid" to identifier
+            )
+        }
+        sendMessage(subMsg)
+        return readMessage()
+    }
+
+    fun unsubscribe() {
+        val unsubMsg = mapOf(
+            "method" to "unsubscribe",
+            "seq" to sequenceNumber++,
+            "subscriptionId" to 1
+        )
+        sendMessage(unsubMsg)
+    }
 
     @Synchronized
     fun sendMessage(map: Map<String, Any>) {

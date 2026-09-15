@@ -26,11 +26,12 @@ class SyncService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Log.d(TAG, "SyncService started. Fetching channels from Tvheadend...")
         
-        val prefs = getSharedPreferences("TvhPrefs", MODE_PRIVATE)
-        val host = prefs.getString("host", "192.168.4.100") ?: "192.168.4.100"
-        val port = prefs.getInt("port", 9982)
-        val user = prefs.getString("user", "admin") ?: "admin"
-        val pass = prefs.getString("pass", "ab1903") ?: "ab1903"
+        val settings = TvhSettings(this)
+        val host = settings.host
+        val port = settings.htspPort
+        val httpPort = settings.httpPort
+        val user = settings.username
+        val pass = settings.password
 
         serviceScope.launch {
             try {
@@ -39,7 +40,7 @@ class SyncService : Service() {
                     val channels = client.fetchChannels()
                     client.disconnect()
 
-                    syncChannelsToProvider(channels)
+                    syncChannelsToProvider(host, httpPort, channels)
                 } else {
                     Log.e(TAG, "Failed to connect to HTSP server during sync")
                 }
@@ -53,32 +54,36 @@ class SyncService : Service() {
         return START_NOT_STICKY
     }
 
-    private fun syncChannelsToProvider(channels: List<TvhChannel>) {
+    private fun syncChannelsToProvider(host: String, httpPort: Int, channels: List<TvhChannel>) {
         val inputId = TvContract.buildInputId(ComponentName(this, TvheadendInputService::class.java))
         val resolver = contentResolver
 
         Log.d(TAG, "Syncing ${channels.size} channels to Android TIF provider...")
-        ChannelRegistry.clear()
+        
+        // Optionally clear registry if you use one, but here we focus on Provider data
+        // ChannelRegistry.clear() 
 
-        for (channel in channels) {
+        // Delete old channels for this input
+        resolver.delete(TvContract.buildChannelsUriForInput(inputId), null, null)
+
+        for (ch in channels) {
+            val logoUri = "http://$host:$httpPort/imagecache/channels/${ch.uuid}"
+            val uuidToStore = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
+
             val values = ContentValues().apply {
                 put(TvContract.Channels.COLUMN_INPUT_ID, inputId)
-                put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, channel.number.toString())
-                put(TvContract.Channels.COLUMN_DISPLAY_NAME, channel.name)
-                put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID, channel.uuid)
+                put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, ch.number.toString())
+                put(TvContract.Channels.COLUMN_DISPLAY_NAME, ch.name)
+                put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_OTHER)
+                put(TvContract.Channels.COLUMN_APP_LINK_ICON_URI, logoUri)
+                put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA, uuidToStore.toByteArray(Charsets.UTF_8))
             }
 
             try {
                 val uri = resolver.insert(TvContract.Channels.CONTENT_URI, values)
-                val rowId = uri?.lastPathSegment
-                if (rowId != null) {
-                    // Map both the SQLite row ID and the display number to the true Tvheadend UUID
-                    ChannelRegistry.register(rowId, channel.uuid)
-                    ChannelRegistry.register(channel.number.toString(), channel.uuid)
-                }
-                Log.d(TAG, "Inserted channel '${channel.name}' (UUID: ${channel.uuid}) -> URI: $uri")
+                Log.d(TAG, "Inserted channel '${ch.name}' (UUID: $uuidToStore) -> URI: $uri")
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to insert channel ${channel.name}", e)
+                Log.e(TAG, "Failed to insert channel ${ch.name}", e)
             }
         }
         
