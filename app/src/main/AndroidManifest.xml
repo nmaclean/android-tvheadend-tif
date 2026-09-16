@@ -17,16 +17,6 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Tvheadend">
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:banner="@mipmap/ic_launcher">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
 
         <activity
             android:name=".SetupActivity"
