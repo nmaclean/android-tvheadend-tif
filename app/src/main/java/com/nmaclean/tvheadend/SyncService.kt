@@ -20,13 +20,13 @@ class SyncService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d(TAG, "SyncService started. Executing shared sync manager...")
+        Log.d(TAG, "SyncService started. Executing background EPG and logo sync...")
 
         serviceScope.launch {
             try {
-                val result = TvhSyncManager.performSync(this@SyncService)
+                val result = TvhSyncManager.performEpgAndLogoSync(this@SyncService)
                 if (result.success) {
-                    Log.d(TAG, "SyncService completed successfully: ${result.channelCount} channels, ${result.eventCount} programs.")
+                    Log.d(TAG, "SyncService completed successfully: ${result.eventCount} programs synced.")
                 } else {
                     Log.e(TAG, "SyncService failed: ${result.error}")
                 }

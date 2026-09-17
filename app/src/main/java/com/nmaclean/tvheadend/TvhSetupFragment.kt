@@ -1,6 +1,7 @@
 package com.nmaclean.tvheadend
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
@@ -25,7 +26,7 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = "Tvheadend TIF Setup"
-        val description = "Enter your server credentials and ports to import channels and EPG."
+        val description = "Enter your server credentials and ports to import channels and EPG.\n\n\n\nBuild: ${BuildConfig.BUILD_TIME}"
         val breadcrumb = "TV Input Setup"
         return GuidanceStylist.Guidance(title, description, breadcrumb, null)
     }
@@ -148,14 +149,18 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
             settings.username = user
             settings.password = pass
 
-            Toast.makeText(activity, "Connecting and syncing channels & EPG...", Toast.LENGTH_LONG).show()
+            Toast.makeText(activity, "Importing channels...", Toast.LENGTH_LONG).show()
 
             thread {
-                val result = TvhSyncManager.performSync(requireContext())
+                val result = TvhSyncManager.performChannelSync(requireContext())
 
                 requireActivity().runOnUiThread {
                     if (result.success) {
-                        Toast.makeText(activity, "Setup SUCCESS! Imported ${result.channelCount} channels & EPG.", Toast.LENGTH_LONG).show()
+                        Toast.makeText(activity, "Imported ${result.channelCount} channels! EPG & logos syncing in background.", Toast.LENGTH_LONG).show()
+
+                        val syncIntent = Intent(requireContext(), SyncService::class.java)
+                        requireContext().startService(syncIntent)
+
                         requireActivity().setResult(Activity.RESULT_OK)
                         requireActivity().finish()
                     } else {
