@@ -15,7 +15,8 @@ class HtspClient(private val host: String, private val port: Int) {
     }
 
     private var socket: Socket? = null
-    private var inputStream: InputStream? = null
+    var inputStream: InputStream? = null
+        private set
     private var outputStream: OutputStream? = null
     private var sequenceNumber = 1
 
@@ -25,8 +26,13 @@ class HtspClient(private val host: String, private val port: Int) {
             socket = sock
             Log.d(TAG, "Connecting to host: '$host', port: $port")
             val targetHost = if (host.lowercase() == "localhost") "127.0.0.1" else host
+
+            sock.receiveBufferSize = 2 * 1024 * 1024
+            sock.sendBufferSize = 512 * 1024
+            sock.tcpNoDelay = true
+
             sock.connect(InetSocketAddress(targetHost, port), 10000)
-            sock.soTimeout = 30000
+            sock.soTimeout = 60000
             inputStream = sock.getInputStream()
             outputStream = sock.getOutputStream()
 
@@ -107,6 +113,7 @@ class HtspClient(private val host: String, private val port: Int) {
                         val channelIcon = msg["channelIcon"] as? String ?: msg["icon"] as? String ?: ""
 
                         if (uuid.isNotEmpty() || name.isNotEmpty()) {
+                            Log.d(TAG, "Fetched channel from HTSP: name='$name', number=$number, channelId=$id, uuid='$uuid'")
                             val channel = TvhChannel(id, uuid, name, number, channelIcon)
                             if (!channels.any { it.id == id || (it.uuid.isNotEmpty() && it.uuid == uuid) }) {
                                 channels.add(channel)
@@ -180,25 +187,32 @@ class HtspClient(private val host: String, private val port: Int) {
         return programs
     }
 
-    fun subscribe(channelIdentifier: Any): Map<String, Any?>? {
+    fun subscribe(channelIdentifier: Any, profile: String? = null): Map<String, Any?>? {
         val identifier = channelIdentifier.toString()
-        val subMsg = if (identifier.all { it.isDigit() }) {
-            mapOf(
-                "method" to "subscribe",
-                "seq" to sequenceNumber++,
-                "subscriptionId" to 1,
-                "channelId" to identifier.toInt()
-            )
+        val subMsg = mutableMapOf<String, Any>(
+            "method" to "subscribe",
+            "seq" to sequenceNumber++,
+            "subscriptionId" to 1
+        )
+
+        if (identifier.all { it.isDigit() }) {
+            subMsg["channelId"] = identifier.toLong()
         } else {
-            mapOf(
-                "method" to "subscribe",
-                "seq" to sequenceNumber++,
-                "subscriptionId" to 1,
-                "channelUuid" to identifier
-            )
+            subMsg["channelUuid"] = identifier
         }
+
+        if (!profile.isNullOrEmpty()) {
+            subMsg["profile"] = profile
+        }
+
+        Log.d(TAG, "Sending HTSP subscribe message: $subMsg")
         sendMessage(subMsg)
-        return readMessage()
+        val response = readMessage()
+        Log.d(TAG, "Received HTSP subscribe response: $response")
+        if (response == null || response["error"] != null) {
+            Log.e(TAG, "HTSP subscribe failed for $identifier. Message sent: $subMsg. Response: $response")
+        }
+        return response
     }
 
     fun unsubscribe() {

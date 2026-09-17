@@ -6,9 +6,12 @@ import android.content.Context
 import android.media.tv.TvContract
 import android.util.Base64
 import android.util.Log
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import java.net.HttpURLConnection
 import java.net.URL
 
+@OptIn(UnstableApi::class)
 object TvhSyncManager {
     private const val TAG = "TvhSyncManager"
 
@@ -51,14 +54,19 @@ object TvhSyncManager {
 
             // Insert channels and write logos
             for (ch in channels) {
-                val uuidToStore = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
+                // Use the HTSP channelId (Long) as the primary identifier for tuning, 
+                // as it's what the HTSP subscribe method expects.
+                val streamKey = ch.id.toString()
 
                 val values = ContentValues().apply {
                     put(TvContract.Channels.COLUMN_INPUT_ID, inputId)
                     put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, ch.number.toString())
                     put(TvContract.Channels.COLUMN_DISPLAY_NAME, ch.name)
-                    put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_OTHER)
-                    put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA, uuidToStore.toByteArray(Charsets.UTF_8))
+                    put(TvContract.Channels.COLUMN_SERVICE_ID, ch.id.toInt())
+                    put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_DVB_T)
+                    put(TvContract.Channels.COLUMN_SERVICE_TYPE, TvContract.Channels.SERVICE_TYPE_AUDIO_VIDEO)
+                    put(TvContract.Channels.COLUMN_SEARCHABLE, 1)
+                    put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA, streamKey.toByteArray(Charsets.UTF_8))
                 }
 
                 val uri = resolver.insert(TvContract.Channels.CONTENT_URI, values)

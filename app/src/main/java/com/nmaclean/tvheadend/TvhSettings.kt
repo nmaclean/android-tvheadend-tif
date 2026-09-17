@@ -8,23 +8,23 @@ class TvhSettings(context: Context) {
         context.getSharedPreferences("TvhPrefs", Context.MODE_PRIVATE)
 
     var host: String
-        get() = prefs.getString("host", "") ?: ""
+        get() = prefs.getString("host", "192.168.4.100") ?: ""
         set(value) = prefs.edit().putString("host", value).apply()
 
     var httpPort: Int
-        get() = prefs.getInt("httpPort", 9981)
+        get() = prefs.getInt("httpPort", 9983)
         set(value) = prefs.edit().putInt("httpPort", value).apply()
 
     var htspPort: Int
-        get() = prefs.getInt("port", 9982)
+        get() = prefs.getInt("port", 9984)
         set(value) = prefs.edit().putInt("port", value).apply()
 
     var username: String
-        get() = prefs.getString("user", "") ?: ""
+        get() = prefs.getString("user", "admin") ?: ""
         set(value) = prefs.edit().putString("user", value).apply()
 
     var password: String
-        get() = prefs.getString("pass", "") ?: ""
+        get() = prefs.getString("pass", "ab1903") ?: ""
         set(value) = prefs.edit().putString("pass", value).apply()
 
     fun clear() {

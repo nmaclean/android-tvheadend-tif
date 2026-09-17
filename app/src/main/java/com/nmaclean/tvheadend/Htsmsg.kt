@@ -2,12 +2,15 @@ package com.nmaclean.tvheadend
 
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 
 object Htsmsg {
+    private const val TYPE_MAP = 1
     private const val TYPE_S64 = 2
     private const val TYPE_STR = 3
     private const val TYPE_BIN = 4
+    private const val TYPE_LIST = 5
 
     fun encode(map: Map<String, Any>): ByteArray {
         val body = ByteArrayOutputStream()
@@ -61,12 +64,12 @@ object Htsmsg {
 
     private fun encodeS64(value: Long): ByteArray {
         if (value == 0L) return byteArrayOf(0)
-        val full = ByteBuffer.allocate(8).putLong(value).array()
-        var start = 0
-        while (start < 7 && full[start] == 0.toByte()) {
-            start++
+        val full = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(value).array()
+        var end = 7
+        while (end > 0 && full[end] == 0.toByte()) {
+            end--
         }
-        return full.copyOfRange(start, 8)
+        return full.copyOfRange(0, end + 1)
     }
 
     private fun writeInt32(value: Int): ByteArray {
@@ -96,14 +99,52 @@ object Htsmsg {
                 TYPE_STR -> map[name] = String(data, StandardCharsets.UTF_8)
                 TYPE_S64 -> {
                     var l = 0L
-                    var shift = 0
-                    for (b in data) {
-                        l = l or ((b.toInt() and 0xFF).toLong() shl shift)
-                        shift += 8
+                    for (i in data.indices) {
+                        l = l or ((data[i].toLong() and 0xFF) shl (8 * i))
                     }
                     map[name] = l
                 }
                 TYPE_BIN -> map[name] = data
+                TYPE_MAP -> map[name] = decode(data)
+                TYPE_LIST -> {
+                    val list = mutableListOf<Any>()
+                    var listIndex = 0
+                    while (listIndex < data.size) {
+                        if (listIndex + 5 > data.size) break
+                        val itemType = data[listIndex++].toInt() and 0xFF
+                        // In an HTSMSG List, fields are ordered but unnamed.
+                        // However, standard HTSMSG wire structure includes a name length byte (which is 0).
+                        // Let's check if the protocol fields inside a list have a name length byte.
+                        // Standard field format: [1 byte type] [1 byte name length] [4 bytes data length]
+                        // If it's a list item, name length is 0, so the name string itself takes up 0 bytes.
+                        val itemFieldType = itemType
+                        val itemNameLen = data[listIndex++].toInt() and 0xFF
+                        if (listIndex + 4 > data.size) break
+                        val itemDataLen = ByteBuffer.wrap(data, listIndex, 4).int
+                        listIndex += 4
+                        
+                        listIndex += itemNameLen // Skip name bytes if any (should be 0)
+                        
+                        if (listIndex + itemDataLen > data.size) break
+                        val itemData = ByteArray(itemDataLen)
+                        System.arraycopy(data, listIndex, itemData, 0, itemDataLen)
+                        listIndex += itemDataLen
+
+                        when (itemFieldType) {
+                            TYPE_STR -> list.add(String(itemData, StandardCharsets.UTF_8))
+                            TYPE_S64 -> {
+                                var l = 0L
+                                for (i in itemData.indices) {
+                                    l = l or ((itemData[i].toLong() and 0xFF) shl (8 * i))
+                                }
+                                list.add(l)
+                            }
+                            TYPE_BIN -> list.add(itemData)
+                            TYPE_MAP -> list.add(decode(itemData))
+                        }
+                    }
+                    map[name] = list
+                }
             }
         }
         return map
