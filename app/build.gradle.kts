@@ -37,11 +37,11 @@ android {
 
 dependencies {
     // AndroidX TV Frameworks & Core UI
-    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.preference:preference-ktx:1.2.1")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.leanback:leanback:1.0.0")
-    implementation("androidx.tvprovider:tvprovider:1.0.0")
+    implementation("androidx.tvprovider:tvprovider:1.1.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.fragment:fragment-ktx:1.8.2")
 
@@ -51,9 +51,9 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.3.1")
 
     // Async & Networking
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.google.code.gson:gson:2.10.1")
+    implementation("com.google.code.gson:gson:2.11.0")
 
     // Unit Testing
     testImplementation("junit:junit:4.13.2")
