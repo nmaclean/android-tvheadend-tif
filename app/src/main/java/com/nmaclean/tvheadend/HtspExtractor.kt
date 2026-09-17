@@ -221,7 +221,11 @@ class HtspExtractor : Extractor {
 
         val format = builder.build()
         Log.d(TAG, "Configured track $index format: $format, hasCsd=$hasCsd")
-        trackOutput.format(format)
+        if (hasCsd || trackType != C.TRACK_TYPE_VIDEO) {
+            trackOutput.format(format)
+        } else {
+            Log.d(TAG, "Deferring trackOutput.format() for video stream $index until SPS/PPS CSD is parsed from keyframe.")
+        }
         tracks[index] = trackOutput
     }
 

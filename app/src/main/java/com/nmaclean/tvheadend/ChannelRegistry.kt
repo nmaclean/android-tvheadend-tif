@@ -1,5 +1,7 @@
 package com.nmaclean.tvheadend
 
+import kotlin.collections.mutableMapOf
+
 object ChannelRegistry {
     private val uuidMap = mutableMapOf<String, String>() // Maps rowId / number -> hex UUID
 
