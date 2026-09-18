@@ -2,9 +2,14 @@ package com.nmaclean.tvheadend
 
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.nio.charset.StandardCharsets
 
+/**
+ * Serializer and deserializer for the HTSMSG binary messaging format used by Tvheadend's HTSP protocol.
+ *
+ * An HTSMSG message consists of a 4-byte big-endian body length header followed by fields. Each field
+ * is formatted as: `[1 byte type] [1 byte name length] [4 bytes big-endian data length] [name bytes] [data bytes]`.
+ */
 object Htsmsg {
     private const val TYPE_MAP = 1
     private const val TYPE_S64 = 2
@@ -12,6 +17,12 @@ object Htsmsg {
     private const val TYPE_BIN = 4
     private const val TYPE_LIST = 5
 
+    /**
+     * Encodes a key-value map into a length-prefixed HTSMSG binary byte array.
+     *
+     * @param map Map containing strings, integers, longs, or byte arrays to encode.
+     * @return Complete HTSMSG binary frame including 4-byte big-endian header.
+     */
     fun encode(map: Map<String, Any>): ByteArray {
         val body = ByteArrayOutputStream()
         for ((k, v) in map) {
@@ -62,20 +73,39 @@ object Htsmsg {
         return result
     }
 
+    /**
+     * Encodes a signed 64-bit integer into variable-length little-endian HTSMSG integer bytes.
+     */
     private fun encodeS64(value: Long): ByteArray {
         if (value == 0L) return byteArrayOf(0)
-        val full = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).putLong(value).array()
-        var end = 7
-        while (end > 0 && full[end] == 0.toByte()) {
-            end--
+        var v = value
+        val temp = ByteArray(8)
+        var len = 0
+        while (v != 0L && len < 8) {
+            temp[len++] = (v and 0xFF).toByte()
+            v = v ushr 8
         }
-        return full.copyOfRange(0, end + 1)
+        return temp.copyOfRange(0, len)
     }
 
+    /**
+     * Writes a 32-bit integer as a 4-byte big-endian byte array.
+     */
     private fun writeInt32(value: Int): ByteArray {
-        return ByteBuffer.allocate(4).putInt(value).array()
+        return byteArrayOf(
+            ((value shr 24) and 0xFF).toByte(),
+            ((value shr 16) and 0xFF).toByte(),
+            ((value shr 8) and 0xFF).toByte(),
+            (value and 0xFF).toByte()
+        )
     }
 
+    /**
+     * Decodes an HTSMSG binary payload into a key-value map.
+     *
+     * @param bytes HTSMSG binary frame payload (without the 4-byte length prefix).
+     * @return Map containing decoded strings, longs, byte arrays, nested maps, or lists.
+     */
     fun decode(bytes: ByteArray): Map<String, Any> {
         val map = mutableMapOf<String, Any>()
         var index = 0
@@ -112,11 +142,6 @@ object Htsmsg {
                     while (listIndex < data.size) {
                         if (listIndex + 5 > data.size) break
                         val itemType = data[listIndex++].toInt() and 0xFF
-                        // In an HTSMSG List, fields are ordered but unnamed.
-                        // However, standard HTSMSG wire structure includes a name length byte (which is 0).
-                        // Let's check if the protocol fields inside a list have a name length byte.
-                        // Standard field format: [1 byte type] [1 byte name length] [4 bytes data length]
-                        // If it's a list item, name length is 0, so the name string itself takes up 0 bytes.
                         val itemFieldType = itemType
                         val itemNameLen = data[listIndex++].toInt() and 0xFF
                         if (listIndex + 4 > data.size) break

@@ -11,16 +11,35 @@ import androidx.media3.common.util.UnstableApi
 import java.net.HttpURLConnection
 import java.net.URL
 
+/**
+ * Manages synchronization of channels, Electronic Program Guide (EPG) events, and channel logos
+ * from the Tvheadend server into Android's system [TvContract] provider.
+ */
 @OptIn(UnstableApi::class)
 object TvhSyncManager {
     private const val TAG = "TvhSyncManager"
 
+    /**
+     * Data class holding the result of a channel or EPG synchronization operation.
+     *
+     * @property success `true` if synchronization completed without errors; `false` otherwise.
+     * @property channelCount Number of channels imported or updated.
+     * @property eventCount Number of EPG guide events inserted.
+     * @property error Error message detailing failure, or `null` on success.
+     */
     data class SyncResult(val success: Boolean, val channelCount: Int, val eventCount: Int, val error: String? = null)
 
     /**
-     * Performs synchronous channel import (fast) so channels appear immediately in Live TV.
+     * Performs fast synchronous channel import so channels appear immediately in Live TV.
+     *
+     * Clears any existing channels for this input service, fetches current channel definitions via HTSP,
+     * and inserts them into Android's [TvContract.Channels] database.
+     *
+     * @param context Application context used to query shared preferences and content resolver.
+     * @return [SyncResult] detailing the outcome of the channel import.
      */
     fun performChannelSync(context: Context): SyncResult {
+        Log.i(TAG, "=== Starting fast channel sync ===")
         val settings = TvhSettings(context)
         val host = settings.host
         val port = settings.htspPort
@@ -28,19 +47,22 @@ object TvhSyncManager {
         val pass = settings.password
 
         if (host.isBlank()) {
+            Log.w(TAG, "Channel sync aborted: Server host is not configured.")
             return SyncResult(false, 0, 0, "Server host is not configured.")
         }
 
         try {
-            val client = HtspClient(host, port)
-            if (!client.connect(user, pass)) {
-                return SyncResult(false, 0, 0, "Authentication or connection failed.")
+            val rawChannels = HtspClient(host, port).use { client ->
+                if (!client.connect(user, pass)) {
+                    Log.e(TAG, "Channel sync failed: Authentication or connection error on $host:$port")
+                    return SyncResult(false, 0, 0, "Authentication or connection failed.")
+                }
+                client.fetchChannels()
             }
 
-            val channels = client.fetchChannels()
-            client.disconnect()
-
-            Log.d(TAG, "Fetched ${channels.size} channels for fast channel sync.")
+            // Ensure channels are strictly sorted by channel number for vendor TV apps (like Sony TV) that order by row insertion/ID
+            val channels = rawChannels.sortedWith(compareBy({ it.number }, { it.name }))
+            Log.i(TAG, "Successfully fetched and sorted ${channels.size} channels from Tvheadend ($host:$port)")
 
             val resolver = context.contentResolver
             val inputId = TvContract.buildInputId(
@@ -48,7 +70,8 @@ object TvhSyncManager {
             )
 
             // Clear old channels for this input
-            resolver.delete(TvContract.buildChannelsUriForInput(inputId), null, null)
+            val deletedRows = resolver.delete(TvContract.buildChannelsUriForInput(inputId), null, null)
+            Log.i(TAG, "Cleared $deletedRows existing channel database entries for inputId: $inputId")
 
             for (ch in channels) {
                 val streamKey = ch.id.toString()
@@ -57,14 +80,18 @@ object TvhSyncManager {
                     put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, ch.number.toString())
                     put(TvContract.Channels.COLUMN_DISPLAY_NAME, ch.name)
                     put(TvContract.Channels.COLUMN_SERVICE_ID, ch.id.toInt())
-                    put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_DVB_T)
+                    put(TvContract.Channels.COLUMN_ORIGINAL_NETWORK_ID, ch.number)
+                    put(TvContract.Channels.COLUMN_TRANSPORT_STREAM_ID, 1)
+                    put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_OTHER)
                     put(TvContract.Channels.COLUMN_SERVICE_TYPE, TvContract.Channels.SERVICE_TYPE_AUDIO_VIDEO)
                     put(TvContract.Channels.COLUMN_SEARCHABLE, 1)
                     put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA, streamKey.toByteArray(Charsets.UTF_8))
                 }
-                resolver.insert(TvContract.Channels.CONTENT_URI, values)
+                val insertedUri = resolver.insert(TvContract.Channels.CONTENT_URI, values)
+                Log.i(TAG, "Inserted channel '${ch.name}' (#${ch.number}, id=${ch.id}, uuid='${ch.uuid}') -> URI: $insertedUri")
             }
 
+            Log.i(TAG, "=== Channel sync completed successfully: ${channels.size} channels imported ===")
             return SyncResult(true, channels.size, 0)
         } catch (e: Exception) {
             Log.e(TAG, "Error during channel sync", e)
@@ -73,9 +100,16 @@ object TvhSyncManager {
     }
 
     /**
-     * Performs asynchronous background sync for EPG events and channel logos.
+     * Performs asynchronous background sync for Electronic Program Guide (EPG) events and channel logos.
+     *
+     * Downloads channel icons over HTTP and writes them to [TvContract.buildChannelLogoUri],
+     * and inserts EPG events into [TvContract.Programs] in bulk chunks.
+     *
+     * @param context Application context used to resolve content URIs and open HTTP streams.
+     * @return [SyncResult] detailing the outcome of the background EPG and logo sync.
      */
     fun performEpgAndLogoSync(context: Context): SyncResult {
+        Log.i(TAG, "=== Starting EPG and Logo sync ===")
         val settings = TvhSettings(context)
         val host = settings.host
         val port = settings.htspPort
@@ -84,20 +118,22 @@ object TvhSyncManager {
         val pass = settings.password
 
         if (host.isBlank()) {
+            Log.w(TAG, "EPG/Logo sync aborted: Server host is not configured.")
             return SyncResult(false, 0, 0, "Server host is not configured.")
         }
 
         try {
-            val client = HtspClient(host, port)
-            if (!client.connect(user, pass)) {
-                return SyncResult(false, 0, 0, "Authentication or connection failed.")
+            val (channels, events) = HtspClient(host, port).use { client ->
+                if (!client.connect(user, pass)) {
+                    Log.e(TAG, "EPG/Logo sync failed: Connection or authentication error")
+                    return SyncResult(false, 0, 0, "Authentication or connection failed.")
+                }
+                val chs = client.fetchChannels()
+                val evs = client.fetchEvents(timeoutMs = TvhConstants.ASYNC_METADATA_TIMEOUT_MS)
+                Pair(chs, evs)
             }
 
-            val channels = client.fetchChannels()
-            val events = client.fetchEvents(timeoutMs = 8000)
-            client.disconnect()
-
-            Log.d(TAG, "Background sync fetched ${channels.size} channels and ${events.size} EPG events.")
+            Log.i(TAG, "Background sync fetched ${channels.size} channels and ${events.size} EPG events")
 
             val resolver = context.contentResolver
             val inputId = TvContract.buildInputId(
@@ -117,7 +153,9 @@ object TvhSyncManager {
                 }
             }
 
-            // Download logos for channels that have icons
+            Log.i(TAG, "Mapped ${channelMap.size} database channel row IDs for logo/EPG insertion")
+
+            var downloadedLogos = 0
             for (ch in channels) {
                 val dbId = channelMap[ch.id] ?: continue
                 if (ch.icon.isNotEmpty()) {
@@ -148,15 +186,19 @@ object TvhSyncManager {
                                     input.copyTo(output)
                                 }
                             }
-                            Log.d(TAG, "Successfully downloaded logo for ${ch.name}")
+                            downloadedLogos++
+                            Log.i(TAG, "Downloaded logo for '${ch.name}' -> $targetLogoUrl")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Exception downloading logo for ${ch.name}", e)
+                        Log.e(TAG, "Exception downloading logo for '${ch.name}'", e)
                     }
                 }
             }
 
+            Log.i(TAG, "Finished channel logo downloads: $downloadedLogos logos saved")
+
             // Insert EPG programs in chunks
+            var totalInsertedEpg = 0
             val contentValuesList = mutableListOf<ContentValues>()
             for (prog in events) {
                 val tifChannelId = channelMap[prog.channelId] ?: continue
@@ -170,14 +212,17 @@ object TvhSyncManager {
                 contentValuesList.add(values)
 
                 if (contentValuesList.size >= 100) {
-                    resolver.bulkInsert(TvContract.Programs.CONTENT_URI, contentValuesList.toTypedArray())
+                    val count = resolver.bulkInsert(TvContract.Programs.CONTENT_URI, contentValuesList.toTypedArray())
+                    totalInsertedEpg += count
                     contentValuesList.clear()
                 }
             }
             if (contentValuesList.isNotEmpty()) {
-                resolver.bulkInsert(TvContract.Programs.CONTENT_URI, contentValuesList.toTypedArray())
+                val count = resolver.bulkInsert(TvContract.Programs.CONTENT_URI, contentValuesList.toTypedArray())
+                totalInsertedEpg += count
             }
 
+            Log.i(TAG, "=== EPG/Logo sync completed: $downloadedLogos logos, $totalInsertedEpg EPG programs inserted ===")
             return SyncResult(true, channels.size, events.size)
         } catch (e: Exception) {
             Log.e(TAG, "Error during background EPG/logo sync", e)
@@ -185,6 +230,12 @@ object TvhSyncManager {
         }
     }
 
+    /**
+     * Performs complete full sync: first channel import, then background EPG and logo sync.
+     *
+     * @param context Application context used for database and network operations.
+     * @return [SyncResult] detailing the outcome of the complete synchronization.
+     */
     fun performSync(context: Context): SyncResult {
         val channelResult = performChannelSync(context)
         if (!channelResult.success) return channelResult

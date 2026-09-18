@@ -13,8 +13,10 @@ import android.view.Surface
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionParameters
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
@@ -32,16 +34,34 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Android TV Input Service (TIF) that binds Tvheadend live streams to the Android TV Live TV application.
+ *
+ * Implements [TvInputService] and manages playback sessions via [ExoPlayer], [HtspDataSource], and [HtspExtractor].
+ */
 @UnstableApi
 class TvheadendInputService : TvInputService() {
     companion object {
         const val TAG = "TvheadendInputService"
     }
 
+    /**
+     * Creates a new [TvheadendSession] instance for the given TV input session ID.
+     *
+     * @param inputId Unique string identifier for the TV input.
+     * @return Newly initialized [TvheadendSession].
+     */
     override fun onCreateSession(inputId: String): Session {
+        Log.i(TAG, "=== onCreateSession called with inputId: $inputId ===")
         return TvheadendSession()
     }
 
+    /**
+     * Session subclass managing the lifecycle of an individual TV channel playback instance.
+     *
+     * Binds the video rendering surface, executes channel queries, configures ExoPlayer playback,
+     * and reports track/video availability state changes to the Android TV framework.
+     */
     inner class TvheadendSession : Session(this@TvheadendInputService), Player.Listener {
         private var player: ExoPlayer? = null
         private var currentChannelUuid: String? = null
@@ -51,32 +71,92 @@ class TvheadendInputService : TvInputService() {
         private val sessionScope = CoroutineScope(Dispatchers.Main + sessionJob)
         private var tuneJob: Job? = null
 
+        /**
+         * Binds or unbinds the video rendering surface provided by the Android TV framework.
+         *
+         * @param surface Target [Surface] on which video frames should be drawn, or `null` to detach.
+         * @return `true` if the surface was handled successfully.
+         */
         override fun onSetSurface(surface: Surface?): Boolean {
             val isValid = surface?.isValid == true
-            Log.d(TAG, "onSetSurface called with surface: $surface, isValid=$isValid")
+            Log.i(TAG, "=== onSetSurface called with surface: $surface, isValid=$isValid ===")
             this.surface = if (isValid) surface else null
 
-            // Attach or clear the surface immediately if the player instance already exists
-            player?.setVideoSurface(this.surface)
+            player?.let { p ->
+                p.setVideoSurface(this.surface)
+                if (this.surface != null) {
+                    if (p.playbackState == Player.STATE_READY || p.playbackState == Player.STATE_BUFFERING) {
+                        p.play()
+                    }
+                }
+            }
             return true
         }
 
+        private var currentVolume = 1.0f
+
+        /**
+         * Sets the audio volume for this TV input session.
+         *
+         * @param volume Volume level between `0.0` (mute) and `1.0` (full volume).
+         */
         override fun onSetStreamVolume(volume: Float) {
-            Log.d(TAG, "onSetStreamVolume called with volume: $volume")
-            player?.volume = volume
+            Log.i(TAG, "onSetStreamVolume called with volume: $volume")
+            if (volume > 0.0f) {
+                currentVolume = volume
+                player?.volume = volume
+            } else {
+                val p = player
+                if (p != null && (p.playbackState == Player.STATE_READY || p.playbackState == Player.STATE_BUFFERING) && currentVolume > 0.0f) {
+                    Log.w(TAG, "System sent volume=0.0 during active playback; ignoring system mute and keeping volume at $currentVolume")
+                    p.volume = currentVolume
+                } else {
+                    player?.volume = 0.0f
+                }
+            }
         }
 
+        private fun restoreVolumeIfNeeded() {
+            val p = player ?: return
+            val targetVol = if (currentVolume > 0.0f) currentVolume else 1.0f
+            if (p.volume < targetVol) {
+                Log.i(TAG, "Restoring ExoPlayer volume to $targetVol (was ${p.volume})")
+                p.volume = targetVol
+            }
+        }
+
+        /**
+         * Called when closed caption state is toggled by the system.
+         *
+         * @param enabled `true` if captions should be displayed.
+         */
         override fun onSetCaptionEnabled(enabled: Boolean) {
             // Optional: Closed captions handling
         }
 
+        /**
+         * Overloaded tune callback containing additional vendor parameters.
+         *
+         * @param unhandledUri Target channel content URI.
+         * @param params Optional vendor parameters bundle.
+         * @return Result of delegated [onTune] call.
+         */
         override fun onTune(unhandledUri: Uri, params: Bundle?): Boolean {
-            Log.d(TAG, "onTune with params called for URI: $unhandledUri, params: $params")
+            Log.i(TAG, "=== onTune(uri, params) called: uri=$unhandledUri, params=$params ===")
             return onTune(unhandledUri)
         }
 
+        /**
+         * Tunes to a specific channel identified by the provided content URI.
+         *
+         * Queries channel metadata from [TvContract.Channels], resolves the channel UUID or service ID,
+         * and initiates HTSP streaming playback.
+         *
+         * @param uri Channel content URI (e.g. `content://android.media.tv/channel/123`).
+         * @return `true` if tuning was initiated successfully.
+         */
         override fun onTune(uri: Uri): Boolean {
-            Log.d(TAG, "Tune URI received: $uri")
+            Log.i(TAG, "=== onTune(uri) called: uri=$uri ===")
             notifyContentAllowed()
             // Immediately inform the TV shell that tuning has begun to satisfy timeout contracts
             notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_TUNING)
@@ -140,8 +220,8 @@ class TvheadendInputService : TvInputService() {
                     Log.d(TAG, "Column _id = $channelId")
                     Log.d(TAG, "Column display_name = $name")
                     Log.d(TAG, "Column display_number = $number")
-                    Log.d(TAG, "Column service_id = $serviceId")
-                    Log.d(TAG, "Resolved StreamKey (UUID/ID) = $key")
+                    Log.i(TAG, "Column service_id = $serviceId")
+                    Log.i(TAG, "Resolved StreamKey (UUID/ID) = $key")
                     key
                 }
 
@@ -160,23 +240,24 @@ class TvheadendInputService : TvInputService() {
             val host = settings.host
             val port = settings.htspPort
 
-            Log.d(TAG, "Starting NATIVE HTSP playback for channel: $uuid on $host:$port")
+            Log.i(TAG, "=== Starting NATIVE HTSP playback for channel: $uuid on $host:$port ===")
 
             val streamUri = Uri.parse("htsp://$host:$port/$uuid")
             releasePlayer()
 
-            // Enable decoder fallback to prevent MediaTek hardware decoders on Sony TVs from rejecting interlaced/custom profiles
+            // Enable decoder fallback, extension renderers, & disable async queueing to prevent MediaTek/Amlogic hardware decoders on Android TV from failing MediaCodec initialization
             val renderersFactory = DefaultRenderersFactory(baseContext).apply {
-                setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
                 setEnableDecoderFallback(true)
+                setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+                forceDisableMediaCodecAsynchronousQueueing()
             }
 
             val loadControl = DefaultLoadControl.Builder()
                 .setBufferDurationsMs(
-                    /* minBufferMs = */ 2000,
-                    /* maxBufferMs = */ 30000,
-                    /* bufferForPlaybackMs = */ 500,
-                    /* bufferForPlaybackAfterRebufferMs = */ 1000
+                    /* minBufferMs = */ TvhConstants.EXOPLAYER_MIN_BUFFER_MS,
+                    /* maxBufferMs = */ TvhConstants.EXOPLAYER_MAX_BUFFER_MS,
+                    /* bufferForPlaybackMs = */ TvhConstants.EXOPLAYER_BUFFER_FOR_PLAYBACK_MS,
+                    /* bufferForPlaybackAfterRebufferMs = */ TvhConstants.EXOPLAYER_BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS
                 )
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build()
@@ -186,14 +267,23 @@ class TvheadendInputService : TvInputService() {
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build()
 
+            val trackSelectionParameters = TrackSelectionParameters.Builder(baseContext)
+                .setPreferredAudioMimeTypes(
+                    MimeTypes.AUDIO_AAC,
+                    MimeTypes.AUDIO_AC3,
+                    MimeTypes.AUDIO_E_AC3
+                )
+                .build()
+
             val exoPlayer = ExoPlayer.Builder(baseContext, renderersFactory)
                 .setLoadControl(loadControl)
                 .build().apply {
-                    setAudioAttributes(audioAttributes, /* handleAudioFocus = */ false)
+                    setTrackSelectionParameters(trackSelectionParameters)
+                    setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
 
                     // Bind surface if already delivered by the system before or during tuning
                     if (this@TvheadendSession.surface?.isValid == true) {
-                        Log.d(TAG, "Binding existing valid surface to ExoPlayer.")
+                        Log.i(TAG, "Binding existing valid surface to ExoPlayer.")
                         setVideoSurface(this@TvheadendSession.surface)
                     } else {
                         Log.w(TAG, "Surface is null or invalid when starting playback; waiting for onSetSurface.")
@@ -217,21 +307,40 @@ class TvheadendInputService : TvInputService() {
 
         private fun releasePlayer() {
             Log.d(TAG, "Releasing player...")
-            player?.release()
+            try {
+                player?.stop()
+                player?.clearMediaItems()
+                player?.release()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error releasing player", e)
+            }
             player = null
         }
 
+        /**
+         * Called when the session is released by the Android TV system.
+         */
         override fun onRelease() {
             Log.d(TAG, "onRelease called on session.")
             sessionJob.cancel()
             releasePlayer()
         }
 
+        /**
+         * Called when parental controls content is unblocked.
+         *
+         * @param unblockedRating Unblocked content rating object.
+         */
         override fun onUnblockContent(unblockedRating: TvContentRating?) {
             Log.d(TAG, "onUnblockContent called for rating: $unblockedRating")
             notifyContentAllowed()
         }
 
+        /**
+         * ExoPlayer listener callback triggered on playback state transitions.
+         *
+         * @param playbackState One of [Player.STATE_IDLE], [Player.STATE_BUFFERING], [Player.STATE_READY], or [Player.STATE_ENDED].
+         */
         override fun onPlaybackStateChanged(playbackState: Int) {
             val stateStr = when (playbackState) {
                 Player.STATE_IDLE -> "STATE_IDLE"
@@ -240,24 +349,42 @@ class TvheadendInputService : TvInputService() {
                 Player.STATE_ENDED -> "STATE_ENDED"
                 else -> "UNKNOWN ($playbackState)"
             }
-            Log.d(TAG, "ExoPlayer playback state changed: $stateStr ($playbackState)")
+            Log.i(TAG, "ExoPlayer playback state changed: $stateStr ($playbackState)")
 
             if (playbackState == Player.STATE_READY) {
                 notifyContentAllowed()
                 notifyVideoAvailable()
+                restoreVolumeIfNeeded()
             }
         }
 
+        /**
+         * ExoPlayer listener callback triggered when video dimensions are determined or updated.
+         *
+         * @param videoSize Video width, height, and rotation properties.
+         */
         override fun onVideoSizeChanged(videoSize: VideoSize) {
-            Log.d(TAG, "ExoPlayer video size changed: width = ${videoSize.width}, height = ${videoSize.height}, unappliedRotation = ${videoSize.unappliedRotationDegrees}")
+            Log.i(TAG, "ExoPlayer video size changed: width = ${videoSize.width}, height = ${videoSize.height}, unappliedRotation = ${videoSize.unappliedRotationDegrees}")
         }
 
+        /**
+         * ExoPlayer listener callback triggered when buffering loading status changes.
+         *
+         * @param isLoading `true` if ExoPlayer is actively loading media data.
+         */
         override fun onIsLoadingChanged(isLoading: Boolean) {
-            Log.d(TAG, "ExoPlayer isLoading changed: $isLoading")
+            Log.i(TAG, "ExoPlayer isLoading changed: $isLoading")
         }
 
+        /**
+         * ExoPlayer listener callback triggered when media tracks (audio/video) are loaded or modified.
+         *
+         * Builds [TvTrackInfo] structures and notifies the Android TV framework.
+         *
+         * @param tracks Track groups provided by ExoPlayer.
+         */
         override fun onTracksChanged(tracks: Tracks) {
-            Log.d(TAG, "ExoPlayer tracks changed: group count = ${tracks.groups.size}")
+            Log.i(TAG, "ExoPlayer tracks changed: group count = ${tracks.groups.size}")
             val tvTracks = mutableListOf<TvTrackInfo>()
             var selectedVideoTrackId: String? = null
             var selectedAudioTrackId: String? = null
@@ -297,7 +424,7 @@ class TvheadendInputService : TvInputService() {
                 }
             }
 
-            Log.d(TAG, "Notifying ${tvTracks.size} TV tracks to framework")
+            Log.i(TAG, "Notifying ${tvTracks.size} TV tracks to framework: selectedVideo=$selectedVideoTrackId, selectedAudio=$selectedAudioTrackId")
             notifyTracksChanged(tvTracks)
 
             if (selectedVideoTrackId != null) {
@@ -306,14 +433,24 @@ class TvheadendInputService : TvInputService() {
             if (selectedAudioTrackId != null) {
                 notifyTrackSelected(TvTrackInfo.TYPE_AUDIO, selectedAudioTrackId)
             }
+            restoreVolumeIfNeeded()
         }
 
+        /**
+         * ExoPlayer listener callback triggered when the very first video frame is rendered onto the surface.
+         */
         override fun onRenderedFirstFrame() {
-            Log.d(TAG, "ExoPlayer rendered first video frame successfully!")
+            Log.i(TAG, "=== ExoPlayer rendered first video frame successfully! ===")
             notifyContentAllowed()
             notifyVideoAvailable()
+            restoreVolumeIfNeeded()
         }
 
+        /**
+         * ExoPlayer listener callback triggered on playback errors.
+         *
+         * @param error [PlaybackException] describing the error.
+         */
         override fun onPlayerError(error: PlaybackException) {
             Log.e(TAG, "ExoPlayback error encountered: errorCodeName = ${error.errorCodeName}, message = ${error.message}", error)
 

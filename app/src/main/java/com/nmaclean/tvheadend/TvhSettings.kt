@@ -5,27 +5,27 @@ import android.content.SharedPreferences
 
 class TvhSettings(context: Context) {
     private val prefs: SharedPreferences = 
-        context.getSharedPreferences("TvhPrefs", Context.MODE_PRIVATE)
+        context.getSharedPreferences(TvhConstants.PREFS_NAME, Context.MODE_PRIVATE)
 
     var host: String
-        get() = prefs.getString("host", "192.168.4.100") ?: ""
-        set(value) = prefs.edit().putString("host", value).apply()
+        get() = prefs.getString(TvhConstants.KEY_HOST, TvhConstants.DEFAULT_HOST) ?: ""
+        set(value) = prefs.edit().putString(TvhConstants.KEY_HOST, value).apply()
 
     var httpPort: Int
-        get() = prefs.getInt("httpPort", 9983)
-        set(value) = prefs.edit().putInt("httpPort", value).apply()
+        get() = prefs.getInt(TvhConstants.KEY_HTTP_PORT, TvhConstants.DEFAULT_HTTP_PORT)
+        set(value) = prefs.edit().putInt(TvhConstants.KEY_HTTP_PORT, value).apply()
 
     var htspPort: Int
-        get() = prefs.getInt("port", 9984)
-        set(value) = prefs.edit().putInt("port", value).apply()
+        get() = prefs.getInt(TvhConstants.KEY_HTSP_PORT, TvhConstants.DEFAULT_HTSP_PORT)
+        set(value) = prefs.edit().putInt(TvhConstants.KEY_HTSP_PORT, value).apply()
 
     var username: String
-        get() = prefs.getString("user", "admin") ?: ""
-        set(value) = prefs.edit().putString("user", value).apply()
+        get() = prefs.getString(TvhConstants.KEY_USERNAME, TvhConstants.DEFAULT_USERNAME) ?: ""
+        set(value) = prefs.edit().putString(TvhConstants.KEY_USERNAME, value).apply()
 
     var password: String
-        get() = prefs.getString("pass", "ab1903") ?: ""
-        set(value) = prefs.edit().putString("pass", value).apply()
+        get() = prefs.getString(TvhConstants.KEY_PASSWORD, TvhConstants.DEFAULT_PASSWORD) ?: ""
+        set(value) = prefs.edit().putString(TvhConstants.KEY_PASSWORD, value).apply()
 
     fun clear() {
         prefs.edit().clear().apply()

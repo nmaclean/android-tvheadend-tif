@@ -44,7 +44,7 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
                 .build()
         )
 
-        val portDesc = if (settings.htspPort == 0 || settings.htspPort == 9982) "9982 (Default HTSP)" else settings.htspPort.toString()
+        val portDesc = if (settings.htspPort == 0) "${TvhConstants.DEFAULT_HTSP_PORT} (Default HTSP)" else settings.htspPort.toString()
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_PORT)
@@ -55,7 +55,7 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
                 .build()
         )
 
-        val httpPortDesc = if (settings.httpPort == 0 || settings.httpPort == 9981) "9981 (Default HTTP)" else settings.httpPort.toString()
+        val httpPortDesc = if (settings.httpPort == 0) "${TvhConstants.DEFAULT_HTTP_PORT} (Default HTTP)" else settings.httpPort.toString()
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_HTTP_PORT)
@@ -125,10 +125,10 @@ class TvhSetupFragment : GuidedStepSupportFragment() {
             val host = if (hostText.startsWith("e.g.")) "" else hostText
 
             val portText = (portAction?.description ?: portAction?.title)?.toString() ?: ""
-            val port = portText.filter { it.isDigit() }.toIntOrNull() ?: 9982
+            val port = portText.filter { it.isDigit() }.toIntOrNull() ?: TvhConstants.DEFAULT_HTSP_PORT
 
             val httpPortText = (httpPortAction?.description ?: httpPortAction?.title)?.toString() ?: ""
-            val httpPort = httpPortText.filter { it.isDigit() }.toIntOrNull() ?: 9981
+            val httpPort = httpPortText.filter { it.isDigit() }.toIntOrNull() ?: TvhConstants.DEFAULT_HTTP_PORT
 
             val userText = (userAction?.description ?: userAction?.title)?.toString()?.trim() ?: ""
             val user = if (userText == "Optional username") "" else userText

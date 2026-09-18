@@ -33,7 +33,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         currentUri = uri
         
         val channelIdentifier = uri.lastPathSegment ?: "1"
-        Log.d(TAG, "=== HTSP DATASOURCE OPENING (NATIVE): $uri ===")
+        Log.i(TAG, "=== HTSP DATASOURCE OPENING (NATIVE): $uri ===")
 
         val settings = TvhSettings(context)
         val host = uri.host ?: settings.host
@@ -47,7 +47,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
                 throw IOException("Authentication failed for HTSP connection")
             }
 
-            Log.d(TAG, "HTSP connected. Subscribing to channel $channelIdentifier...")
+            Log.i(TAG, "HTSP connected. Subscribing to channel $channelIdentifier...")
             var subResult = newClient.subscribe(channelIdentifier, null)
             if (subResult == null || subResult["error"] != null) {
                 Log.w(TAG, "Subscription with default profile failed: ${subResult?.get("error")}. Retrying with profile 'htsp'...")
@@ -104,7 +104,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
     override fun close() {
         if (opened) {
             opened = false
-            Log.d(TAG, "Closing HtspDataSource...")
+            Log.i(TAG, "=== Closing HtspDataSource ($currentUri) ===")
             try {
                 client?.unsubscribe()
                 client?.disconnect()

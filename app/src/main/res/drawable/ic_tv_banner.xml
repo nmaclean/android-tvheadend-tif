@@ -4,10 +4,16 @@
     android:height="180dp"
     android:viewportWidth="320"
     android:viewportHeight="180">
+    <!-- Background -->
     <path
-        android:fillColor="#FF1E88E5"
+        android:fillColor="#FF0D47A1"
         android:pathData="M0,0h320v180h-320z"/>
+    <!-- TV Outer Frame -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M210,50H110c-11,0 -20,9 -20,20v50c0,11 9,20 20,20h100c11,0 20,-9 20,-20V70c0,-11 -9,-20 -20,-20zm0,70H110V70h100v50z"/>
+        android:pathData="M230,40H90c-11,0 -20,9 -20,20v60c0,11 9,20 20,20h140c11,0 20,-9 20,-20V60c0,-11 -9,-20 -20,-20zm0,80H90V60h140v60z"/>
+    <!-- TV Stand -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M140,140h40v10h-40z"/>
 </vector>

@@ -4,10 +4,10 @@
     android:height="48dp"
     android:viewportWidth="48"
     android:viewportHeight="48">
-    <!-- Dark Blue Rounded Square Background -->
+    <!-- Dark Blue Circular Background -->
     <path
         android:fillColor="#FF0D47A1"
-        android:pathData="M8,4h32c2.2,0 4,1.8 4,4v32c0,2.2 -1.8,4 -4,4H8c-2.2,0 -4,-1.8 -4,-4V8c0,-2.2 1.8,-4 4,-4z"/>
+        android:pathData="M24,4C12.95,4 4,12.95 4,24c0,11.05 8.95,20 20,20s20,-8.95 20,-20C44,12.95 35.05,4 24,4z"/>
     <!-- White TV Icon -->
     <path
         android:fillColor="#FFFFFFFF"
