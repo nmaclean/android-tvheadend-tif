@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +64,7 @@ object MidnightCyanTokens {
     val OverscanHorizontal: Dp = 48.dp
     val OverscanVertical: Dp = 24.dp
     val RailCollapsedWidth: Dp = 64.dp
-    val RailExpandedWidth: Dp = 140.dp
+    val RailExpandedWidth: Dp = 164.dp
     val FocusBorderWidth: Dp = 2.dp
     val CardCornerRadius: Dp = 12.dp
 
@@ -103,17 +105,10 @@ fun Modifier.focusCyanBorder(
 ): Modifier {
     val shape = RoundedCornerShape(cornerRadius)
     return if (isFocused) {
-        this
-            .shadow(
-                elevation = 14.dp,
-                shape = shape,
-                ambientColor = MidnightCyanTokens.CyanAccent,
-                spotColor = MidnightCyanTokens.CyanAccent
-            )
-            .border(
-                BorderStroke(MidnightCyanTokens.FocusBorderWidth, MidnightCyanTokens.CyanAccent),
-                shape = shape
-            )
+        this.border(
+            BorderStroke(MidnightCyanTokens.FocusBorderWidth, MidnightCyanTokens.CyanAccent),
+            shape = shape
+        )
     } else {
         this
     }
@@ -212,12 +207,12 @@ fun TvTopBarWithClock(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
+        LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f, fill = false)
+            modifier = Modifier.weight(1f)
         ) {
-            pills.forEachIndexed { index, label ->
+            itemsIndexed(pills) { index, label ->
                 TvhPillButton(
                     label = label,
                     selected = index == selectedIndex,

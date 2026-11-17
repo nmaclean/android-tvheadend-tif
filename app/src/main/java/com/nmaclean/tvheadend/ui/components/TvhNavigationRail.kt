@@ -120,7 +120,7 @@ private fun RailNavItem(
 ) {
     var itemFocused by remember { mutableStateOf(false) }
     val pillColor = when {
-        selected -> MidnightCyanTokens.CyanAccent.copy(alpha = 0.22f)
+        selected -> Color(0xFF0E2A40)
         itemFocused -> MidnightCyanTokens.CardBgElevated
         else -> Color.Transparent
     }
@@ -130,22 +130,11 @@ private fun RailNavItem(
     }
 
     val shape = RoundedCornerShape(12.dp)
-    val glowModifier = if (selected) {
-        Modifier.shadow(
-            elevation = 10.dp,
-            shape = shape,
-            ambientColor = MidnightCyanTokens.CyanAccent,
-            spotColor = MidnightCyanTokens.CyanAccent
-        )
-    } else {
-        Modifier
-    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(46.dp)
-            .then(glowModifier)
             .clip(shape)
             .background(pillColor)
             .focusCyanBorder(isFocused = itemFocused, cornerRadius = 12.dp)
