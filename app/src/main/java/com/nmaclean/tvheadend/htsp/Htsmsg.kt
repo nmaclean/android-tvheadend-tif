@@ -124,6 +124,92 @@ object Htsmsg {
         return value
     }
 
+    class MuxPktView {
+        var stream: Long = -1L
+        var hasPts: Boolean = false
+        var pts: Long = 0L
+        var hasDts: Boolean = false
+        var dts: Long = 0L
+        var flags: Int = 0
+        var frameTypeIsKey: Boolean = false
+        var payloadOffset: Int = 0
+        var payloadLength: Int = -1
+
+        fun reset() {
+            stream = -1L
+            hasPts = false
+            pts = 0L
+            hasDts = false
+            dts = 0L
+            flags = 0
+            frameTypeIsKey = false
+            payloadOffset = 0
+            payloadLength = -1
+        }
+    }
+
+    private fun equalsAscii(bytes: ByteArray, offset: Int, len: Int, target: String): Boolean {
+        if (len != target.length) return false
+        for (i in 0 until len) {
+            if ((bytes[offset + i].toInt() and 0xFF) != target[i].code) return false
+        }
+        return true
+    }
+
+    /**
+     * Zero-allocation fast path for decoding HTSP `muxpkt` frames directly into [out].
+     * Returns `true` if the message is a valid `muxpkt` with `stream` and `payload`;
+     * returns `false` for other methods so the caller can fall back to [decode].
+     */
+    fun tryDecodeMuxPkt(bytes: ByteArray, offset: Int, length: Int, out: MuxPktView): Boolean {
+        out.reset()
+        var index = offset
+        val limit = minOf(bytes.size, offset + length)
+        var isMuxPkt = false
+        while (index < limit) {
+            if (index + 6 > limit) return false
+            val type = bytes[index++].toInt() and 0xFF
+            val nameLen = bytes[index++].toInt() and 0xFF
+            val dataLen = readInt32BE(bytes, index)
+            index += 4
+
+            if (dataLen < 0 || index + nameLen > limit || index + nameLen + dataLen > limit) return false
+            val nameOffset = index
+            val dataOffset = index + nameLen
+
+            when {
+                nameLen == 6 && equalsAscii(bytes, nameOffset, 6, "method") -> {
+                    if (type != TYPE_STR || !equalsAscii(bytes, dataOffset, dataLen, "muxpkt")) return false
+                    isMuxPkt = true
+                }
+                nameLen == 6 && equalsAscii(bytes, nameOffset, 6, "stream") && type == TYPE_S64 -> {
+                    out.stream = readS64LE(bytes, dataOffset, dataLen)
+                }
+                nameLen == 3 && equalsAscii(bytes, nameOffset, 3, "pts") && type == TYPE_S64 -> {
+                    out.hasPts = true
+                    out.pts = readS64LE(bytes, dataOffset, dataLen)
+                }
+                nameLen == 3 && equalsAscii(bytes, nameOffset, 3, "dts") && type == TYPE_S64 -> {
+                    out.hasDts = true
+                    out.dts = readS64LE(bytes, dataOffset, dataLen)
+                }
+                nameLen == 5 && equalsAscii(bytes, nameOffset, 5, "flags") && type == TYPE_S64 -> {
+                    out.flags = readS64LE(bytes, dataOffset, dataLen).toInt()
+                }
+                nameLen == 9 && equalsAscii(bytes, nameOffset, 9, "frametype") && type == TYPE_STR -> {
+                    out.frameTypeIsKey = equalsAscii(bytes, dataOffset, dataLen, "I") ||
+                        equalsAscii(bytes, dataOffset, dataLen, "key")
+                }
+                nameLen == 7 && equalsAscii(bytes, nameOffset, 7, "payload") && type == TYPE_BIN -> {
+                    out.payloadOffset = dataOffset
+                    out.payloadLength = dataLen
+                }
+            }
+            index = dataOffset + dataLen
+        }
+        return isMuxPkt && out.stream >= 0L && out.payloadLength >= 0
+    }
+
     /**
      * Decodes an HTSMSG binary payload into a key-value map.
      *

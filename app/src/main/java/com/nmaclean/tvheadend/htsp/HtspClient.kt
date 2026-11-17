@@ -348,8 +348,13 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
 
         Log.i(TAG, "Sending HTSP subscribe message: $subMsg")
         sendMessage(subMsg)
+        hasActiveSubscription = true
         return mapOf("success" to true)
     }
+
+    @Volatile
+    var hasActiveSubscription: Boolean = false
+        private set
 
     /**
      * Unsubscribes from the current channel subscription.
@@ -359,6 +364,8 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
      */
     @Synchronized
     fun unsubscribe() {
+        if (!hasActiveSubscription) return
+        hasActiveSubscription = false
         val seq = sequenceNumber++
         val unsubMsg = mapOf(
             "method" to "unsubscribe",
@@ -366,8 +373,10 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
             "subscriptionId" to 1
         )
         sendMessage(unsubMsg)
-        drainSocketBuffer(300)
-        flushInputStream()
+        val drainedCleanly = drainSocketBuffer(300)
+        if (!drainedCleanly) {
+            flushInputStream()
+        }
     }
 
     /**
@@ -393,16 +402,16 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
         }
     }
 
-    private fun drainSocketBuffer(maxWaitMs: Long) {
-        val sock = socket ?: return
+    private fun drainSocketBuffer(maxWaitMs: Long): Boolean {
+        val sock = socket ?: return false
         val origTimeout = try { sock.soTimeout } catch (_: Exception) { 0 }
         try {
             sock.soTimeout = 50
             val startTime = System.currentTimeMillis()
             while (System.currentTimeMillis() - startTime < maxWaitMs) {
-                val msg = readMessage() ?: break
+                val msg = readMessage() ?: return false
                 if (msg["method"] == "subscriptionStop" || (msg["seq"] as? Number)?.toLong() == (sequenceNumber - 1).toLong()) {
-                    break
+                    return true
                 }
             }
         } catch (_: SocketTimeoutException) {
@@ -410,6 +419,7 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
         } finally {
             try { sock.soTimeout = origTimeout } catch (_: Exception) {}
         }
+        return false
     }
 
     /**
@@ -521,6 +531,7 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
      * Closes the active socket connection and releases stream resources.
      */
     fun disconnect() {
+        hasActiveSubscription = false
         authenticatedUser = null
         try { inputStream?.close() } catch (ignored: Exception) {}
         try { outputStream?.close() } catch (ignored: Exception) {}

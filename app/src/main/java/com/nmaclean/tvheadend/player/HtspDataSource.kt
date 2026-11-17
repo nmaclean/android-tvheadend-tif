@@ -70,10 +70,12 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
             val activeClient = HtspConnectionPool.getStreamingClient(context, host, port, user, pass)
 
             // Ensure any prior active stream subscription on this connection is cleanly stopped and buffer flushed
-            try {
-                activeClient.unsubscribe()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error unsubscribing prior stream: ${e.message}")
+            if (activeClient.hasActiveSubscription) {
+                try {
+                    activeClient.unsubscribe()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error unsubscribing prior stream: ${e.message}")
+                }
             }
 
             Log.i(TAG, "HTSP connected. Subscribing to channel $channelIdentifier with profile 'htsp'...")

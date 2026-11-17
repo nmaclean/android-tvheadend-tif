@@ -218,6 +218,23 @@ class TvheadendInputService : TvInputService() {
             return exoPlayer
         }
 
+        private fun populateChannelRegistryFromServer() {
+            try {
+                val settings = TvhSettings(baseContext)
+                val client = HtspClient(settings.host, settings.htspPort)
+                if (client.connect(settings.username, settings.password)) {
+                    val channels = client.fetchChannels()
+                    client.disconnect()
+                    if (channels.isNotEmpty()) {
+                        ChannelRegistry.updateChannels(channels)
+                        Log.i(TAG, "Auto-populated ChannelRegistry with ${channels.size} channels during onTune fallback")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to auto-populate ChannelRegistry in onTune fallback: ${e.message}")
+            }
+        }
+
         private fun startPlayback(uuid: String) {
             hasReachedReadyState = false
             val host = settings.host
@@ -400,25 +417,6 @@ class TvheadendInputService : TvInputService() {
 
             tuneJob = sessionScope.launch {
                 val streamKey = withContext(Dispatchers.IO) {
-                    if (ChannelRegistry.getAllChannels().isEmpty()) {
-                        try {
-                            val settings = TvhSettings(baseContext)
-                            val host = settings.host
-                            val port = settings.htspPort
-                            val client = HtspClient(host, port)
-                            if (client.connect(settings.username, settings.password)) {
-                                val channels = client.fetchChannels()
-                                client.disconnect()
-                                if (channels.isNotEmpty()) {
-                                    ChannelRegistry.updateChannels(channels)
-                                    Log.i(TAG, "Auto-populated ChannelRegistry with ${channels.size} channels during onTune")
-                                }
-                            }
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Failed to auto-populate ChannelRegistry in onTune: ${e.message}")
-                        }
-                    }
-
                     val cursor = contentResolver.query(
                         uri,
                         arrayOf(
@@ -434,6 +432,9 @@ class TvheadendInputService : TvInputService() {
                     if (cursor == null || !cursor.moveToFirst()) {
                         Log.w(TAG, "Cursor query failed or empty for URI: $uri. Attempting robust fallback via ChannelRegistry...")
                         cursor?.close()
+                        if (ChannelRegistry.getAllChannels().isEmpty()) {
+                            populateChannelRegistryFromServer()
+                        }
                         val lastSegment = uri.lastPathSegment?.toLongOrNull()
                         if (lastSegment != null) {
                             val byId = ChannelRegistry.getChannelById(lastSegment)
@@ -497,6 +498,22 @@ class TvheadendInputService : TvInputService() {
                             if (allChannels.isNotEmpty()) {
                                 key = allChannels.first().id.toString()
                                 Log.w(TAG, "Could not resolve channel key for URI $uri; falling back to first channel: ${allChannels.first().name}")
+                            }
+                        }
+                    }
+
+                    if (key.isEmpty() && ChannelRegistry.getAllChannels().isEmpty()) {
+                        populateChannelRegistryFromServer()
+                        val numInt = number.toIntOrNull()
+                        val matchedByNum = if (numInt != null) ChannelRegistry.getChannelByNumber(numInt) else null
+                        val matchedByName = if (matchedByNum == null && name.isNotEmpty()) ChannelRegistry.getChannelByName(name) else null
+                        val matchedChannel = matchedByNum ?: matchedByName
+                        if (matchedChannel != null) {
+                            key = matchedChannel.id.toString()
+                        } else {
+                            val allChannels = ChannelRegistry.getAllChannels()
+                            if (allChannels.isNotEmpty()) {
+                                key = allChannels.first().id.toString()
                             }
                         }
                     }

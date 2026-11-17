@@ -66,6 +66,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
     private val lenBytes = ByteArray(4)
     private var msgBuffer = ByteArray(64 * 1024)
     private val sampleParsable = ParsableByteArray()
+    private val muxPktView = Htsmsg.MuxPktView()
 
     override fun init(output: ExtractorOutput) {
         this.extractorOutput = output
@@ -103,6 +104,13 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             input.readFully(msgBuffer, 0, length)
         } catch (e: EOFException) {
             return Extractor.RESULT_END_OF_INPUT
+        }
+
+        if (Htsmsg.tryDecodeMuxPkt(msgBuffer, 0, length, muxPktView)) {
+            if (!waitingForSubscriptionStart) {
+                handleMuxPktView(msgBuffer, muxPktView)
+            }
+            return Extractor.RESULT_CONTINUE
         }
 
         @Suppress("UNCHECKED_CAST")
@@ -434,92 +442,126 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         extractorOutput?.seekMap(SeekMap.Unseekable(C.TIME_UNSET))
     }
 
+    private fun handleMuxPktView(buffer: ByteArray, pkt: Htsmsg.MuxPktView) {
+        val ptsUs = if (pkt.hasPts) pkt.pts else C.TIME_UNSET
+        val dtsUs = if (pkt.hasDts) pkt.dts else C.TIME_UNSET
+        val isKeyFlag = pkt.frameTypeIsKey || ((pkt.flags and 0x01) != 0)
+        processMuxPkt(
+            streamIndex = pkt.stream,
+            ptsUs = ptsUs,
+            dtsUs = dtsUs,
+            isKeyFlag = isKeyFlag,
+            buffer = buffer,
+            payloadOffset = pkt.payloadOffset,
+            payloadLength = pkt.payloadLength
+        )
+    }
+
     private fun handleMuxPkt(msg: Map<String, Any>) {
+        val streamIndex = (msg["stream"] as? Number)?.toLong() ?: return
+        val payload = msg["payload"] as? ByteArray ?: return
+        val ptsUs = (msg["pts"] as? Number)?.toLong() ?: C.TIME_UNSET
+        val dtsUs = (msg["dts"] as? Number)?.toLong() ?: C.TIME_UNSET
+        val frameType = msg["frametype"] as? String
+        val flags = (msg["flags"] as? Number)?.toInt() ?: 0
+        val isKeyFlag = frameType == "I" || frameType == "key" || (flags and 0x01) != 0
+        processMuxPkt(
+            streamIndex = streamIndex,
+            ptsUs = ptsUs,
+            dtsUs = dtsUs,
+            isKeyFlag = isKeyFlag,
+            buffer = payload,
+            payloadOffset = 0,
+            payloadLength = payload.size
+        )
+    }
+
+    private fun processMuxPkt(
+        streamIndex: Long,
+        ptsUs: Long,
+        dtsUs: Long,
+        isKeyFlag: Boolean,
+        buffer: ByteArray,
+        payloadOffset: Int,
+        payloadLength: Int
+    ) {
         try {
             if (!firstPacketReported) {
                 firstPacketReported = true
                 TuneTelemetryTracker.shared.recordStage(TuneStage.FIRST_PACKET)
             }
-            val streamIndex = (msg["stream"] as? Number)?.toLong() ?: return
 
-        if (ignoredStreams.contains(streamIndex)) {
-            return
-        }
-
-        var trackOutput = tracks[streamIndex]
-        if (trackOutput == null) {
-            if (tracksEnded) {
-                // Cannot call extractorOutput.track() after endTracks() without causing ExoPlayer ArrayIndexOutOfBoundsException
-                Log.w(TAG, "Discarding muxpkt for stream index $streamIndex received after endTracks()")
+            if (ignoredStreams.contains(streamIndex)) {
                 return
             }
 
-            val payload = msg["payload"] as? ByteArray
-            val frameType = msg["frametype"] as? String
-            val flags = (msg["flags"] as? Number)?.toInt() ?: 0
-
-            val inferredType = if (streamIndex == 1L || frameType == "I" || frameType == "key" || (flags and 0x01) != 0 ||
-                (payload != null && (containsKeyframe(payload, MimeTypes.VIDEO_H264) || containsKeyframe(payload, MimeTypes.VIDEO_H265) || containsKeyframe(payload, MimeTypes.VIDEO_MPEG2)))) {
-                "video"
-            } else {
-                "audio"
-            }
-
-            val inferredCodec = if (inferredType == "video") "H264" else "AAC"
-
-            Log.w(TAG, "Unregistered stream index $streamIndex received in muxpkt. Dynamically registering as type='$inferredType', codec='$inferredCodec'...")
-            val syntheticStreamMap = mapOf<String, Any>(
-                "index" to streamIndex,
-                "type" to inferredType,
-                "handler" to inferredCodec
-            )
-            handleStreamAdd(syntheticStreamMap)
-            trackOutput = tracks[streamIndex]
+            var trackOutput = tracks[streamIndex]
             if (trackOutput == null) {
-                Log.w(TAG, "Failed to dynamically register stream index $streamIndex")
-                return
+                if (tracksEnded) {
+                    // Cannot call extractorOutput.track() after endTracks() without causing ExoPlayer ArrayIndexOutOfBoundsException
+                    Log.w(TAG, "Discarding muxpkt for stream index $streamIndex received after endTracks()")
+                    return
+                }
+
+                val inferredType = if (streamIndex == 1L || isKeyFlag ||
+                    containsKeyframe(buffer, payloadOffset, payloadLength, MimeTypes.VIDEO_H264) ||
+                    containsKeyframe(buffer, payloadOffset, payloadLength, MimeTypes.VIDEO_H265) ||
+                    containsKeyframe(buffer, payloadOffset, payloadLength, MimeTypes.VIDEO_MPEG2)
+                ) {
+                    "video"
+                } else {
+                    "audio"
+                }
+
+                val inferredCodec = if (inferredType == "video") "H264" else "AAC"
+
+                Log.w(TAG, "Unregistered stream index $streamIndex received in muxpkt. Dynamically registering as type='$inferredType', codec='$inferredCodec'...")
+                val syntheticStreamMap = mapOf<String, Any>(
+                    "index" to streamIndex,
+                    "type" to inferredType,
+                    "handler" to inferredCodec
+                )
+                handleStreamAdd(syntheticStreamMap)
+                trackOutput = tracks[streamIndex]
+                if (trackOutput == null) {
+                    Log.w(TAG, "Failed to dynamically register stream index $streamIndex")
+                    return
+                }
             }
-        }
 
-        val trackType = trackTypes[streamIndex] ?: C.TRACK_TYPE_UNKNOWN
-        val mimeType = trackMimeTypes[streamIndex] ?: ""
-        val payload = msg["payload"] as? ByteArray ?: return
-        val isAudio = (trackType == C.TRACK_TYPE_AUDIO)
-        val isText = (trackType == C.TRACK_TYPE_TEXT)
+            val trackType = trackTypes[streamIndex] ?: C.TRACK_TYPE_UNKNOWN
+            val mimeType = trackMimeTypes[streamIndex] ?: ""
+            val isAudio = (trackType == C.TRACK_TYPE_AUDIO)
+            val isText = (trackType == C.TRACK_TYPE_TEXT)
 
-        if (!tracksEnded && tracks.isNotEmpty()) {
-            extractorOutput?.endTracks()
-            tracksEnded = true
-        }
-
-        val ptsUs = (msg["pts"] as? Number)?.toLong() ?: C.TIME_UNSET
-        val dtsUs = (msg["dts"] as? Number)?.toLong() ?: C.TIME_UNSET
-
-        val presentationTimeUs = when {
-            ptsUs != C.TIME_UNSET -> ptsUs
-            dtsUs != C.TIME_UNSET -> dtsUs
-            else -> C.TIME_UNSET
-        }
-
-        val decodeTimeUs = when {
-            dtsUs != C.TIME_UNSET -> dtsUs
-            ptsUs != C.TIME_UNSET -> ptsUs
-            else -> C.TIME_UNSET
-        }
-
-        val frameType = msg["frametype"] as? String
-        var isKeyframe = isAudio || isText || frameType == "I" || frameType == "key" || ((msg["flags"] as? Number)?.toInt()?.let { (it and 0x01) != 0 } ?: false)
-
-        if (!isKeyframe) {
-            isKeyframe = containsKeyframe(payload, mimeType)
-        }
-
-        if (isKeyframe) {
-            hasSeenKeyframe[streamIndex] = true
-            if (isDebug && (!isAudio || audioPktCount < 3 || audioPktCount % 250 == 0)) {
-                Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=${payload.size}")
+            if (!tracksEnded && tracks.isNotEmpty()) {
+                extractorOutput?.endTracks()
+                tracksEnded = true
             }
-        }
+
+            val presentationTimeUs = when {
+                ptsUs != C.TIME_UNSET -> ptsUs
+                dtsUs != C.TIME_UNSET -> dtsUs
+                else -> C.TIME_UNSET
+            }
+
+            val decodeTimeUs = when {
+                dtsUs != C.TIME_UNSET -> dtsUs
+                ptsUs != C.TIME_UNSET -> ptsUs
+                else -> C.TIME_UNSET
+            }
+
+            var isKeyframe = isAudio || isText || isKeyFlag
+            if (!isKeyframe) {
+                isKeyframe = containsKeyframe(buffer, payloadOffset, payloadLength, mimeType)
+            }
+
+            if (isKeyframe) {
+                hasSeenKeyframe[streamIndex] = true
+                if (isDebug && (!isAudio || audioPktCount < 3 || audioPktCount % 250 == 0)) {
+                    Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=$payloadLength")
+                }
+            }
 
         val defaultStepUs = if (trackType == C.TRACK_TYPE_VIDEO) 40000L else 21333L
 
@@ -598,28 +640,29 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             }
         }
 
-        if (isAudio && mimeType == MimeTypes.AUDIO_AAC && payload.size >= 7 && payload[0] == 0xFF.toByte() && (payload[1].toInt() and 0xF6) == 0xF0) {
+        if (isAudio && mimeType == MimeTypes.AUDIO_AAC && payloadLength >= 7 && buffer[payloadOffset] == 0xFF.toByte() && (buffer[payloadOffset + 1].toInt() and 0xF6) == 0xF0) {
             var offset = 0
             var sampleCount = 0
             var lastFrameDurationUs = 21333L
-            while (offset + 7 <= payload.size) {
-                if (payload[offset] != 0xFF.toByte() || (payload[offset + 1].toInt() and 0xF6) != 0xF0) {
+            while (offset + 7 <= payloadLength) {
+                val frameStart = payloadOffset + offset
+                if (buffer[frameStart] != 0xFF.toByte() || (buffer[frameStart + 1].toInt() and 0xF6) != 0xF0) {
                     break
                 }
-                val protectionAbsent = (payload[offset + 1].toInt() and 0x01) != 0
+                val protectionAbsent = (buffer[frameStart + 1].toInt() and 0x01) != 0
                 val headerSize = if (protectionAbsent) 7 else 9
-                if (offset + 6 >= payload.size) break
+                if (offset + 6 >= payloadLength) break
 
-                val frameLength = ((payload[offset + 3].toInt() and 0x03) shl 11) or
-                        ((payload[offset + 4].toInt() and 0xFF) shl 3) or
-                        ((payload[offset + 5].toInt() and 0xFF) shr 5)
+                val frameLength = ((buffer[frameStart + 3].toInt() and 0x03) shl 11) or
+                        ((buffer[frameStart + 4].toInt() and 0xFF) shl 3) or
+                        ((buffer[frameStart + 5].toInt() and 0xFF) shr 5)
 
-                if (frameLength <= headerSize || offset + frameLength > payload.size) {
-                    val remainingSize = payload.size - offset
+                if (frameLength <= headerSize || offset + frameLength > payloadLength) {
+                    val remainingSize = payloadLength - offset
                     if (remainingSize > headerSize) {
                         val sampleSize = remainingSize - headerSize
-                        sampleParsable.reset(payload, offset + remainingSize)
-                        sampleParsable.setPosition(offset + headerSize)
+                        sampleParsable.reset(buffer, frameStart + remainingSize)
+                        sampleParsable.setPosition(frameStart + headerSize)
                         trackOutput.sampleData(sampleParsable, sampleSize)
                         val frameTimeUs = sampleTimeUs + (sampleCount * lastFrameDurationUs)
                         trackOutput.sampleMetadata(
@@ -635,11 +678,11 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 }
 
                 val sampleSize = frameLength - headerSize
-                sampleParsable.reset(payload, offset + frameLength)
-                sampleParsable.setPosition(offset + headerSize)
+                sampleParsable.reset(buffer, frameStart + frameLength)
+                sampleParsable.setPosition(frameStart + headerSize)
                 trackOutput.sampleData(sampleParsable, sampleSize)
 
-                val freqIdx = if (offset + 2 < payload.size) (payload[offset + 2].toInt() and 0x3C) shr 2 else -1
+                val freqIdx = if (offset + 2 < payloadLength) (buffer[frameStart + 2].toInt() and 0x3C) shr 2 else -1
                 val sampleRate = when (freqIdx) {
                     0 -> 96000
                     1 -> 88200
@@ -686,7 +729,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         if (!isAudio && isKeyframe && needsFormatUpdate) {
             val existingFormat = trackFormats[streamIndex]
             if (mimeType == MimeTypes.VIDEO_H264 || mimeType == MimeTypes.VIDEO_H265) {
-                val csdList = parseAnnexBCsd(payload, mimeType)
+                val csdList = parseAnnexBCsd(buffer.copyOfRange(payloadOffset, payloadOffset + payloadLength), mimeType)
                 if (csdList.isNotEmpty()) {
                     val currentTrack = tracks[streamIndex]
                     val width = trackWidths[streamIndex] ?: 0
@@ -711,14 +754,15 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                     Log.d(TAG, "Extracted inline CSD from keyframe for video stream $streamIndex (${if (width > 0) "${width}x${height}" else "dynamic resolution"}): ${csdList.size} NAL units, format=$format")
                 }
             } else if (mimeType == MimeTypes.VIDEO_MPEG2) {
-                var i = 0
+                var i = payloadOffset
+                val end = payloadOffset + payloadLength
                 var parsedWidth = 0
                 var parsedHeight = 0
-                while (i + 6 < payload.size) {
-                    if (payload[i] == 0.toByte() && payload[i + 1] == 0.toByte() && payload[i + 2] == 1.toByte() && (payload[i + 3].toInt() and 0xFF) == 0xB3) {
-                        val b4 = payload[i + 4].toInt() and 0xFF
-                        val b5 = payload[i + 5].toInt() and 0xFF
-                        val b6 = payload[i + 6].toInt() and 0xFF
+                while (i + 6 < end) {
+                    if (buffer[i] == 0.toByte() && buffer[i + 1] == 0.toByte() && buffer[i + 2] == 1.toByte() && (buffer[i + 3].toInt() and 0xFF) == 0xB3) {
+                        val b4 = buffer[i + 4].toInt() and 0xFF
+                        val b5 = buffer[i + 5].toInt() and 0xFF
+                        val b6 = buffer[i + 6].toInt() and 0xFF
                         parsedWidth = (b4 shl 4) or (b5 ushr 4)
                         parsedHeight = ((b5 and 0x0F) shl 8) or b6
                         break
@@ -746,7 +790,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
 
         if (isMp2Stream[streamIndex] == true) {
             val decoder = mp2Decoders.getOrPut(streamIndex) { Mp2Decoder() }
-            val pcmData = decoder.decodeFrame(payload, 0, payload.size)
+            val pcmData = decoder.decodeFrame(buffer, payloadOffset, payloadLength)
             if (pcmData != null) {
                 sampleParsable.reset(pcmData, pcmData.size)
                 trackOutput.sampleData(sampleParsable, pcmData.size)
@@ -758,15 +802,16 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                     null
                 )
             } else {
-                Log.w(TAG, "Mp2Decoder failed to decode frame for stream $streamIndex (size=${payload.size}); skipping frame")
+                Log.w(TAG, "Mp2Decoder failed to decode frame for stream $streamIndex (size=$payloadLength); skipping frame")
             }
         } else {
-            sampleParsable.reset(payload, payload.size)
-            trackOutput.sampleData(sampleParsable, payload.size)
+            sampleParsable.reset(buffer, payloadOffset + payloadLength)
+            sampleParsable.setPosition(payloadOffset)
+            trackOutput.sampleData(sampleParsable, payloadLength)
             trackOutput.sampleMetadata(
                 sampleTimeUs,
                 if (isKeyframe) C.BUFFER_FLAG_KEY_FRAME else 0,
-                payload.size,
+                payloadLength,
                 0,
                 null
             )
@@ -776,10 +821,11 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         }
     }
 
-    private fun containsKeyframe(payload: ByteArray, mimeType: String): Boolean {
+    private fun containsKeyframe(payload: ByteArray, offset: Int, length: Int, mimeType: String): Boolean {
+        val end = minOf(payload.size, offset + length)
         if (mimeType == MimeTypes.VIDEO_MPEG2) {
-            var i = 0
-            while (i + 5 < payload.size) {
+            var i = offset
+            while (i + 5 < end) {
                 if (payload[i] == 0.toByte() && payload[i + 1] == 0.toByte() && payload[i + 2] == 1.toByte() && payload[i + 3] == 0.toByte()) {
                     val b5 = payload[i + 5].toInt() and 0xFF
                     val pictureCodingType = (b5 ushr 3) and 0x07
@@ -790,11 +836,11 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             return false
         }
 
-        var i = 0
-        while (i < payload.size - 3) {
+        var i = offset
+        while (i < end - 3) {
             val startCodeLen = if (payload[i] == 0.toByte() && payload[i + 1] == 0.toByte() && payload[i + 2] == 0.toByte() && payload[i + 3] == 1.toByte()) {
                 4
-            } else if (i < payload.size - 2 && payload[i] == 0.toByte() && payload[i + 1] == 0.toByte() && payload[i + 2] == 1.toByte()) {
+            } else if (i < end - 2 && payload[i] == 0.toByte() && payload[i + 1] == 0.toByte() && payload[i + 2] == 1.toByte()) {
                 3
             } else {
                 0
@@ -802,7 +848,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
 
             if (startCodeLen > 0) {
                 val nalStart = i + startCodeLen
-                if (nalStart < payload.size) {
+                if (nalStart < end) {
                     val nalHeaderByte = payload[nalStart].toInt() and 0xFF
                     if (mimeType == MimeTypes.VIDEO_H265) {
                         val nalUnitType = (nalHeaderByte ushr 1) and 0x3F
