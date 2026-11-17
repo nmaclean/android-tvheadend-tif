@@ -1,7 +1,10 @@
 package com.nmaclean.tvheadend.updater
 
 import android.content.Context
+import android.graphics.Color as AndroidColor
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentDialog
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -43,6 +46,7 @@ import androidx.tv.material3.Text
 import com.nmaclean.tvheadend.BuildConfig
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -67,19 +71,22 @@ class UpdatePromptDialog(
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(
-            ComposeView(context).apply {
-                setContent {
-                    MaterialTheme {
-                        UpdatePromptCard(
-                            context = context,
-                            updateManager = updateManager,
-                            onDismiss = { dismiss() }
-                        )
-                    }
+        window?.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
+        val composeView = ComposeView(context).apply {
+            isFocusable = true
+            isFocusableInTouchMode = true
+            setContent {
+                MaterialTheme {
+                    UpdatePromptCard(
+                        context = context,
+                        updateManager = updateManager,
+                        onDismiss = { dismiss() }
+                    )
                 }
             }
-        )
+        }
+        setContentView(composeView)
+        composeView.post { composeView.requestFocus() }
     }
 }
 
@@ -107,6 +114,7 @@ fun UpdatePromptCard(
 
     LaunchedEffect(uiState) {
         if (uiState !is UpdateUiState.Checking && uiState !is UpdateUiState.Downloading) {
+            delay(50)
             runCatching { primaryFocusRequester.requestFocus() }
         }
     }
@@ -191,6 +199,7 @@ fun UpdatePromptCard(
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
                             onClick = {
+                                Log.i("UpdatePrompt", "Download & Install clicked for ${state.release.tagName} (${state.release.apkDownloadUrl})")
                                 scope.launch {
                                     uiState = UpdateUiState.Downloading(state.release, 0f)
                                     try {
@@ -204,11 +213,13 @@ fun UpdatePromptCard(
                                                 }
                                             }
                                         }
+                                        Log.i("UpdatePrompt", "APK downloaded to ${apk.absolutePath} (${apk.length()} bytes)")
                                         uiState = UpdateUiState.ReadyToInstall(state.release, apk)
                                         if (ApkInstaller.installApk(context, apk)) {
                                             onDismiss()
                                         }
                                     } catch (e: Exception) {
+                                        Log.e("UpdatePrompt", "Download/install failed", e)
                                         uiState = UpdateUiState.Error(e.message ?: "Download failed")
                                     }
                                 }
