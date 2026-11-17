@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/epg_bg_dark">
+
+    <!-- 1. TOP HEADER BAR -->
+    <RelativeLayout
+        android:id="@+id/epg_header_bar"
+        android:layout_width="match_parent"
+        android:layout_height="80dp"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="12dp">
+
+        <!-- Title -->
+        <TextView
+            android:id="@+id/txt_guide_main_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:text="Guide"
+            android:textColor="@color/tv_text_primary"
+            android:textSize="32sp"
+            android:textStyle="bold" />
+
+        <!-- Date & Time + Top Right Live PiP Video Window -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/txt_guide_date_clock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Sat, 19 Sept 11:37"
+                android:textColor="@color/tv_text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="16dp" />
+
+            <!-- Live Video PiP Preview Frame -->
+            <FrameLayout
+                android:id="@+id/pip_video_container"
+                android:layout_width="150dp"
+                android:layout_height="85dp"
+                android:background="#000000">
+
+                <android.media.tv.TvView
+                    android:id="@+id/pip_tv_view"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+            </FrameLayout>
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- 2. MAIN EPG GRID (TIME RULER + CHANNELS SIDEBAR + TIMELINE ROWS) -->
+    <RelativeLayout
+        android:id="@+id/epg_main_grid"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/epg_header_bar"
+        android:layout_above="@id/bottom_color_keys_bar"
+        android:paddingHorizontal="24dp">
+
+        <!-- TIME RULER HEADER -->
+        <RelativeLayout
+            android:id="@+id/time_ruler_layout"
+            android:layout_width="match_parent"
+            android:layout_height="32dp">
+
+            <TextView
+                android:id="@+id/txt_ruler_date"
+                android:layout_width="210dp"
+                android:layout_height="match_parent"
+                android:text="Sat, 19 Sept"
+                android:textColor="@color/tv_text_secondary"
+                android:textSize="13sp"
+                android:gravity="center_vertical" />
+
+            <!-- Time Slots Header Container -->
+            <HorizontalScrollView
+                android:id="@+id/time_slots_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_toEndOf="@id/txt_ruler_date"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/time_slots_header_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical" />
+
+            </HorizontalScrollView>
+
+        </RelativeLayout>
+
+        <!-- GRID CONTENT: LEFT CHANNELS SIDEBAR & RIGHT TIMELINE ROWS -->
+        <ScrollView
+            android:id="@+id/grid_vertical_scroll"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@id/time_ruler_layout"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
+            android:descendantFocusability="afterDescendants"
+            android:scrollbars="none">
+
+            <RelativeLayout
+                android:id="@+id/epg_rows_relative_container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <!-- Left Column: Channel Labels -->
+                <LinearLayout
+                    android:id="@+id/channels_column_container"
+                    android:layout_width="210dp"
+                    android:layout_height="wrap_content"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:orientation="vertical" />
+
+                <!-- Right Timeline Rows (Synchronized Horizontal Scroll) -->
+                <HorizontalScrollView
+                    android:id="@+id/timeline_horizontal_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_toEndOf="@id/channels_column_container"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false"
+                    android:descendantFocusability="afterDescendants"
+                    android:scrollbars="none">
+
+                    <RelativeLayout
+                        android:id="@+id/timeline_grid_relative"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content">
+
+                        <LinearLayout
+                            android:id="@+id/timeline_rows_container"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:focusable="false"
+                            android:focusableInTouchMode="false"
+                            android:descendantFocusability="afterDescendants"
+                            android:orientation="vertical" />
+
+                        <!-- Vertical Blue Current Time Line -->
+                        <View
+                            android:id="@+id/current_time_blue_line"
+                            android:layout_width="2.5dp"
+                            android:layout_height="match_parent"
+                            android:background="@color/epg_time_line"
+                            android:elevation="10dp" />
+
+                    </RelativeLayout>
+
+                </HorizontalScrollView>
+
+            </RelativeLayout>
+
+        </ScrollView>
+
+        <!-- LOADING OVERLAY -->
+        <LinearLayout
+            android:id="@+id/epg_loading_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_below="@id/time_ruler_layout"
+            android:background="#D00A0D18"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:id="@+id/epg_progress_bar"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:indeterminate="true"
+                android:indeterminateTint="@color/tv_accent_cyan" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Loading Guide..."
+                android:textColor="@color/tv_text_primary"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+        </LinearLayout>
+
+    </RelativeLayout>
+
+    <!-- 3. BOTTOM REMOTE COLOR KEYS & CONTROL HELP BAR -->
+    <LinearLayout
+        android:id="@+id/bottom_color_keys_bar"
+        android:layout_width="match_parent"
+        android:layout_height="36dp"
+        android:layout_alignParentBottom="true"
+        android:background="#0A0D18"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="❖ SELECT"
+            android:textColor="@color/tv_text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_marginEnd="20dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CH +"
+            android:textColor="@color/tv_text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_card_rounded"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="CH -"
+            android:textColor="@color/tv_text_secondary"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_card_rounded"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:layout_marginEnd="28dp" />
+
+        <!-- Red Key -->
+        <View
+            android:layout_width="20dp"
+            android:layout_height="6dp"
+            android:background="@color/epg_key_red"
+            android:layout_marginEnd="24dp" />
+
+        <!-- Green Key -->
+        <View
+            android:layout_width="20dp"
+            android:layout_height="6dp"
+            android:background="@color/epg_key_green"
+            android:layout_marginEnd="24dp" />
+
+        <!-- Yellow Key -->
+        <View
+            android:layout_width="20dp"
+            android:layout_height="6dp"
+            android:background="@color/epg_key_yellow"
+            android:layout_marginEnd="24dp" />
+
+        <!-- Blue Key -->
+        <View
+            android:layout_width="20dp"
+            android:layout_height="6dp"
+            android:background="@color/epg_key_blue" />
+
+    </LinearLayout>
+
+</RelativeLayout>

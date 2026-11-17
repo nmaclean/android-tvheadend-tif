@@ -1,0 +1,6 @@
+<resources>
+    <style name="Theme.Tvheadend" parent="Theme.Leanback">
+        <item name="defaultSearchColor">@color/tv_accent_cyan</item>
+        <item name="android:windowBackground">@color/tv_bg_dark</item>
+    </style>
+</resources>

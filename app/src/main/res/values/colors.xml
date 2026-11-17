@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Backgrounds -->
+    <color name="tv_bg_dark">#0B0E14</color>
+    <color name="tv_bg_overlay">#DD0B0E14</color>
+    <color name="tv_surface_dark">#161C26</color>
+    <color name="tv_surface_card">#1E2638</color>
+    <color name="tv_surface_card_focused">#2A364F</color>
+
+    <!-- Accents -->
+    <color name="tv_accent_cyan">#00E5FF</color>
+    <color name="tv_accent_gold">#FFC107</color>
+    <color name="tv_accent_live_red">#E50914</color>
+    <color name="tv_accent_blue">#2979FF</color>
+
+    <!-- Focus & Borders -->
+    <color name="tv_focus_stroke">#00E5FF</color>
+    <color name="tv_card_stroke">#334155</color>
+
+    <!-- Text -->
+    <color name="tv_text_primary">#FFFFFF</color>
+    <color name="tv_text_secondary">#B0BEC5</color>
+    <color name="tv_text_muted">#607D8B</color>
+
+    <!-- Sony TV EPG Theme Colors -->
+    <color name="epg_bg_dark">#10141E</color>
+    <color name="epg_row_bg">#181E2C</color>
+    <color name="epg_program_bg">#232B3C</color>
+    <color name="epg_program_border">#344056</color>
+    <color name="epg_time_line">#29B6F6</color>
+    <color name="epg_tab_selected_bg">#FFFFFF</color>
+    <color name="epg_tab_selected_text">#10141E</color>
+    <color name="epg_tab_unselected_text">#CCCCCC</color>
+    <color name="epg_key_red">#E53935</color>
+    <color name="epg_key_green">#43A047</color>
+    <color name="epg_key_yellow">#FDD835</color>
+    <color name="epg_key_blue">#1E88E5</color>
+</resources>

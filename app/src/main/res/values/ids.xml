@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="home_action_icon" type="id" />
+    <item name="home_action_title" type="id" />
+    <item name="home_action_desc" type="id" />
+</resources>

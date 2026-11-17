@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="Streaming &amp; Diagnostics">
+
+        <SwitchPreferenceCompat
+            android:key="streaming_debug"
+            android:title="Streaming Debug Mode"
+            android:defaultValue="false"
+            app:summaryOn="Status: ON — Verbose logging enabled for HTSP, demuxing &amp; ExoPlayer"
+            app:summaryOff="Status: OFF — Standard logging" />
+
+        <Preference
+            android:key="sync_channels"
+            android:title="Sync Channels &amp; EPG"
+            android:summary="Trigger a manual synchronization of channel list and guide data from server" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="App Updates">
+
+        <Preference
+            android:key="check_for_updates"
+            android:title="Check for Updates"
+            android:summary="Check GitHub Releases for a newer APK version" />
+
+    </PreferenceCategory>
+
+</PreferenceScreen>

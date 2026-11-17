@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="100dp"
+    android:height="100dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Matte Deep Navy Background -->
+    <path
+        android:fillColor="#061226"
+        android:pathData="M0,0h100v100h-100z" />
+
+    <!-- TV Outer Frame -->
+    <path
+        android:fillColor="#718298"
+        android:pathData="M20,25 h60 a8,8 0,0 1,8 8 v36 a8,8 0,0 1,-8 8 h-60 a8,8 0,0 1,-8 -8 v-36 a8,8 0,0 1,8 -8 z" />
+
+    <!-- TV Inner Screen Hole -->
+    <path
+        android:fillColor="#061226"
+        android:pathData="M25,29 h50 v34 h-50 z" />
+
+    <!-- TV Stand -->
+    <path
+        android:fillColor="#718298"
+        android:pathData="M38,81 h24 a2,2 0,0 0,2 -2 v-1 a2,2 0,0 0,-2 -2 h-24 a2,2 0,0 0,-2 2 v1 a2,2 0,0 0,2 2 z" />
+
+    <!-- Text "TV" Inside Screen -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,38 h12 v4 h-4 v16 h-4 v-16 h-4 z M52,38 h4 l3,13 l3,-13 h4 l-5,20 h-4 z" />
+
+</vector>

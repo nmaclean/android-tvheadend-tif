@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <android.media.tv.TvView
+        android:id="@+id/tv_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone" />
+
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/player_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:use_controller="false"
+        app:surface_type="surface_view" />
+
+    <!-- Top-Right Streaming Debug Indicator Badge -->
+    <LinearLayout
+        android:id="@+id/debug_overlay_badge"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="28dp"
+        android:layout_marginEnd="36dp"
+        android:background="@drawable/bg_osd_banner"
+        android:paddingStart="14dp"
+        android:paddingTop="8dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:elevation="20dp"
+        android:visibility="gone">
+
+        <View
+            android:layout_width="10dp"
+            android:layout_height="10dp"
+            android:background="@drawable/bg_badge_live"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/debug_overlay_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="DEBUG LOGGING ON"
+            android:textColor="#00E5FF"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Floating OSD Banner at Bottom -->
+    <LinearLayout
+        android:id="@+id/top_osd_banner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:layout_marginHorizontal="28dp"
+        android:layout_marginBottom="24dp"
+        android:orientation="vertical"
+        android:padding="22dp"
+        android:background="@drawable/bg_osd_banner"
+        android:elevation="12dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <!-- Channel Number Pill -->
+            <TextView
+                android:id="@+id/osd_channel_num"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_channel_num_pill"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp"
+                android:textColor="@color/tv_accent_cyan"
+                android:textSize="32sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="18dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <!-- LIVE Badge -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="LIVE"
+                        android:background="@drawable/bg_badge_live"
+                        android:textColor="@color/tv_text_primary"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:paddingHorizontal="8dp"
+                        android:paddingVertical="3dp"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:id="@+id/osd_program_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tv_text_primary"
+                        android:textSize="22sp"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="6dp">
+
+                    <TextView
+                        android:id="@+id/osd_channel_name"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tv_accent_gold"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginEnd="16dp" />
+
+                    <TextView
+                        android:id="@+id/osd_program_time"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/tv_text_secondary"
+                        android:textSize="15sp"
+                        android:layout_marginEnd="16dp" />
+
+                    <ProgressBar
+                        android:id="@+id/osd_program_progress"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="140dp"
+                        android:layout_height="8dp"
+                        android:max="100"
+                        android:progress="0"
+                        android:progressTint="@color/tv_accent_cyan"
+                        android:progressBackgroundTint="#44FFFFFF" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Audio & Subtitle Action Buttons -->
+            <LinearLayout
+                android:id="@+id/osd_actions_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginStart="16dp"
+                android:gravity="center_vertical">
+
+                <ImageView
+                    android:id="@+id/osd_btn_audio"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_audio_track"
+                    android:padding="10dp"
+                    android:background="@drawable/bg_osd_action_btn"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="Select Audio Track"
+                    android:layout_marginEnd="10dp"
+                    android:visibility="gone" />
+
+                <ImageView
+                    android:id="@+id/osd_btn_subtitles"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/ic_closed_caption"
+                    android:padding="10dp"
+                    android:background="@drawable/bg_osd_action_btn"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="Select Subtitles"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+            <!-- Channel Logo -->
+            <ImageView
+                android:id="@+id/osd_channel_logo"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginStart="16dp"
+                android:padding="4dp"
+                android:background="@drawable/bg_card_rounded"
+                android:scaleType="fitCenter"
+                android:contentDescription="Channel Logo" />
+
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/osd_program_description"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:maxLines="2"
+            android:textColor="@color/tv_text_secondary"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+    <!-- Sony "TV Menu" Bottom Mini-Guide Overlay -->
+    <LinearLayout
+        android:id="@+id/bottom_mochi_menu"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:background="#ED10141E"
+        android:orientation="vertical"
+        android:elevation="16dp"
+        android:visibility="gone">
+
+        <!-- Top Header & Channel Cards Scroll Row -->
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp"
+            android:paddingStart="24dp">
+
+            <!-- "TV menu" Title & Quick Controls -->
+            <LinearLayout
+                android:id="@+id/tv_menu_title_container"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerVertical="true"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginEnd="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="TV menu"
+                    android:textColor="@color/tv_text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:layout_marginEnd="12dp" />
+
+                <ImageView
+                    android:id="@+id/mochi_btn_audio"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:src="@drawable/ic_audio_track"
+                    android:padding="8dp"
+                    android:background="@drawable/bg_osd_action_btn"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="Select Audio Track"
+                    android:layout_marginEnd="8dp" />
+
+                <ImageView
+                    android:id="@+id/mochi_btn_subtitles"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:src="@drawable/ic_closed_caption"
+                    android:padding="8dp"
+                    android:background="@drawable/bg_osd_action_btn"
+                    android:focusable="true"
+                    android:clickable="true"
+                    android:contentDescription="Select Subtitles"
+                    android:layout_marginEnd="12dp" />
+
+                <View
+                    android:layout_width="2dp"
+                    android:layout_height="24dp"
+                    android:background="#3A465E" />
+
+            </LinearLayout>
+
+            <!-- Horizontal Channel Cards Scroll Container -->
+            <HorizontalScrollView
+                android:id="@+id/tv_menu_channel_scroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_toEndOf="@id/tv_menu_title_container"
+                android:scrollbars="none"
+                android:clipToPadding="false"
+                android:paddingEnd="24dp">
+
+                <LinearLayout
+                    android:id="@+id/tv_menu_channel_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="145dp"
+                    android:orientation="horizontal"
+                    android:gravity="bottom" />
+
+            </HorizontalScrollView>
+
+        </RelativeLayout>
+
+    </LinearLayout>
+
+</FrameLayout>

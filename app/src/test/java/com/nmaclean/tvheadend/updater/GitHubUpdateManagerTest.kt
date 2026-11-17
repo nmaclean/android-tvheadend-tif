@@ -1,0 +1,121 @@
+package com.nmaclean.tvheadend.updater
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class GitHubUpdateManagerTest {
+
+    private val manager = GitHubUpdateManager()
+
+    @Test
+    fun testParseLatestReleaseWithApkAsset() {
+        val json = """
+            {
+              "tag_name": "v1.2.0",
+              "prerelease": false,
+              "draft": false,
+              "body": "### What's New\n- Faster channel switching",
+              "assets": [
+                {
+                  "name": "checksums.sha256",
+                  "size": 128,
+                  "browser_download_url": "https://github.com/nmaclean/android-tvheadend-tif/releases/download/v1.2.0/checksums.sha256"
+                },
+                {
+                  "name": "app-release.apk",
+                  "size": 15728640,
+                  "browser_download_url": "https://github.com/nmaclean/android-tvheadend-tif/releases/download/v1.2.0/app-release.apk"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val release = manager.parseLatestReleaseJson(json)
+        assertNotNull(release)
+        assertEquals("v1.2.0", release?.tagName)
+        assertEquals("1.2.0", release?.versionName)
+        assertEquals("### What's New\n- Faster channel switching", release?.releaseNotes)
+        assertEquals("app-release.apk", release?.assetName)
+        assertEquals(15728640L, release?.assetSizeBytes)
+        assertEquals(
+            "https://github.com/nmaclean/android-tvheadend-tif/releases/download/v1.2.0/app-release.apk",
+            release?.apkDownloadUrl
+        )
+        assertFalse(release?.isPreRelease == true)
+    }
+
+    @Test
+    fun testParseReleaseMissingApkAssetReturnsNull() {
+        val json = """
+            {
+              "tag_name": "v1.2.0",
+              "prerelease": false,
+              "draft": false,
+              "body": "Source only",
+              "assets": [
+                {
+                  "name": "source.zip",
+                  "size": 1024,
+                  "browser_download_url": "https://example.com/source.zip"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        assertNull(manager.parseLatestReleaseJson(json))
+    }
+
+    @Test
+    fun testParseDraftReleaseReturnsNull() {
+        val json = """
+            {
+              "tag_name": "v1.2.0",
+              "prerelease": false,
+              "draft": true,
+              "assets": [
+                {
+                  "name": "app-release.apk",
+                  "size": 100,
+                  "browser_download_url": "https://example.com/app-release.apk"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        assertNull(manager.parseLatestReleaseJson(json))
+    }
+
+    @Test
+    fun testParsePreReleaseFlagPreserved() {
+        val json = """
+            {
+              "tag_name": "v1.3.0-rc.1",
+              "prerelease": true,
+              "draft": false,
+              "body": null,
+              "assets": [
+                {
+                  "name": "app-release.apk",
+                  "size": 100,
+                  "browser_download_url": "https://example.com/app-release.apk"
+                }
+              ]
+            }
+        """.trimIndent()
+
+        val release = manager.parseLatestReleaseJson(json)
+        assertNotNull(release)
+        assertTrue(release?.isPreRelease == true)
+        assertEquals("", release?.releaseNotes)
+    }
+
+    @Test
+    fun testParseMalformedJsonReturnsNull() {
+        assertNull(manager.parseLatestReleaseJson("not-json"))
+        assertNull(manager.parseLatestReleaseJson("{}"))
+    }
+}

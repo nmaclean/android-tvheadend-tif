@@ -1,0 +1,136 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.AUTHENTICATE_ACCOUNTS" />
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="com.android.providers.tv.permission.READ_EPG_DATA" />
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_EPG_DATA" />
+    <uses-permission android:name="com.android.providers.tv.permission.READ_TV_LISTINGS" />
+    <uses-permission android:name="com.android.providers.tv.permission.WRITE_TV_LISTINGS" />
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.hardware.type.television" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+    <uses-feature android:name="android.software.live_tv" android:required="true" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_tv_input"
+        android:banner="@drawable/tv_banner"
+        android:logo="@drawable/tv_banner"
+        android:label="@string/app_name"
+        android:roundIcon="@drawable/ic_tv_input"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:enableOnBackInvokedCallback="true"
+        tools:targetApi="33"
+        android:theme="@style/Theme.Tvheadend">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_tv_input"
+            android:logo="@drawable/tv_banner"
+            android:banner="@drawable/tv_banner">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.TvPlayerActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
+            android:name=".ui.ChannelGridActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
+            android:name=".ui.InputManagerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
+            android:name=".ui.GeneralSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
+            android:name=".ui.ScanningInputsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
+            android:name=".SetupActivity"
+            android:exported="true"
+            android:icon="@drawable/ic_tv_input"
+            android:logo="@drawable/tv_banner"
+            android:banner="@drawable/tv_banner">
+            <intent-filter>
+                <action android:name="android.media.tv.action.SETUP_INPUT" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service
+            android:name=".TvheadendInputService"
+            android:label="@string/app_name"
+            android:icon="@drawable/ic_tv_input"
+            android:logo="@drawable/tv_banner"
+            android:banner="@drawable/tv_banner"
+            android:permission="android.permission.BIND_TV_INPUT"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.tv.TvInputService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.media.tv.input"
+                android:resource="@xml/tv_input" />
+        </service>
+
+        <service
+            android:name=".TvhAccountService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accounts.AccountAuthenticator" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accounts.AccountAuthenticator"
+                android:resource="@xml/authenticator" />
+        </service>
+
+        <service
+            android:name=".SyncService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+            <meta-data
+                android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>
