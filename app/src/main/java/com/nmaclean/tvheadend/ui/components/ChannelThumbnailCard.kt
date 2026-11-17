@@ -70,12 +70,16 @@ fun TvhMediaCard(
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable(onClick = onClick)
         ) {
-            if (imageUrl.isNotBlank()) {
+            var imgFailed by remember(imageUrl) { mutableStateOf(false) }
+            if (imageUrl.isNotBlank() && !imgFailed) {
                 AsyncImage(
                     model = imageUrl,
                     contentDescription = title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    contentScale = ContentScale.Fit,
+                    onError = { imgFailed = true },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(18.dp)
                 )
             } else {
                 Box(

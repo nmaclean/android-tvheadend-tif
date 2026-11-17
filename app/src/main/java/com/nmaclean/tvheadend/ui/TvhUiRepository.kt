@@ -183,13 +183,14 @@ object TvhUiRepository {
                     } else ""
                     val streamKey = providerId.ifEmpty { rowId.toString() }
                     val inputId = if (inputCol >= 0) cursor.getString(inputCol) ?: "" else ""
+                    val logoUri = TvContract.buildChannelLogoUri(rowId).toString()
                     result.add(
                         TvhChannel(
                             id = rowId,
                             uuid = streamKey,
                             name = name,
                             number = num,
-                            icon = "",
+                            icon = logoUri,
                             inputId = inputId
                         )
                     )

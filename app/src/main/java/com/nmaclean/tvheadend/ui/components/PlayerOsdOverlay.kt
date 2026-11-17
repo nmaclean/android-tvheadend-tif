@@ -165,6 +165,7 @@ fun PlayerOsdOverlay(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        var osdLogoFailed by remember(currentChannel?.id, currentChannel?.icon) { mutableStateOf(false) }
                         Box(
                             modifier = Modifier
                                 .size(76.dp)
@@ -172,12 +173,12 @@ fun PlayerOsdOverlay(
                                 .background(MidnightCyanTokens.CardBg),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (!currentChannel?.icon.isNullOrBlank()) {
+                            if (!currentChannel?.icon.isNullOrBlank() && !osdLogoFailed) {
                                 AsyncImage(
                                     model = currentChannel!!.icon,
                                     contentDescription = currentChannel.name,
                                     contentScale = ContentScale.Fit,
-                                    colorFilter = ColorFilter.tint(Color.White),
+                                    onError = { osdLogoFailed = true },
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .padding(10.dp)
@@ -334,18 +335,19 @@ private fun QuickZapCard(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        var zapLogoFailed by remember(channel.id, channel.icon) { mutableStateOf(false) }
         Box(
             modifier = Modifier
                 .width(42.dp)
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
-            if (channel.icon.isNotBlank()) {
+            if (channel.icon.isNotBlank() && !zapLogoFailed) {
                 AsyncImage(
                     model = channel.icon,
                     contentDescription = channel.name,
                     contentScale = ContentScale.Fit,
-                    colorFilter = ColorFilter.tint(Color.White),
+                    onError = { zapLogoFailed = true },
                     modifier = Modifier.fillMaxSize()
                 )
             } else {

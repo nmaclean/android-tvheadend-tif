@@ -341,6 +341,7 @@ private fun GuideInlinePreviewCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Left: 16:9 show banner
+        var bannerFailed by remember(channel?.id, channel?.icon) { mutableStateOf(false) }
         Box(
             modifier = Modifier
                 .fillMaxHeight()
@@ -353,12 +354,15 @@ private fun GuideInlinePreviewCard(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            if (!channel?.icon.isNullOrBlank()) {
+            if (!channel?.icon.isNullOrBlank() && !bannerFailed) {
                 AsyncImage(
                     model = channel!!.icon,
                     contentDescription = channel.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    contentScale = ContentScale.Fit,
+                    onError = { bannerFailed = true },
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(10.dp)
                 )
             } else {
                 Text(
@@ -408,19 +412,20 @@ private fun GuideInlinePreviewCard(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Right: Broadcaster white monochrome picon
+        // Right: Broadcaster picon
+        var piconFailed by remember(channel?.id, channel?.icon) { mutableStateOf(false) }
         Box(
             modifier = Modifier
                 .width(108.dp)
                 .fillMaxHeight(),
             contentAlignment = Alignment.Center
         ) {
-            if (!channel?.icon.isNullOrBlank()) {
+            if (!channel?.icon.isNullOrBlank() && !piconFailed) {
                 AsyncImage(
                     model = channel!!.icon,
                     contentDescription = channel.name,
                     contentScale = ContentScale.Fit,
-                    colorFilter = ColorFilter.tint(Color.White),
+                    onError = { piconFailed = true },
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(6.dp)
@@ -459,12 +464,13 @@ private fun ChannelIdentityTile(
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold
         )
-        if (channel.icon.isNotBlank()) {
+        var logoFailed by remember(channel.id, channel.icon) { mutableStateOf(false) }
+        if (channel.icon.isNotBlank() && !logoFailed) {
             AsyncImage(
                 model = channel.icon,
                 contentDescription = channel.name,
                 contentScale = ContentScale.Fit,
-                colorFilter = ColorFilter.tint(Color.White),
+                onError = { logoFailed = true },
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
