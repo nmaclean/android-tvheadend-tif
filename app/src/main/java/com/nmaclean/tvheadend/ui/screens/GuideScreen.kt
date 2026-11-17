@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -55,12 +56,14 @@ import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.ui.TvhUiRepository
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvTopBarWithClock
+import com.nmaclean.tvheadend.ui.theme.TvhPillButton
 import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private const val DP_PER_MINUTE = 4.2f
 private const val SLOT_MINUTES = 30
@@ -123,6 +126,7 @@ fun GuideScreen(
     val horizontalScrollState = rememberScrollState()
     val slotFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val pillsFocusRequester = remember { FocusRequester() }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = modifier
@@ -132,15 +136,28 @@ fun GuideScreen(
                 vertical = MidnightCyanTokens.OverscanVertical
             )
     ) {
-        TvTopBarWithClock(
-            pills = categories,
-            selectedIndex = selectedCategoryIdx,
-            onSelect = { selectedCategoryIdx = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .focusRequester(pillsFocusRequester)
-                .focusProperties { down = gridFocusRequester }
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            if (horizontalScrollState.value > 40) {
+                TvhPillButton(
+                    label = "Now",
+                    selected = false,
+                    onClick = { scope.launch { horizontalScrollState.animateScrollTo(0) } }
+                )
+            }
+            TvTopBarWithClock(
+                pills = categories,
+                selectedIndex = selectedCategoryIdx,
+                onSelect = { selectedCategoryIdx = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(pillsFocusRequester)
+                    .focusProperties { down = gridFocusRequester }
+            )
+        }
 
         Spacer(modifier = Modifier.height(14.dp))
 

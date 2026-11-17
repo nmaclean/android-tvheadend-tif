@@ -24,6 +24,17 @@ import kotlinx.coroutines.withContext
  */
 object TvhUiRepository {
     private const val TAG = "TvhUiRepository"
+    private const val EPG_CACHE_TTL_MS = 120_000L
+
+    @Volatile
+    private var cachedCurrentEpg: Map<Long, EpgRepository.ChannelEpg> = emptyMap()
+    @Volatile
+    private var cachedCurrentEpgAtMs: Long = 0L
+
+    @Volatile
+    private var cachedGuidePrograms: Map<Long, List<EpgRepository.ProgramInfo>> = emptyMap()
+    @Volatile
+    private var cachedGuideAtMs: Long = 0L
 
     val CHANNEL_CATEGORIES = listOf(
         "All Channels",
@@ -236,9 +247,14 @@ object TvhUiRepository {
 
     suspend fun loadCurrentEpgMap(
         context: Context,
-        channels: List<TvhChannel>
+        channels: List<TvhChannel>,
+        forceRefresh: Boolean = false
     ): Map<Long, EpgRepository.ChannelEpg> = withContext(Dispatchers.IO) {
         if (channels.isEmpty()) return@withContext emptyMap()
+        val now = System.currentTimeMillis()
+        if (!forceRefresh && cachedCurrentEpg.isNotEmpty() && (now - cachedCurrentEpgAtMs) < EPG_CACHE_TTL_MS) {
+            return@withContext cachedCurrentEpg
+        }
         val htspToDb = buildHtspToDbIdMap(context, channels)
         val pairs = channels.map { ch ->
             async {
@@ -246,15 +262,23 @@ object TvhUiRepository {
                 ch.id to EpgRepository.getCurrentAndNextProgram(context, queryId)
             }
         }.awaitAll()
-        pairs.toMap()
+        val result = pairs.toMap()
+        cachedCurrentEpg = result
+        cachedCurrentEpgAtMs = now
+        result
     }
 
     suspend fun loadGuideWindow(
         context: Context,
         channels: List<TvhChannel>,
         windowStartMs: Long,
-        windowEndMs: Long
+        windowEndMs: Long,
+        forceRefresh: Boolean = false
     ): Map<Long, List<EpgRepository.ProgramInfo>> = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh && cachedGuidePrograms.isNotEmpty() && (now - cachedGuideAtMs) < EPG_CACHE_TTL_MS) {
+            return@withContext cachedGuidePrograms
+        }
         val rawByDbId = EpgRepository.getAllProgramsInWindow(context, windowStartMs, windowEndMs)
         val htspToDb = buildHtspToDbIdMap(context, channels)
         val dbToHtsp = htspToDb.entries.associate { (htspId, dbId) -> dbId to htspId }
@@ -283,6 +307,10 @@ object TvhUiRepository {
                     }
                 }
             }
+        }
+        if (mapped.isNotEmpty()) {
+            cachedGuidePrograms = mapped
+            cachedGuideAtMs = System.currentTimeMillis()
         }
         mapped
     }

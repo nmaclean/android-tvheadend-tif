@@ -107,6 +107,7 @@ class TvPlayerActivity : FragmentActivity() {
     private val settings by lazy { TvhSettings(this) }
 
     private val osdVisibleState = mutableStateOf(false)
+    private val isTuningState = mutableStateOf(false)
     private val osdInteractionTickState = mutableIntStateOf(0)
     private val osdChannelState = mutableStateOf<TvhChannel?>(null)
     private val osdCurrentEpgState = mutableStateOf<EpgRepository.ChannelEpg?>(null)
@@ -182,6 +183,7 @@ class TvPlayerActivity : FragmentActivity() {
 
             override fun onVideoAvailable(inputId: String) {
                 Log.i("TvPlayerActivity", "TvView onVideoAvailable: inputId=$inputId")
+                isTuningState.value = false
             }
 
             override fun onVideoUnavailable(inputId: String, reason: Int) {
@@ -209,6 +211,7 @@ class TvPlayerActivity : FragmentActivity() {
                 Box(modifier = Modifier.fillMaxSize()) {
                     PlayerOsdOverlay(
                         visible = osdVisibleState.value && !guideOverlayVisibleState.value && !trackOverlayVisibleState.value,
+                        isTuning = isTuningState.value,
                         interactionTick = osdInteractionTickState.intValue,
                         currentChannel = osdChannelState.value,
                         currentEpg = osdCurrentEpgState.value,
@@ -362,6 +365,7 @@ class TvPlayerActivity : FragmentActivity() {
                 }
 
                 Log.i("TvPlayerActivity", "Immediate tune for channel: ${initialChannel.name} ($idLong) on $targetInputId")
+                isTuningState.value = true
                 tvView.tune(targetInputId, TvContract.buildChannelUri(idLong))
                 showTopOsdBanner(initialChannel)
             }
@@ -487,6 +491,7 @@ class TvPlayerActivity : FragmentActivity() {
         currentlyTunedStreamKey = streamKey
 
         Log.i("TvPlayerActivity", "Tuning TIF TvView with inputId=$inputId, channelUri=$channelUri")
+        isTuningState.value = true
         tvView.tune(inputId, channelUri)
         showTopOsdBanner(channel)
     }

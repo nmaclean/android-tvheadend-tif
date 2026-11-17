@@ -50,6 +50,9 @@ import kotlinx.coroutines.launch
 @OptIn(UnstableApi::class)
 class MainActivity : ComponentActivity() {
 
+    private val shortcutNavTick = mutableIntStateOf(0)
+    private val shortcutDestination = mutableStateOf<TvhNavDestination?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -113,6 +116,27 @@ class MainActivity : ComponentActivity() {
             channels = loadedChannels
             currentEpg = TvhUiRepository.loadCurrentEpgMap(this@MainActivity, loadedChannels)
             isLoadingChannels = false
+            // Pre-warm the 4-hour Guide EPG cache in background so opening Guide is instant
+            if (loadedChannels.isNotEmpty()) {
+                val startMs = System.currentTimeMillis() - 30 * 60_000L
+                windowStartMs = startMs
+                guidePrograms = TvhUiRepository.loadGuideWindow(
+                    this@MainActivity,
+                    loadedChannels,
+                    startMs,
+                    startMs + 4 * 60 * 60_000L
+                )
+            }
+        }
+
+        LaunchedEffect(shortcutNavTick.intValue) {
+            val dest = shortcutDestination.value
+            if (shortcutNavTick.intValue > 0 && dest != null) {
+                selectedDestination = dest
+                if (dest == TvhNavDestination.GUIDE) {
+                    focusGuideTick++
+                }
+            }
         }
 
         LaunchedEffect(selectedDestination, channels) {
@@ -328,6 +352,11 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_GUIDE) {
+            shortcutDestination.value = TvhNavDestination.GUIDE
+            shortcutNavTick.intValue++
+            return true
+        }
         if (keyCode == KeyEvent.KEYCODE_SETTINGS || keyCode == KeyEvent.KEYCODE_MENU) {
             startActivity(Intent(this, InputManagerActivity::class.java))
             return true
