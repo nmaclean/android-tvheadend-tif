@@ -70,6 +70,22 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         private const val ID_BACK = 9L
     }
 
+    private var hostValue = ""
+    private var htspPortValue = TvhConstants.DEFAULT_HTSP_PORT
+    private var httpPortValue = TvhConstants.DEFAULT_HTTP_PORT
+    private var usernameValue = ""
+    private var passwordValue = ""
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        val settings = TvhSettings(requireContext())
+        hostValue = settings.host
+        htspPortValue = if (settings.htspPort > 0) settings.htspPort else TvhConstants.DEFAULT_HTSP_PORT
+        httpPortValue = if (settings.httpPort > 0) settings.httpPort else TvhConstants.DEFAULT_HTTP_PORT
+        usernameValue = settings.username
+        passwordValue = settings.password
+    }
+
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = "Server Credentials"
         val description = "Enter your server IP address, HTSP port, and optional authentication credentials."
@@ -93,38 +109,34 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     }
 
     override fun onCreateActions(actions: MutableList<GuidedAction>, savedInstanceState: Bundle?) {
-        val settings = TvhSettings(requireContext())
-
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_HOST)
                 .title("Server IP / Host")
-                .editTitle(settings.host)
-                .description(TvhSetupInputValidator.formatHostDescription(settings.host))
+                .editTitle(hostValue)
+                .description(TvhSetupInputValidator.formatHostDescription(hostValue))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
                 .build()
         )
 
-        val currentHtspPort = if (settings.htspPort > 0) settings.htspPort else TvhConstants.DEFAULT_HTSP_PORT
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_PORT)
                 .title("HTSP Port")
-                .editTitle(currentHtspPort.toString())
-                .description(TvhSetupInputValidator.formatPortDescription(settings.htspPort, TvhConstants.DEFAULT_HTSP_PORT, "HTSP"))
+                .editTitle(htspPortValue.toString())
+                .description(TvhSetupInputValidator.formatPortDescription(htspPortValue, TvhConstants.DEFAULT_HTSP_PORT, "HTSP"))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_NUMBER)
                 .build()
         )
 
-        val currentHttpPort = if (settings.httpPort > 0) settings.httpPort else TvhConstants.DEFAULT_HTTP_PORT
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_HTTP_PORT)
                 .title("HTTP Stream Port")
-                .editTitle(currentHttpPort.toString())
-                .description(TvhSetupInputValidator.formatPortDescription(settings.httpPort, TvhConstants.DEFAULT_HTTP_PORT, "HTTP"))
+                .editTitle(httpPortValue.toString())
+                .description(TvhSetupInputValidator.formatPortDescription(httpPortValue, TvhConstants.DEFAULT_HTTP_PORT, "HTTP"))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_NUMBER)
                 .build()
@@ -134,8 +146,8 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
             GuidedAction.Builder(activity)
                 .id(ID_USER)
                 .title("Username")
-                .editTitle(settings.username)
-                .description(TvhSetupInputValidator.formatUsernameDescription(settings.username))
+                .editTitle(usernameValue)
+                .description(TvhSetupInputValidator.formatUsernameDescription(usernameValue))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_TEXT)
                 .build()
@@ -145,8 +157,8 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
             GuidedAction.Builder(activity)
                 .id(ID_PASS)
                 .title("Password")
-                .editTitle(settings.password)
-                .description(TvhSetupInputValidator.formatPasswordDescription(settings.password))
+                .editTitle(passwordValue)
+                .description(TvhSetupInputValidator.formatPasswordDescription(passwordValue))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
                 .build()
@@ -193,34 +205,8 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         val password: String
     )
 
-    private fun readFormValues(): FormValues {
-        val existingPassword = TvhSettings(requireContext()).password
-        val hostAction = findActionById(ID_HOST)
-        val portAction = findActionById(ID_PORT)
-        val httpPortAction = findActionById(ID_HTTP_PORT)
-        val userAction = findActionById(ID_USER)
-        val passAction = findActionById(ID_PASS)
-
-        val host = TvhSetupInputValidator.normalizeHost(hostAction?.description ?: hostAction?.editTitle)
-        val htspPort = TvhSetupInputValidator.normalizePort(
-            portAction?.description ?: portAction?.editTitle,
-            TvhConstants.DEFAULT_HTSP_PORT
-        )
-        val httpPort = TvhSetupInputValidator.normalizePort(
-            httpPortAction?.description ?: httpPortAction?.editTitle,
-            TvhConstants.DEFAULT_HTTP_PORT
-        )
-        val username = TvhSetupInputValidator.normalizeOptionalText(
-            userAction?.description ?: userAction?.editTitle,
-            "Optional username"
-        )
-        val password = TvhSetupInputValidator.resolvePassword(
-            passAction?.editTitle ?: passAction?.description,
-            existingPassword,
-            "Optional password"
-        )
-        return FormValues(host, htspPort, httpPort, username, password)
-    }
+    private fun readFormValues(): FormValues =
+        FormValues(hostValue, htspPortValue, httpPortValue, usernameValue, passwordValue)
 
     override fun onGuidedActionClicked(action: GuidedAction) {
         if (action.id == ID_BACK) {
@@ -283,43 +269,47 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     }
 
     override fun onGuidedActionEditedAndProceed(action: GuidedAction): Long {
-        val index = findActionPositionById(action.id)
-        if (index >= 0) {
-            val trimmed = action.editTitle?.toString()?.trim().orEmpty()
-            val (newEditTitle, newDesc) = when (action.id) {
-                ID_HOST -> trimmed to TvhSetupInputValidator.formatHostDescription(trimmed)
-                ID_PORT -> {
-                    val port = TvhSetupInputValidator.normalizePort(trimmed, TvhConstants.DEFAULT_HTSP_PORT)
-                    port.toString() to port.toString()
-                }
-                ID_HTTP_PORT -> {
-                    val port = TvhSetupInputValidator.normalizePort(trimmed, TvhConstants.DEFAULT_HTTP_PORT)
-                    port.toString() to port.toString()
-                }
-                ID_USER -> trimmed to TvhSetupInputValidator.formatUsernameDescription(trimmed)
-                ID_PASS -> trimmed to TvhSetupInputValidator.formatPasswordDescription(trimmed)
-                else -> trimmed to trimmed
-            }
-
-            val updatedAction = GuidedAction.Builder(context)
-                .id(action.id)
-                .title(action.title)
-                .editTitle(newEditTitle)
-                .description(newDesc)
-                .editable(action.isEditable)
-                .editInputType(action.editInputType)
-                .build()
-            actions[index] = updatedAction
-            notifyActionChanged(index)
-        }
+        applyEditedAction(action)
         return GuidedAction.ACTION_ID_CURRENT
     }
 
     override fun onGuidedActionEditCanceled(action: GuidedAction) {
+        applyEditedAction(action)
+    }
+
+    private fun applyEditedAction(action: GuidedAction) {
         val index = findActionPositionById(action.id)
-        if (index >= 0) {
-            notifyActionChanged(index)
+        if (index < 0) return
+
+        val trimmed = action.editTitle?.toString()?.trim().orEmpty()
+        when (action.id) {
+            ID_HOST -> {
+                hostValue = TvhSetupInputValidator.normalizeHost(trimmed)
+                action.editTitle = hostValue
+                action.description = TvhSetupInputValidator.formatHostDescription(hostValue)
+            }
+            ID_PORT -> {
+                htspPortValue = TvhSetupInputValidator.normalizePort(trimmed, TvhConstants.DEFAULT_HTSP_PORT)
+                action.editTitle = htspPortValue.toString()
+                action.description = htspPortValue.toString()
+            }
+            ID_HTTP_PORT -> {
+                httpPortValue = TvhSetupInputValidator.normalizePort(trimmed, TvhConstants.DEFAULT_HTTP_PORT)
+                action.editTitle = httpPortValue.toString()
+                action.description = httpPortValue.toString()
+            }
+            ID_USER -> {
+                usernameValue = TvhSetupInputValidator.normalizeOptionalText(trimmed, "Optional username")
+                action.editTitle = usernameValue
+                action.description = TvhSetupInputValidator.formatUsernameDescription(usernameValue)
+            }
+            ID_PASS -> {
+                passwordValue = TvhSetupInputValidator.resolvePassword(trimmed, passwordValue, "Optional password")
+                action.editTitle = passwordValue
+                action.description = TvhSetupInputValidator.formatPasswordDescription(passwordValue)
+            }
         }
+        notifyActionChanged(index)
     }
 }
 
