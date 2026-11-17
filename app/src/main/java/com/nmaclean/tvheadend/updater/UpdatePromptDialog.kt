@@ -8,7 +8,7 @@ import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
+import android.app.AlertDialog
 import com.nmaclean.tvheadend.BuildConfig
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
