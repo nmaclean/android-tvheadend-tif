@@ -197,9 +197,10 @@ class MainActivity : ComponentActivity() {
 
     private fun launchPlayerForChannel(channel: TvhChannel) {
         val intent = Intent(this, TvPlayerActivity::class.java).apply {
-            putExtra("channel_id", channel.id)
-            putExtra("stream_key", channel.uuid.ifEmpty { channel.id.toString() })
-            data = TvContract.buildChannelUri(channel.id)
+            putExtra("channel_id", channel.id.toString())
+            putExtra("channel_name", channel.name)
+            putExtra("channel_number", channel.number)
+            putExtra("input_id", channel.inputId)
         }
         startActivity(intent)
     }

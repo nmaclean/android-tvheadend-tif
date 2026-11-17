@@ -233,7 +233,9 @@ class TvPlayerActivity : FragmentActivity() {
             epgChannelSelected = false
         }
 
-        val channelId = intent.getStringExtra("channel_id") ?: ""
+        val channelId = intent.getStringExtra("channel_id")
+            ?: intent.getLongExtra("channel_id", -1L).takeIf { it > 0L }?.toString()
+            ?: ""
         val channelName = intent.getStringExtra("channel_name") ?: "Channel"
         val channelNum = intent.getIntExtra("channel_number", 1)
         val channelInputId = intent.getStringExtra("input_id") ?: ""
