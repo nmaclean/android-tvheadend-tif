@@ -63,6 +63,9 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
     private var lastAudioSampleTimeUs: Long = C.TIME_UNSET
     private var waitingForSubscriptionStart = true
     private var firstPacketReported = false
+    private val lenBytes = ByteArray(4)
+    private var msgBuffer = ByteArray(64 * 1024)
+    private val sampleParsable = ParsableByteArray()
 
     override fun init(output: ExtractorOutput) {
         this.extractorOutput = output
@@ -78,28 +81,32 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
     override fun read(input: ExtractorInput, seekPosition: PositionHolder): Int {
         if (released) return Extractor.RESULT_END_OF_INPUT
 
-        val lenBytes = ByteArray(4)
         try {
             input.readFully(lenBytes, 0, 4)
         } catch (e: EOFException) {
             return Extractor.RESULT_END_OF_INPUT
         }
 
-        val length = ByteBuffer.wrap(lenBytes).int
+        val length = ((lenBytes[0].toInt() and 0xFF) shl 24) or
+            ((lenBytes[1].toInt() and 0xFF) shl 16) or
+            ((lenBytes[2].toInt() and 0xFF) shl 8) or
+            (lenBytes[3].toInt() and 0xFF)
         if (length <= 0 || length > 10 * 1024 * 1024) {
             Log.e(TAG, "Invalid HTSP message length: $length")
             throw IOException("Invalid HTSP message length: $length")
         }
 
-        val payload = ByteArray(length)
+        if (length > msgBuffer.size) {
+            msgBuffer = ByteArray(length)
+        }
         try {
-            input.readFully(payload, 0, length)
+            input.readFully(msgBuffer, 0, length)
         } catch (e: EOFException) {
             return Extractor.RESULT_END_OF_INPUT
         }
 
         @Suppress("UNCHECKED_CAST")
-        val msg = Htsmsg.decode(payload) as? Map<String, Any> ?: return Extractor.RESULT_CONTINUE
+        val msg = Htsmsg.decode(msgBuffer, 0, length) as? Map<String, Any> ?: return Extractor.RESULT_CONTINUE
         val method = msg["method"] as? String
 
         when (method) {
@@ -611,9 +618,9 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                     val remainingSize = payload.size - offset
                     if (remainingSize > headerSize) {
                         val sampleSize = remainingSize - headerSize
-                        val parsable = ParsableByteArray(payload, offset + remainingSize)
-                        parsable.setPosition(offset + headerSize)
-                        trackOutput.sampleData(parsable, sampleSize)
+                        sampleParsable.reset(payload, offset + remainingSize)
+                        sampleParsable.setPosition(offset + headerSize)
+                        trackOutput.sampleData(sampleParsable, sampleSize)
                         val frameTimeUs = sampleTimeUs + (sampleCount * lastFrameDurationUs)
                         trackOutput.sampleMetadata(
                             frameTimeUs,
@@ -628,9 +635,9 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 }
 
                 val sampleSize = frameLength - headerSize
-                val parsable = ParsableByteArray(payload, offset + frameLength)
-                parsable.setPosition(offset + headerSize)
-                trackOutput.sampleData(parsable, sampleSize)
+                sampleParsable.reset(payload, offset + frameLength)
+                sampleParsable.setPosition(offset + headerSize)
+                trackOutput.sampleData(sampleParsable, sampleSize)
 
                 val freqIdx = if (offset + 2 < payload.size) (payload[offset + 2].toInt() and 0x3C) shr 2 else -1
                 val sampleRate = when (freqIdx) {
@@ -741,8 +748,8 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             val decoder = mp2Decoders.getOrPut(streamIndex) { Mp2Decoder() }
             val pcmData = decoder.decodeFrame(payload, 0, payload.size)
             if (pcmData != null) {
-                val parsable = ParsableByteArray(pcmData)
-                trackOutput.sampleData(parsable, pcmData.size)
+                sampleParsable.reset(pcmData, pcmData.size)
+                trackOutput.sampleData(sampleParsable, pcmData.size)
                 trackOutput.sampleMetadata(
                     sampleTimeUs,
                     C.BUFFER_FLAG_KEY_FRAME,
@@ -754,8 +761,8 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 Log.w(TAG, "Mp2Decoder failed to decode frame for stream $streamIndex (size=${payload.size}); skipping frame")
             }
         } else {
-            val parsableByteArray = ParsableByteArray(payload)
-            trackOutput.sampleData(parsableByteArray, payload.size)
+            sampleParsable.reset(payload, payload.size)
+            trackOutput.sampleData(sampleParsable, payload.size)
             trackOutput.sampleMetadata(
                 sampleTimeUs,
                 if (isKeyframe) C.BUFFER_FLAG_KEY_FRAME else 0,

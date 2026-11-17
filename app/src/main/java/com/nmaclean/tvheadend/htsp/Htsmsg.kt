@@ -109,78 +109,78 @@ object Htsmsg {
         )
     }
 
+    private fun readInt32BE(bytes: ByteArray, offset: Int): Int {
+        return ((bytes[offset].toInt() and 0xFF) shl 24) or
+            ((bytes[offset + 1].toInt() and 0xFF) shl 16) or
+            ((bytes[offset + 2].toInt() and 0xFF) shl 8) or
+            (bytes[offset + 3].toInt() and 0xFF)
+    }
+
+    private fun readS64LE(bytes: ByteArray, offset: Int, length: Int): Long {
+        var value = 0L
+        for (i in 0 until length) {
+            value = value or ((bytes[offset + i].toLong() and 0xFF) shl (8 * i))
+        }
+        return value
+    }
+
     /**
      * Decodes an HTSMSG binary payload into a key-value map.
      *
      * @param bytes HTSMSG binary frame payload (without the 4-byte length prefix).
+     * @param offset Start offset within [bytes].
+     * @param length Number of valid bytes starting at [offset].
      * @return Map containing decoded strings, longs, byte arrays, nested maps, or lists.
      */
     @Suppress("UNCHECKED_CAST")
-    fun decode(bytes: ByteArray): Map<String, Any?> {
+    @JvmOverloads
+    fun decode(bytes: ByteArray, offset: Int = 0, length: Int = bytes.size): Map<String, Any?> {
         val map = mutableMapOf<String, Any?>()
-        var index = 0
-        val limit = bytes.size
+        var index = offset
+        val limit = minOf(bytes.size, offset + length)
         while (index < limit) {
             if (index + 6 > limit) break
             val type = bytes[index++].toInt() and 0xFF
             val nameLen = bytes[index++].toInt() and 0xFF
-            val dataLen = ByteBuffer.wrap(bytes, index, 4).int
+            val dataLen = readInt32BE(bytes, index)
             index += 4
 
             if (dataLen < 0 || index + nameLen > limit || index + nameLen + dataLen > limit) break
             val name = String(bytes, index, nameLen, StandardCharsets.UTF_8)
             index += nameLen
 
-            val data = ByteArray(dataLen)
-            System.arraycopy(bytes, index, data, 0, dataLen)
-            index += dataLen
-
             when (type) {
-                TYPE_STR -> map[name] = String(data, StandardCharsets.UTF_8)
-                TYPE_S64 -> {
-                    var l = 0L
-                    for (i in data.indices) {
-                        l = l or ((data[i].toLong() and 0xFF) shl (8 * i))
-                    }
-                    map[name] = l
-                }
-                TYPE_BIN -> map[name] = data
-                TYPE_MAP -> map[name] = decode(data)
+                TYPE_STR -> map[name] = String(bytes, index, dataLen, StandardCharsets.UTF_8)
+                TYPE_S64 -> map[name] = readS64LE(bytes, index, dataLen)
+                TYPE_BIN -> map[name] = bytes.copyOfRange(index, index + dataLen)
+                TYPE_MAP -> map[name] = decode(bytes, index, dataLen)
                 TYPE_LIST -> {
                     val list = mutableListOf<Any?>()
-                    var listIndex = 0
-                    while (listIndex < data.size) {
-                        if (listIndex + 5 > data.size) break
-                        val itemType = data[listIndex++].toInt() and 0xFF
-                        val itemFieldType = itemType
-                        val itemNameLen = data[listIndex++].toInt() and 0xFF
-                        if (listIndex + 4 > data.size) break
-                        val itemDataLen = ByteBuffer.wrap(data, listIndex, 4).int
+                    var listIndex = index
+                    val listLimit = index + dataLen
+                    while (listIndex < listLimit) {
+                        if (listIndex + 6 > listLimit) break
+                        val itemFieldType = bytes[listIndex++].toInt() and 0xFF
+                        val itemNameLen = bytes[listIndex++].toInt() and 0xFF
+                        val itemDataLen = readInt32BE(bytes, listIndex)
                         listIndex += 4
-                        
+
                         listIndex += itemNameLen // Skip name bytes if any (should be 0)
-                        
-                        if (itemDataLen < 0 || listIndex + itemDataLen > data.size) break
-                        val itemData = ByteArray(itemDataLen)
-                        System.arraycopy(data, listIndex, itemData, 0, itemDataLen)
-                        listIndex += itemDataLen
+
+                        if (itemDataLen < 0 || listIndex + itemDataLen > listLimit) break
 
                         when (itemFieldType) {
-                            TYPE_STR -> list.add(String(itemData, StandardCharsets.UTF_8))
-                            TYPE_S64 -> {
-                                var l = 0L
-                                for (i in itemData.indices) {
-                                    l = l or ((itemData[i].toLong() and 0xFF) shl (8 * i))
-                                }
-                                list.add(l)
-                            }
-                            TYPE_BIN -> list.add(itemData)
-                            TYPE_MAP -> list.add(decode(itemData))
+                            TYPE_STR -> list.add(String(bytes, listIndex, itemDataLen, StandardCharsets.UTF_8))
+                            TYPE_S64 -> list.add(readS64LE(bytes, listIndex, itemDataLen))
+                            TYPE_BIN -> list.add(bytes.copyOfRange(listIndex, listIndex + itemDataLen))
+                            TYPE_MAP -> list.add(decode(bytes, listIndex, itemDataLen))
                         }
+                        listIndex += itemDataLen
                     }
                     map[name] = list
                 }
             }
+            index += dataLen
         }
         return map
     }
