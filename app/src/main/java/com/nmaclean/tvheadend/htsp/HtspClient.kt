@@ -551,8 +551,12 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                 "offset" to offset
             )
         )
-        val response = readResponse(seq.toLong()) ?: return null
-        return response["data"] as? ByteArray
+        val response = readResponse(seq.toLong(), skipLargeMuxPkt = false) ?: return null
+        if (response.containsKey("error") || response.containsKey("noaccess")) {
+            Log.e(TAG, "HTSP fileRead error for id=$fileId offset=$offset: ${response["error"] ?: response["noaccess"]}")
+            return null
+        }
+        return (response["data"] as? ByteArray) ?: ByteArray(0)
     }
 
     /**
@@ -716,7 +720,12 @@ class HtspClient(val host: String, val port: Int) : Closeable {
      * 'unsubscribe' responses) encountered while waiting are safely discarded.
      */
     @Synchronized
-    fun readResponse(expectedSeq: Long, timeoutMs: Long = TvhConstants.SOCKET_SO_TIMEOUT_MS.toLong()): Map<String, Any?>? {
+    @JvmOverloads
+    fun readResponse(
+        expectedSeq: Long,
+        timeoutMs: Long = TvhConstants.SOCKET_SO_TIMEOUT_MS.toLong(),
+        skipLargeMuxPkt: Boolean = true
+    ): Map<String, Any?>? {
         val startTime = System.currentTimeMillis()
         val origTimeout = try { socket?.soTimeout ?: 0 } catch (_: Exception) { 0 }
 
@@ -724,7 +733,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             socket?.soTimeout = timeoutMs.toInt()
             while (System.currentTimeMillis() - startTime < timeoutMs) {
                 @Suppress("UNCHECKED_CAST")
-                val msg = readMessage() as? Map<String, Any?> ?: continue
+                val msg = readMessage(skipLargeMuxPkt = skipLargeMuxPkt) as? Map<String, Any?> ?: continue
                 val seq = (msg["seq"] as? Number)?.toLong()
                 val method = msg["method"] as? String
                 if (seq == expectedSeq) {

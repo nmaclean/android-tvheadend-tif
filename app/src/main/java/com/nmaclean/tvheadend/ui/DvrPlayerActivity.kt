@@ -6,10 +6,10 @@ import android.util.Base64
 import android.util.Log
 import android.view.KeyEvent
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
-import androidx.appcompat.app.AlertDialog
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,12 +48,15 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.player.HtspDvrDataSource
 import com.nmaclean.tvheadend.sync.DvrRepository
+import com.nmaclean.tvheadend.ui.components.TvhActionModal
+import com.nmaclean.tvheadend.ui.components.TvhModalAction
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvClockHeader
 import com.nmaclean.tvheadend.ui.theme.TvTheme
@@ -72,6 +75,7 @@ class DvrPlayerActivity : ComponentActivity() {
         const val EXTRA_TITLE = "dvr_title"
         const val EXTRA_CHANNEL_NAME = "dvr_channel_name"
         const val EXTRA_RESUME_MS = "dvr_resume_ms"
+        const val EXTRA_AUTO_RESUME = "dvr_auto_resume"
         private const val TAG = "DvrPlayerActivity"
     }
 
@@ -86,6 +90,7 @@ class DvrPlayerActivity : ComponentActivity() {
     private var isPlayingState by mutableStateOf(true)
     private var positionMsState by mutableLongStateOf(0L)
     private var durationMsState by mutableLongStateOf(0L)
+    private var resumePromptMs by mutableStateOf<Long?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -95,7 +100,8 @@ class DvrPlayerActivity : ComponentActivity() {
         title = intent.getStringExtra(EXTRA_TITLE) ?: "Recording"
         channelName = intent.getStringExtra(EXTRA_CHANNEL_NAME) ?: ""
         val passedResume = intent.getLongExtra(EXTRA_RESUME_MS, 0L)
-        val savedResume = maxOf(passedResume, DvrRepository.getResumePosition(this, dvrId))
+        val autoResume = intent.getBooleanExtra(EXTRA_AUTO_RESUME, false)
+        val savedResume = if (autoResume) passedResume else maxOf(passedResume, DvrRepository.getResumePosition(this, dvrId))
 
         val exo = ExoPlayer.Builder(this).build().also { p ->
             player = p
@@ -106,10 +112,17 @@ class DvrPlayerActivity : ComponentActivity() {
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    Log.w(TAG, "HTSP DVR playback error (${error.message}); attempting HTTP /dvrfile fallback")
+                    Log.w(TAG, "DVR playback error (${error.message})")
                     if (!usedHttpFallback) {
                         usedHttpFallback = true
+                        Log.w(TAG, "Attempting HTTP /dvrfile/$dvrId fallback...")
                         loadHttpFallback(p, savedResume)
+                    } else {
+                        Toast.makeText(
+                            this@DvrPlayerActivity,
+                            "Unable to play recording: ${error.errorCodeName}",
+                            Toast.LENGTH_LONG
+                        ).show()
                     }
                 }
             })
@@ -117,42 +130,68 @@ class DvrPlayerActivity : ComponentActivity() {
 
         startHtspPlayback(exo)
 
-        if (savedResume > 5_000L) {
-            val mins = (savedResume / 60_000L).toInt()
-            val secs = ((savedResume % 60_000L) / 1000L).toInt()
-            AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
-                .setTitle("Resume Playback?")
-                .setMessage("Resume \"$title\" from ${String.format("%02d:%02d", mins, secs)}?")
-                .setPositiveButton("Resume") { _, _ ->
-                    exo.seekTo(savedResume)
-                    exo.playWhenReady = true
-                }
-                .setNegativeButton("Start Over") { _, _ ->
-                    exo.seekTo(0L)
-                    exo.playWhenReady = true
-                }
-                .show()
+        if (autoResume && savedResume > 5_000L) {
+            exo.seekTo(savedResume)
+            exo.playWhenReady = true
+        } else if (!autoResume && savedResume > 5_000L) {
+            resumePromptMs = savedResume
+            exo.playWhenReady = false
         } else {
             exo.playWhenReady = true
         }
 
         setContent {
             TvTheme {
-                DvrPlayerScreen(
-                    player = exo,
-                    title = title,
-                    channelName = channelName,
-                    hudVisible = hudVisible,
-                    hudInteractionTick = hudInteractionTick,
-                    isPlaying = isPlayingState,
-                    positionMs = positionMsState,
-                    durationMs = durationMsState,
-                    onPollProgress = {
-                        positionMsState = exo.currentPosition.coerceAtLeast(0L)
-                        durationMsState = exo.duration.coerceAtLeast(0L)
-                    },
-                    onHudTimeout = { hudVisible = false }
-                )
+                Box(modifier = Modifier.fillMaxSize()) {
+                    DvrPlayerScreen(
+                        player = exo,
+                        title = title,
+                        channelName = channelName,
+                        hudVisible = hudVisible,
+                        hudInteractionTick = hudInteractionTick,
+                        isPlaying = isPlayingState,
+                        positionMs = positionMsState,
+                        durationMs = durationMsState,
+                        onPollProgress = {
+                            positionMsState = exo.currentPosition.coerceAtLeast(0L)
+                            durationMsState = exo.duration.coerceAtLeast(0L)
+                        },
+                        onHudTimeout = { hudVisible = false }
+                    )
+
+                    val promptPos = resumePromptMs
+                    if (promptPos != null) {
+                        TvhActionModal(
+                            title = "Resume Playback?",
+                            subtitle = if (channelName.isNotBlank()) "$title • $channelName" else title,
+                            body = "Continue watching from ${formatDuration(promptPos)} or start from the beginning.",
+                            badgeText = "RECORDING",
+                            actions = listOf(
+                                TvhModalAction(
+                                    label = "Resume (${formatDuration(promptPos)})",
+                                    selected = true,
+                                    onClick = {
+                                        resumePromptMs = null
+                                        exo.seekTo(promptPos)
+                                        exo.playWhenReady = true
+                                    }
+                                ),
+                                TvhModalAction(
+                                    label = "Start Over",
+                                    onClick = {
+                                        resumePromptMs = null
+                                        exo.seekTo(0L)
+                                        exo.playWhenReady = true
+                                    }
+                                )
+                            ),
+                            onDismiss = {
+                                resumePromptMs = null
+                                exo.playWhenReady = true
+                            }
+                        )
+                    }
+                }
             }
         }
     }
@@ -160,7 +199,8 @@ class DvrPlayerActivity : ComponentActivity() {
     private fun startHtspPlayback(exo: ExoPlayer) {
         val settings = TvhSettings(this)
         val uri = Uri.parse("htspdvr://${settings.host}:${settings.htspPort}/$dvrId")
-        val source = ProgressiveMediaSource.Factory(HtspDvrDataSource.Factory(this))
+        val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
+        val source = ProgressiveMediaSource.Factory(HtspDvrDataSource.Factory(this), extractorsFactory)
             .createMediaSource(MediaItem.fromUri(uri))
         exo.setMediaSource(source)
         exo.prepare()
@@ -175,7 +215,8 @@ class DvrPlayerActivity : ComponentActivity() {
             mapOf("Authorization" to "Basic $encoded")
         } else emptyMap()
         val httpFactory = DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
-        val source = ProgressiveMediaSource.Factory(httpFactory)
+        val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
+        val source = ProgressiveMediaSource.Factory(httpFactory, extractorsFactory)
             .createMediaSource(MediaItem.fromUri(Uri.parse(url)))
         exo.setMediaSource(source)
         exo.prepare()

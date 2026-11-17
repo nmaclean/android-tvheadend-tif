@@ -38,6 +38,8 @@ import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.sync.TvhSyncManager
 import com.nmaclean.tvheadend.sync.TvhSyncWorker
 import com.nmaclean.tvheadend.ui.components.ProgramDetailsModal
+import com.nmaclean.tvheadend.ui.components.TvhActionModal
+import com.nmaclean.tvheadend.ui.components.TvhModalAction
 import com.nmaclean.tvheadend.ui.components.TvhNavDestination
 import com.nmaclean.tvheadend.ui.components.TvhNavigationRail
 import com.nmaclean.tvheadend.ui.screens.GuideScreen
@@ -121,6 +123,9 @@ class MainActivity : ComponentActivity() {
         var isLoadingChannels by remember { mutableStateOf(true) }
         var windowStartMs by remember { mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L) }
         var selectedProgramModal by remember { mutableStateOf<Pair<TvhChannel, EpgRepository.ProgramInfo>?>(null) }
+        var selectedRecordingModal by remember { mutableStateOf<TvhRecording?>(null) }
+        var selectedCancelModal by remember { mutableStateOf<TvhRecording?>(null) }
+        var selectedSeriesModal by remember { mutableStateOf<TvhSeriesRule?>(null) }
         val guideGridFocusRequester = remember { FocusRequester() }
         var focusGuideTick by remember { mutableIntStateOf(0) }
         val scope = rememberCoroutineScope()
@@ -199,7 +204,7 @@ class MainActivity : ComponentActivity() {
                         currentEpg = currentEpg,
                         recordings = recordings,
                         onChannelClick = onTuneChannel,
-                        onRecordingClick = { rec -> onPlayRecording(rec) {} }
+                        onRecordingClick = { rec -> selectedRecordingModal = rec }
                     )
                     TvhNavDestination.LIVE_TV -> LiveTvScreen(
                         channels = channels,
@@ -237,13 +242,13 @@ class MainActivity : ComponentActivity() {
                         errorMessage = dvrError,
                         onRetry = { scope.launch { DvrRepository.refresh(this@MainActivity, force = true) } },
                         onPlayRecording = { rec ->
-                            onPlayRecording(rec) {}
+                            selectedRecordingModal = rec
                         },
                         onCancelScheduled = { rec ->
-                            onCancelScheduled(rec) {}
+                            selectedCancelModal = rec
                         },
                         onSeriesRuleClick = { rule ->
-                            onDeleteSeriesRule(rule) {}
+                            selectedSeriesModal = rule
                         }
                     )
                     TvhNavDestination.SETTINGS -> {
@@ -312,8 +317,182 @@ class MainActivity : ComponentActivity() {
                         onDismiss = { selectedProgramModal = null }
                     )
                 }
+
+                val recModal = selectedRecordingModal
+                if (recModal != null) {
+                    val resumePosMs = maxOf(
+                        recModal.resumePositionMs,
+                        DvrRepository.getResumePosition(this@MainActivity, recModal.id)
+                    )
+                    val hasResume = resumePosMs > 5_000L
+                    val resumeTotalSec = resumePosMs / 1000L
+                    val resumeMins = resumeTotalSec / 60L
+                    val resumeSecs = resumeTotalSec % 60L
+                    val resumeLabel = String.format("%02d:%02d", resumeMins, resumeSecs)
+
+                    val actions = buildList {
+                        if (hasResume) {
+                            add(
+                                TvhModalAction(
+                                    label = "Resume ($resumeLabel)",
+                                    selected = true,
+                                    onClick = {
+                                        selectedRecordingModal = null
+                                        launchDvrPlayer(recModal, resumePosMs, autoResume = true)
+                                    }
+                                )
+                            )
+                            add(
+                                TvhModalAction(
+                                    label = "Start Over",
+                                    onClick = {
+                                        selectedRecordingModal = null
+                                        launchDvrPlayer(recModal, 0L, autoResume = true)
+                                    }
+                                )
+                            )
+                        } else {
+                            add(
+                                TvhModalAction(
+                                    label = "Play",
+                                    selected = true,
+                                    onClick = {
+                                        selectedRecordingModal = null
+                                        launchDvrPlayer(recModal, 0L, autoResume = true)
+                                    }
+                                )
+                            )
+                        }
+                        add(
+                            TvhModalAction(
+                                label = "Delete",
+                                onClick = {
+                                    selectedRecordingModal = null
+                                    scope.launch {
+                                        val ok = DvrRepository.deleteRecording(this@MainActivity, recModal.id)
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            if (ok) "Deleted '${recModal.title}'" else "Failed to delete recording",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            )
+                        )
+                        add(
+                            TvhModalAction(
+                                label = "Close",
+                                onClick = { selectedRecordingModal = null }
+                            )
+                        )
+                    }
+
+                    TvhActionModal(
+                        title = recModal.title,
+                        subtitle = "${recModal.channelName} • ${recModal.durationMinutes} min",
+                        body = recModal.description.ifBlank {
+                            recModal.subtitle.ifBlank { "Recorded TV programme" }
+                        },
+                        badgeText = if (recModal.watchedPercent > 0) "WATCHED ${recModal.watchedPercent}%" else "RECORDED",
+                        imageUrl = recModal.imageUrl.ifBlank { recModal.channelIcon },
+                        fallbackLabel = recModal.channelName,
+                        actions = actions,
+                        onDismiss = { selectedRecordingModal = null }
+                    )
+                }
+
+                val cancelModal = selectedCancelModal
+                if (cancelModal != null) {
+                    TvhActionModal(
+                        title = "Cancel Scheduled Recording?",
+                        subtitle = "${cancelModal.title} • ${cancelModal.channelName}",
+                        body = TvhUiRepository.formatTimeRange(cancelModal.startTimeMs, cancelModal.stopTimeMs),
+                        badgeText = "SCHEDULED TIMER",
+                        imageUrl = cancelModal.imageUrl.ifBlank { cancelModal.channelIcon },
+                        fallbackLabel = cancelModal.channelName,
+                        actions = listOf(
+                            TvhModalAction(
+                                label = "Cancel Timer",
+                                selected = true,
+                                onClick = {
+                                    selectedCancelModal = null
+                                    scope.launch {
+                                        val ok = DvrRepository.cancelTimer(this@MainActivity, cancelModal.id)
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            if (ok) "Cancelled '${cancelModal.title}'" else "Failed to cancel timer",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            ),
+                            TvhModalAction(
+                                label = "Keep",
+                                onClick = { selectedCancelModal = null }
+                            )
+                        ),
+                        onDismiss = { selectedCancelModal = null }
+                    )
+                }
+
+                val seriesModal = selectedSeriesModal
+                if (seriesModal != null) {
+                    TvhActionModal(
+                        title = seriesModal.title,
+                        subtitle = "${seriesModal.channelName} • ${if (seriesModal.enabled) "Active" else "Paused"}",
+                        body = seriesModal.comment.ifBlank { "AutoRec series recording rule" },
+                        badgeText = "SERIES RULE",
+                        actions = listOf(
+                            TvhModalAction(
+                                label = if (seriesModal.enabled) "Pause Rule" else "Enable Rule",
+                                selected = true,
+                                onClick = {
+                                    selectedSeriesModal = null
+                                    scope.launch {
+                                        val ok = DvrRepository.toggleSeriesRule(this@MainActivity, seriesModal)
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            if (ok) "Updated '${seriesModal.title}'" else "Failed to update rule",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            ),
+                            TvhModalAction(
+                                label = "Delete Rule",
+                                onClick = {
+                                    selectedSeriesModal = null
+                                    scope.launch {
+                                        val ok = DvrRepository.deleteSeriesRule(this@MainActivity, seriesModal.id)
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            if (ok) "Removed rule '${seriesModal.title}'" else "Failed to remove rule",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                }
+                            ),
+                            TvhModalAction(
+                                label = "Close",
+                                onClick = { selectedSeriesModal = null }
+                            )
+                        ),
+                        onDismiss = { selectedSeriesModal = null }
+                    )
+                }
             }
         }
+    }
+
+    private fun launchDvrPlayer(rec: TvhRecording, resumePosMs: Long, autoResume: Boolean) {
+        val playIntent = Intent(this, DvrPlayerActivity::class.java).apply {
+            putExtra(DvrPlayerActivity.EXTRA_DVR_ID, rec.id)
+            putExtra(DvrPlayerActivity.EXTRA_TITLE, rec.title)
+            putExtra(DvrPlayerActivity.EXTRA_CHANNEL_NAME, rec.channelName)
+            putExtra(DvrPlayerActivity.EXTRA_RESUME_MS, resumePosMs)
+            putExtra(DvrPlayerActivity.EXTRA_AUTO_RESUME, autoResume)
+        }
+        dvrPlayerLauncher.launch(playIntent)
     }
 
     private fun launchPlayerForChannel(channel: TvhChannel) {
