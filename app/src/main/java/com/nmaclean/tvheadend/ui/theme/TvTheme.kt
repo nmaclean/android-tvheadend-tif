@@ -9,7 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -140,13 +143,17 @@ fun TvClockHeader(modifier: Modifier = Modifier) {
             color = MidnightCyanTokens.TextPrimary,
             fontSize = 28.sp,
             fontWeight = FontWeight.Light,
-            letterSpacing = 0.5.sp
+            letterSpacing = 0.5.sp,
+            maxLines = 1,
+            softWrap = false
         )
         Text(
             text = dateFormat.format(currentDate),
             color = MidnightCyanTokens.TextSecondary,
             fontSize = 13.sp,
-            fontWeight = FontWeight.Normal
+            fontWeight = FontWeight.Normal,
+            maxLines = 1,
+            softWrap = false
         )
     }
 }
@@ -204,13 +211,14 @@ fun TvTopBarWithClock(
 ) {
     Row(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalAlignment = Alignment.CenterVertically
     ) {
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .clipToBounds()
         ) {
             itemsIndexed(pills) { index, label ->
                 TvhPillButton(
@@ -220,6 +228,7 @@ fun TvTopBarWithClock(
                 )
             }
         }
-        TvClockHeader(modifier = Modifier.padding(start = 16.dp))
+        Spacer(modifier = Modifier.width(24.dp))
+        TvClockHeader()
     }
 }
