@@ -6,15 +6,24 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
+import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.leanback.app.GuidedStepSupportFragment
 import androidx.leanback.widget.GuidanceStylist
 import androidx.leanback.widget.GuidedAction
+import androidx.leanback.widget.GuidedActionsStylist
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.nmaclean.tvheadend.model.TvhConstants
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.TvhSyncManager
 import com.nmaclean.tvheadend.sync.TvhSyncWorker
+import com.nmaclean.tvheadend.ui.MainActivity
 import kotlin.concurrent.thread
 
 class TvhWelcomeFragment : GuidedStepSupportFragment() {
@@ -41,8 +50,7 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
 
     override fun onGuidedActionClicked(action: GuidedAction) {
         if (action.id == ID_START) {
-            val credentialsFragment = TvhCredentialsFragment()
-            add(parentFragmentManager, credentialsFragment)
+            add(parentFragmentManager, TvhCredentialsFragment())
         }
     }
 }
@@ -56,9 +64,10 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         private const val ID_HTTP_PORT = 3L
         private const val ID_USER = 4L
         private const val ID_PASS = 5L
-        private const val ID_SAVE = 6L
-        private const val ID_CLEAR = 7L
-        private const val ID_BACK = 8L
+        private const val ID_TEST_CONNECTION = 6L
+        private const val ID_SAVE = 7L
+        private const val ID_CLEAR = 8L
+        private const val ID_BACK = 9L
     }
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
@@ -68,59 +77,86 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         return GuidanceStylist.Guidance(title, description, breadcrumb, null)
     }
 
+    override fun onCreateActionsStylist(): GuidedActionsStylist {
+        return object : GuidedActionsStylist() {
+            override fun onBindViewHolder(vh: ViewHolder, action: GuidedAction) {
+                super.onBindViewHolder(vh, action)
+                val noExtractFlags = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
+                vh.editableTitleView?.let { edit ->
+                    edit.imeOptions = edit.imeOptions or noExtractFlags
+                }
+                vh.editableDescriptionView?.let { edit ->
+                    edit.imeOptions = edit.imeOptions or noExtractFlags
+                }
+            }
+        }
+    }
+
     override fun onCreateActions(actions: MutableList<GuidedAction>, savedInstanceState: Bundle?) {
         val settings = TvhSettings(requireContext())
 
-        val hostDesc = if (settings.host.isEmpty()) "e.g., 192.168.1.50" else settings.host
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_HOST)
                 .title("Server IP / Host")
-                .description(hostDesc)
+                .editTitle(settings.host)
+                .description(TvhSetupInputValidator.formatHostDescription(settings.host))
                 .editable(true)
+                .editInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
                 .build()
         )
 
-        val portDesc = if (settings.htspPort == 0) "${TvhConstants.DEFAULT_HTSP_PORT} (Default HTSP)" else settings.htspPort.toString()
+        val currentHtspPort = if (settings.htspPort > 0) settings.htspPort else TvhConstants.DEFAULT_HTSP_PORT
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_PORT)
                 .title("HTSP Port")
-                .description(portDesc)
+                .editTitle(currentHtspPort.toString())
+                .description(TvhSetupInputValidator.formatPortDescription(settings.htspPort, TvhConstants.DEFAULT_HTSP_PORT, "HTSP"))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_NUMBER)
                 .build()
         )
 
-        val httpPortDesc = if (settings.httpPort == 0) "${TvhConstants.DEFAULT_HTTP_PORT} (Default HTTP)" else settings.httpPort.toString()
+        val currentHttpPort = if (settings.httpPort > 0) settings.httpPort else TvhConstants.DEFAULT_HTTP_PORT
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_HTTP_PORT)
                 .title("HTTP Stream Port")
-                .description(httpPortDesc)
+                .editTitle(currentHttpPort.toString())
+                .description(TvhSetupInputValidator.formatPortDescription(settings.httpPort, TvhConstants.DEFAULT_HTTP_PORT, "HTTP"))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_NUMBER)
                 .build()
         )
 
-        val userDesc = if (settings.username.isEmpty()) "Optional username" else settings.username
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_USER)
                 .title("Username")
-                .description(userDesc)
+                .editTitle(settings.username)
+                .description(TvhSetupInputValidator.formatUsernameDescription(settings.username))
                 .editable(true)
+                .editInputType(InputType.TYPE_CLASS_TEXT)
                 .build()
         )
 
-        val passDesc = if (settings.password.isEmpty()) "Optional password" else "********"
         actions.add(
             GuidedAction.Builder(activity)
                 .id(ID_PASS)
                 .title("Password")
-                .description(passDesc)
+                .editTitle(settings.password)
+                .description(TvhSetupInputValidator.formatPasswordDescription(settings.password))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                .build()
+        )
+
+        actions.add(
+            GuidedAction.Builder(activity)
+                .id(ID_TEST_CONNECTION)
+                .title("Test Server Connection")
+                .description("Verify HTSP authentication and HTTP stream reachability")
                 .build()
         )
 
@@ -149,6 +185,43 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         )
     }
 
+    private data class FormValues(
+        val host: String,
+        val htspPort: Int,
+        val httpPort: Int,
+        val username: String,
+        val password: String
+    )
+
+    private fun readFormValues(): FormValues {
+        val existingPassword = TvhSettings(requireContext()).password
+        val hostAction = findActionById(ID_HOST)
+        val portAction = findActionById(ID_PORT)
+        val httpPortAction = findActionById(ID_HTTP_PORT)
+        val userAction = findActionById(ID_USER)
+        val passAction = findActionById(ID_PASS)
+
+        val host = TvhSetupInputValidator.normalizeHost(hostAction?.description ?: hostAction?.editTitle)
+        val htspPort = TvhSetupInputValidator.normalizePort(
+            portAction?.description ?: portAction?.editTitle,
+            TvhConstants.DEFAULT_HTSP_PORT
+        )
+        val httpPort = TvhSetupInputValidator.normalizePort(
+            httpPortAction?.description ?: httpPortAction?.editTitle,
+            TvhConstants.DEFAULT_HTTP_PORT
+        )
+        val username = TvhSetupInputValidator.normalizeOptionalText(
+            userAction?.description ?: userAction?.editTitle,
+            "Optional username"
+        )
+        val password = TvhSetupInputValidator.resolvePassword(
+            passAction?.editTitle ?: passAction?.description,
+            existingPassword,
+            "Optional password"
+        )
+        return FormValues(host, htspPort, httpPort, username, password)
+    }
+
     override fun onGuidedActionClicked(action: GuidedAction) {
         if (action.id == ID_BACK) {
             requireActivity().onBackPressedDispatcher.onBackPressed()
@@ -165,40 +238,44 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
             return
         }
 
-        if (action.id == ID_SAVE) {
-            val hostAction = findActionById(ID_HOST)
-            val portAction = findActionById(ID_PORT)
-            val httpPortAction = findActionById(ID_HTTP_PORT)
-            val userAction = findActionById(ID_USER)
-            val passAction = findActionById(ID_PASS)
-
-            val hostText = (hostAction?.description ?: hostAction?.title)?.toString()?.trim() ?: ""
-            val host = if (hostText.startsWith("e.g.")) "" else hostText
-
-            val portText = (portAction?.description ?: portAction?.title)?.toString() ?: ""
-            val port = portText.filter { it.isDigit() }.toIntOrNull() ?: TvhConstants.DEFAULT_HTSP_PORT
-
-            val httpPortText = (httpPortAction?.description ?: httpPortAction?.title)?.toString() ?: ""
-            val httpPort = httpPortText.filter { it.isDigit() }.toIntOrNull() ?: TvhConstants.DEFAULT_HTTP_PORT
-
-            val userText = (userAction?.description ?: userAction?.title)?.toString()?.trim() ?: ""
-            val user = if (userText == "Optional username") "" else userText
-
-            val passText = (passAction?.description ?: passAction?.title)?.toString()?.trim() ?: ""
-            val pass = if (passText == "Optional password" || passText == "********") {
-                TvhSettings(requireContext()).password
-            } else {
-                passText
+        if (action.id == ID_TEST_CONNECTION) {
+            val values = readFormValues()
+            val testIdx = findActionPositionById(ID_TEST_CONNECTION)
+            if (testIdx >= 0) {
+                actions[testIdx].description = "Testing ${values.host}:${values.htspPort}..."
+                notifyActionChanged(testIdx)
             }
 
-            Log.d(TAG, "Saving settings - Host: '$host', Port: $port, HTTP Port: $httpPort, User: '$user'")
+            thread {
+                val res = TvhSyncManager.testServerConnection(
+                    host = values.host,
+                    htspPort = values.htspPort,
+                    httpPort = values.httpPort,
+                    username = values.username,
+                    password = values.password
+                )
+                if (!isAdded) return@thread
+                requireActivity().runOnUiThread {
+                    val idx = findActionPositionById(ID_TEST_CONNECTION)
+                    if (idx >= 0) {
+                        actions[idx].description = res.message
+                        notifyActionChanged(idx)
+                    }
+                }
+            }
+            return
+        }
+
+        if (action.id == ID_SAVE) {
+            val values = readFormValues()
+            Log.d(TAG, "Saving settings - Host: '${values.host}', Port: ${values.htspPort}, HTTP Port: ${values.httpPort}, User: '${values.username}'")
 
             val settings = TvhSettings(requireContext())
-            settings.host = host
-            settings.htspPort = port
-            settings.httpPort = httpPort
-            settings.username = user
-            settings.password = pass
+            settings.host = values.host
+            settings.htspPort = values.htspPort
+            settings.httpPort = values.httpPort
+            settings.username = values.username
+            settings.password = values.password
 
             val resultFragment = TvhSetupResultFragment.newInstance(isScanning = true)
             add(parentFragmentManager, resultFragment)
@@ -208,10 +285,27 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     override fun onGuidedActionEditedAndProceed(action: GuidedAction): Long {
         val index = findActionPositionById(action.id)
         if (index >= 0) {
+            val trimmed = action.editTitle?.toString()?.trim().orEmpty()
+            val (newEditTitle, newDesc) = when (action.id) {
+                ID_HOST -> trimmed to TvhSetupInputValidator.formatHostDescription(trimmed)
+                ID_PORT -> {
+                    val port = TvhSetupInputValidator.normalizePort(trimmed, TvhConstants.DEFAULT_HTSP_PORT)
+                    port.toString() to port.toString()
+                }
+                ID_HTTP_PORT -> {
+                    val port = TvhSetupInputValidator.normalizePort(trimmed, TvhConstants.DEFAULT_HTTP_PORT)
+                    port.toString() to port.toString()
+                }
+                ID_USER -> trimmed to TvhSetupInputValidator.formatUsernameDescription(trimmed)
+                ID_PASS -> trimmed to TvhSetupInputValidator.formatPasswordDescription(trimmed)
+                else -> trimmed to trimmed
+            }
+
             val updatedAction = GuidedAction.Builder(context)
                 .id(action.id)
                 .title(action.title)
-                .description(action.editTitle)
+                .editTitle(newEditTitle)
+                .description(newDesc)
                 .editable(action.isEditable)
                 .editInputType(action.editInputType)
                 .build()
@@ -224,14 +318,6 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     override fun onGuidedActionEditCanceled(action: GuidedAction) {
         val index = findActionPositionById(action.id)
         if (index >= 0) {
-            val updatedAction = GuidedAction.Builder(context)
-                .id(action.id)
-                .title(action.title)
-                .description(action.editTitle)
-                .editable(action.isEditable)
-                .editInputType(action.editInputType)
-                .build()
-            actions[index] = updatedAction
             notifyActionChanged(index)
         }
     }
@@ -263,6 +349,9 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
     private var channelCount = 0
     private var logoCount = 0
     private var programCount = 0
+    private var syncStatusLineView: TextView? = null
+    private var previewRecyclerView: RecyclerView? = null
+    private val previewAdapter = ChannelLogoPreviewAdapter()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -274,12 +363,32 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
         }
     }
 
+    override fun onCreateGuidanceStylist(): GuidanceStylist {
+        return object : GuidanceStylist() {
+            override fun onProvideLayoutId(): Int = R.layout.guidance_setup_scan
+
+            override fun onCreateView(
+                inflater: LayoutInflater,
+                container: ViewGroup?,
+                guidance: Guidance?
+            ): View {
+                val root = super.onCreateView(inflater, container, guidance)
+                syncStatusLineView = root.findViewById(R.id.sync_status_line)
+                previewRecyclerView = root.findViewById<RecyclerView>(R.id.channel_logo_preview_list)?.apply {
+                    layoutManager = LinearLayoutManager(requireContext())
+                    adapter = previewAdapter
+                }
+                return root
+            }
+        }
+    }
+
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = if (isScanning) "Scanning Channels" else "Setup Complete"
         val description = if (isScanning) {
-            "Connecting to Tvheadend server and importing live TV channels, logotypes, and EPG program guide in the background...\n\nPlease wait."
+            "Connecting to Tvheadend server and importing channels & logos..."
         } else {
-            "Successfully imported $channelCount channels, $logoCount logotypes, and $programCount EPG programs from Tvheadend.\n\nSelect Finish below to complete setup and start watching TV."
+            "Imported $channelCount channels • $logoCount logos loaded • $programCount EPG programs.\nSelect Done below to open Live Channels."
         }
         val breadcrumb = "TV Input Setup"
         return GuidanceStylist.Guidance(title, description, breadcrumb, null)
@@ -298,8 +407,8 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
             actions.add(
                 GuidedAction.Builder(activity)
                     .id(ID_FINISH)
-                    .title("Finish")
-                    .description("Complete setup and start watching TV")
+                    .title("Done / Open Live Channels")
+                    .description("Complete setup and browse imported channels")
                     .build()
             )
             actions.add(
@@ -332,7 +441,26 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
         syncStarted = true
 
         thread {
-            val result = TvhSyncManager.performSync(requireContext())
+            val result = TvhSyncManager.performSync(requireContext()) { progress ->
+                if (!isAdded) return@performSync
+                requireActivity().runOnUiThread {
+                    if (!isAdded) return@runOnUiThread
+                    guidanceStylist?.descriptionView?.text = TvhSetupInputValidator.formatProgressSummary(
+                        progress.importedChannels,
+                        progress.totalChannels,
+                        progress.logosLoaded
+                    )
+                    if (progress.currentChannelName.isNotEmpty()) {
+                        syncStatusLineView?.text = "Syncing #${progress.currentChannelNumber} ${progress.currentChannelName}..."
+                    }
+                    progress.latestPreviewItem?.let { item ->
+                        val insertPos = previewAdapter.upsertItem(item)
+                        if (isScanning && insertPos >= 0) {
+                            previewRecyclerView?.scrollToPosition(insertPos)
+                        }
+                    }
+                }
+            }
 
             if (!isAdded) return@thread
 
@@ -344,13 +472,12 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
                     logoCount = result.logoCount
                     programCount = result.programCount
 
-                    // Update actions list
                     val newActions = mutableListOf<GuidedAction>()
                     newActions.add(
                         GuidedAction.Builder(activity)
                             .id(ID_FINISH)
-                            .title("Finish")
-                            .description("Complete setup and start watching TV")
+                            .title("Done / Open Live Channels")
+                            .description("Complete setup and browse imported channels")
                             .build()
                     )
                     newActions.add(
@@ -362,18 +489,15 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
                     )
                     setActions(newActions)
 
-                    // Default focus to the Finish button
                     val finishIndex = findActionPositionById(ID_FINISH)
                     if (finishIndex >= 0) {
                         setSelectedActionPosition(finishIndex)
                     }
 
-                    // Update guidance text
-                    val stylist = guidanceStylist
-                    if (stylist != null) {
-                        stylist.titleView?.text = "Setup Complete"
-                        stylist.descriptionView?.text = "Successfully imported $channelCount channels, $logoCount logotypes, and $programCount EPG programs from Tvheadend.\n\nSelect Finish below to complete setup and start watching TV."
-                    }
+                    guidanceStylist?.titleView?.text = "Setup Complete"
+                    guidanceStylist?.descriptionView?.text =
+                        "Imported $channelCount channels • $logoCount logos loaded • $programCount EPG programs."
+                    syncStatusLineView?.text = "Use D-pad Left to browse the imported channel & logo list."
                 } else {
                     Toast.makeText(activity, "Error: ${result.error}", Toast.LENGTH_LONG).show()
                     requireActivity().onBackPressedDispatcher.onBackPressed()
@@ -389,9 +513,84 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
             TvhSyncWorker.schedulePeriodicSync(requireContext())
 
             requireActivity().setResult(Activity.RESULT_OK)
+            if (requireActivity().callingActivity == null) {
+                startActivity(Intent(requireContext(), MainActivity::class.java))
+            }
             requireActivity().finish()
         } else if (action.id == ID_BACK) {
             requireActivity().onBackPressedDispatcher.onBackPressed()
+        }
+    }
+}
+
+/**
+ * RecyclerView adapter displaying live channel numbers, names, and loaded picon thumbnails
+ * (with a fallback badge when no logo URL exists or logo fetching fails).
+ */
+private class ChannelLogoPreviewAdapter :
+    RecyclerView.Adapter<ChannelLogoPreviewAdapter.PreviewViewHolder>() {
+
+    private val items = mutableListOf<TvhSyncManager.ChannelLogoPreviewItem>()
+
+    fun upsertItem(item: TvhSyncManager.ChannelLogoPreviewItem): Int {
+        val existingIdx = items.indexOfFirst { it.channelId == item.channelId }
+        return if (existingIdx >= 0) {
+            items[existingIdx] = item
+            notifyItemChanged(existingIdx)
+            existingIdx
+        } else {
+            items.add(item)
+            val newIdx = items.size - 1
+            notifyItemInserted(newIdx)
+            newIdx
+        }
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PreviewViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_channel_logo_preview, parent, false)
+        return PreviewViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: PreviewViewHolder, position: Int) {
+        holder.bind(items[position])
+    }
+
+    override fun getItemCount(): Int = items.size
+
+    class PreviewViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val logoImage: ImageView = itemView.findViewById(R.id.logo_image)
+        private val fallbackBadge: TextView = itemView.findViewById(R.id.logo_fallback_badge)
+        private val channelNumber: TextView = itemView.findViewById(R.id.channel_number)
+        private val channelName: TextView = itemView.findViewById(R.id.channel_name)
+        private val logoStatus: TextView = itemView.findViewById(R.id.logo_status)
+
+        fun bind(item: TvhSyncManager.ChannelLogoPreviewItem) {
+            channelNumber.text = if (item.number > 0) "#${item.number}" else "-"
+            channelName.text = item.name
+
+            if (item.logoBitmap != null) {
+                logoImage.setImageBitmap(item.logoBitmap)
+                logoImage.visibility = View.VISIBLE
+                fallbackBadge.visibility = View.GONE
+                logoStatus.text = "Logo OK"
+            } else {
+                logoImage.setImageDrawable(null)
+                logoImage.visibility = View.GONE
+                fallbackBadge.visibility = View.VISIBLE
+                val initials = item.name
+                    .split(Regex("\\s+"))
+                    .filter { it.isNotBlank() }
+                    .take(2)
+                    .joinToString("") { it.first().uppercaseChar().toString() }
+                    .ifEmpty { "TV" }
+                fallbackBadge.text = initials
+                logoStatus.text = when {
+                    !item.hasLogoUrl -> "No logo"
+                    item.logoFailed -> "No logo (load failed)"
+                    else -> "Loading..."
+                }
+            }
         }
     }
 }
