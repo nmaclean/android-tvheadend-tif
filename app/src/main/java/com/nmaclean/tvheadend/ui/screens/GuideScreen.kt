@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -122,6 +122,7 @@ fun GuideScreen(
 
     val horizontalScrollState = rememberScrollState()
     val slotFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+    val pillsFocusRequester = remember { FocusRequester() }
 
     Column(
         modifier = modifier
@@ -137,6 +138,7 @@ fun GuideScreen(
             onSelect = { selectedCategoryIdx = it },
             modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(pillsFocusRequester)
                 .focusProperties { down = gridFocusRequester }
         )
 
@@ -221,15 +223,21 @@ fun GuideScreen(
                     .focusRequester(gridFocusRequester)
                     .focusRestorer()
             ) {
-                items(filteredChannels, key = { it.id }) { channel ->
+                itemsIndexed(filteredChannels, key = { _, ch -> ch.id }) { rowIndex, channel ->
                     val rowPrograms = guidePrograms[channel.id].orEmpty().ifEmpty {
                         listOfNotNull(currentEpg[channel.id]?.currentProgram, currentEpg[channel.id]?.nextProgram)
+                    }
+                    val upToPillsModifier = if (rowIndex == 0) {
+                        Modifier.focusProperties { up = pillsFocusRequester }
+                    } else {
+                        Modifier
                     }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(ROW_HEIGHT),
+                            .height(ROW_HEIGHT)
+                            .then(upToPillsModifier),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Row Header: Channel Number + Picon
