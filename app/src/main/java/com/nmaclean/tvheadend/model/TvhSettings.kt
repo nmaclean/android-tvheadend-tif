@@ -2,13 +2,18 @@ package com.nmaclean.tvheadend.model
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKeys
 
 /**
- * SharedPreferences manager for storing Tvheadend server IP, ports, and authentication credentials.
+ * SharedPreferences manager for storing Tvheadend server IP, ports, and encrypted authentication credentials.
  */
 class TvhSettings(context: Context) {
     companion object {
+        private const val TAG = "TvhSettings"
         private const val PREFS_NAME = "tvh_settings"
+        private const val SECURE_PREFS_NAME = "tvh_secure_settings"
         private const val KEY_HOST = "host"
         private const val KEY_HTSP_PORT = "htsp_port"
         private const val KEY_HTTP_PORT = "http_port"
@@ -18,12 +23,54 @@ class TvhSettings(context: Context) {
         @Volatile
         var isStreamingDebugCached: Boolean = false
             private set
+
+        internal fun createEncryptedPrefs(context: Context): SharedPreferences? {
+            return try {
+                val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
+                EncryptedSharedPreferences.create(
+                    SECURE_PREFS_NAME,
+                    masterKeyAlias,
+                    context.applicationContext ?: context,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            } catch (e: Exception) {
+                Log.w(TAG, "EncryptedSharedPreferences unavailable; falling back to standard SharedPreferences: ${e.message}")
+                null
+            }
+        }
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val securePrefs: SharedPreferences = createEncryptedPrefs(context) ?: prefs
 
     init {
         isStreamingDebugCached = prefs.getBoolean("streaming_debug", false)
+        migrateLegacyCredentials()
+    }
+
+    private fun migrateLegacyCredentials() {
+        if (securePrefs === prefs) return
+        val hasLegacyUser = prefs.contains(KEY_USER)
+        val hasLegacyPass = prefs.contains(KEY_PASS)
+        if (!hasLegacyUser && !hasLegacyPass) return
+
+        val secureEditor = securePrefs.edit()
+        val legacyEditor = prefs.edit()
+        if (hasLegacyUser) {
+            if (!securePrefs.contains(KEY_USER)) {
+                secureEditor.putString(KEY_USER, prefs.getString(KEY_USER, "") ?: "")
+            }
+            legacyEditor.remove(KEY_USER)
+        }
+        if (hasLegacyPass) {
+            if (!securePrefs.contains(KEY_PASS)) {
+                secureEditor.putString(KEY_PASS, prefs.getString(KEY_PASS, "") ?: "")
+            }
+            legacyEditor.remove(KEY_PASS)
+        }
+        secureEditor.apply()
+        legacyEditor.apply()
     }
 
     var host: String
@@ -39,12 +86,12 @@ class TvhSettings(context: Context) {
         set(value) = prefs.edit().putInt(KEY_HTTP_PORT, value).apply()
 
     var username: String
-        get() = prefs.getString(KEY_USER, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_USER, value).apply()
+        get() = securePrefs.getString(KEY_USER, "") ?: ""
+        set(value) = securePrefs.edit().putString(KEY_USER, value).apply()
 
     var password: String
-        get() = prefs.getString(KEY_PASS, "") ?: ""
-        set(value) = prefs.edit().putString(KEY_PASS, value).apply()
+        get() = securePrefs.getString(KEY_PASS, "") ?: ""
+        set(value) = securePrefs.edit().putString(KEY_PASS, value).apply()
 
     var isFirstInstallCleanupDone: Boolean
         get() = prefs.getBoolean("first_install_cleanup_done", false)
@@ -63,5 +110,8 @@ class TvhSettings(context: Context) {
 
     fun clear() {
         prefs.edit().clear().apply()
+        if (securePrefs !== prefs) {
+            securePrefs.edit().clear().apply()
+        }
     }
 }

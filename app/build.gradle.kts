@@ -58,8 +58,11 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
     }
 }
 
@@ -72,6 +75,7 @@ dependencies {
     implementation("androidx.tvprovider:tvprovider:1.1.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.fragment:fragment-ktx:1.8.2")
+    implementation("androidx.security:security-crypto:1.0.0")
 
     // Jetpack Compose for TV
     implementation(platform("androidx.compose:compose-bom:2024.09.03"))
