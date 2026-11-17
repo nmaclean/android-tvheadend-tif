@@ -33,7 +33,7 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = "Tvheadend TIF Setup"
-        val description = "Connect your Android TV to your Tvheadend server to stream live TV channels, program guides (EPG), and channel logos.\n\n\n\nBuild: ${BuildConfig.BUILD_TIME}"
+        val description = "Connect your Android TV to your Tvheadend server to stream live TV channels, program guides (EPG), and channel logos.\n\n\n\nVersion: v${BuildConfig.VERSION_NAME} • Build: ${BuildConfig.BUILD_TIME}"
         val breadcrumb = "TV Input Setup"
         return GuidanceStylist.Guidance(title, description, breadcrumb, null)
     }
