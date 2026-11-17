@@ -152,10 +152,9 @@ fun GuideScreen(
                 pills = categories,
                 selectedIndex = selectedCategoryIdx,
                 onSelect = { selectedCategoryIdx = it },
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(pillsFocusRequester)
-                    .focusProperties { down = gridFocusRequester }
+                firstPillFocusRequester = pillsFocusRequester,
+                downFocusRequester = gridFocusRequester,
+                modifier = Modifier.weight(1f)
             )
         }
 
@@ -237,24 +236,20 @@ fun GuideScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxSize()
-                    .focusRequester(gridFocusRequester)
                     .focusRestorer()
             ) {
                 itemsIndexed(filteredChannels, key = { _, ch -> ch.id }) { rowIndex, channel ->
-                    val rowPrograms = guidePrograms[channel.id].orEmpty().ifEmpty {
+                    val rawPrograms = guidePrograms[channel.id].orEmpty().ifEmpty {
                         listOfNotNull(currentEpg[channel.id]?.currentProgram, currentEpg[channel.id]?.nextProgram)
                     }
-                    val upToPillsModifier = if (rowIndex == 0) {
-                        Modifier.focusProperties { up = pillsFocusRequester }
-                    } else {
-                        Modifier
+                    val rowPrograms = rawPrograms.filter {
+                        it.endTimeMs > alignedStartMs && it.startTimeMs < windowEndMs
                     }
 
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(ROW_HEIGHT)
-                            .then(upToPillsModifier),
+                            .height(ROW_HEIGHT),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Row Header: Channel Number + Picon
@@ -278,7 +273,17 @@ fun GuideScreen(
                                     .width(timelineTotalWidthDp)
                                     .fillMaxHeight()
                             ) {
+                                val baseFocusMod = if (rowIndex == 0) {
+                                    Modifier.focusProperties { up = pillsFocusRequester }
+                                } else {
+                                    Modifier
+                                }
                                 if (rowPrograms.isEmpty()) {
+                                    val firstCellMod = if (rowIndex == 0) {
+                                        baseFocusMod.focusRequester(gridFocusRequester)
+                                    } else {
+                                        baseFocusMod
+                                    }
                                     GuideProgramCell(
                                         title = "${channel.name} — Live Broadcast",
                                         genre = TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name),
@@ -288,41 +293,41 @@ fun GuideScreen(
                                             focusedProgram = null
                                         },
                                         onClick = { onTuneChannel(channel) },
-                                        modifier = Modifier.fillMaxHeight()
+                                        modifier = firstCellMod.fillMaxHeight()
                                     )
                                 } else {
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                        modifier = Modifier.fillMaxHeight()
-                                    ) {
-                                        rowPrograms.forEach { prog ->
-                                            val widthDp = TvhUiRepository.computeProgramWidthDp(
-                                                startMs = prog.startTimeMs,
-                                                endMs = prog.endTimeMs,
-                                                windowStartMs = alignedStartMs,
-                                                windowEndMs = windowEndMs,
-                                                dpPerMinute = DP_PER_MINUTE
-                                            ).dp
-                                            val isFuture = prog.startTimeMs > nowMs + 60_000L
-                                            val genre = TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, channel.name)
-                                            GuideProgramCell(
-                                                title = prog.title,
-                                                genre = genre,
-                                                widthDp = widthDp,
-                                                onFocused = {
-                                                    focusedChannel = channel
-                                                    focusedProgram = prog
-                                                },
-                                                onClick = {
-                                                    if (isFuture) {
-                                                        onScheduleProgram(channel, prog)
-                                                    } else {
-                                                        onTuneChannel(channel)
-                                                    }
-                                                },
-                                                modifier = Modifier.fillMaxHeight()
-                                            )
+                                    rowPrograms.forEachIndexed { progIdx, prog ->
+                                        val clampedStartMs = maxOf(prog.startTimeMs, alignedStartMs)
+                                        val clampedEndMs = minOf(prog.endTimeMs, windowEndMs)
+                                        val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
+                                        val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 3f
+                                        val widthDp = maxOf(44f, rawWidthDp).dp
+                                        val isFuture = prog.startTimeMs > nowMs + 60_000L
+                                        val genre = TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, channel.name)
+                                        val cellMod = if (rowIndex == 0 && progIdx == 0) {
+                                            baseFocusMod.focusRequester(gridFocusRequester)
+                                        } else {
+                                            baseFocusMod
                                         }
+                                        GuideProgramCell(
+                                            title = prog.title,
+                                            genre = genre,
+                                            widthDp = widthDp,
+                                            onFocused = {
+                                                focusedChannel = channel
+                                                focusedProgram = prog
+                                            },
+                                            onClick = {
+                                                if (isFuture) {
+                                                    onScheduleProgram(channel, prog)
+                                                } else {
+                                                    onTuneChannel(channel)
+                                                }
+                                            },
+                                            modifier = cellMod
+                                                .offset(x = startOffsetDp)
+                                                .fillMaxHeight()
+                                        )
                                     }
                                 }
                             }

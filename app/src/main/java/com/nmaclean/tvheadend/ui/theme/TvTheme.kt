@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +28,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -135,7 +139,7 @@ fun TvClockHeader(modifier: Modifier = Modifier) {
     val currentDate = remember(nowMs) { Date(nowMs) }
 
     Column(
-        modifier = modifier,
+        modifier = modifier.widthIn(min = 164.dp),
         horizontalAlignment = Alignment.End
     ) {
         Text(
@@ -207,6 +211,8 @@ fun TvTopBarWithClock(
     pills: List<String>,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
+    firstPillFocusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -221,10 +227,18 @@ fun TvTopBarWithClock(
                 .clipToBounds()
         ) {
             itemsIndexed(pills) { index, label ->
+                var pillModifier: Modifier = Modifier
+                if (index == 0 && firstPillFocusRequester != null) {
+                    pillModifier = pillModifier.focusRequester(firstPillFocusRequester)
+                }
+                if (downFocusRequester != null) {
+                    pillModifier = pillModifier.focusProperties { down = downFocusRequester }
+                }
                 TvhPillButton(
                     label = label,
                     selected = index == selectedIndex,
-                    onClick = { onSelect(index) }
+                    onClick = { onSelect(index) },
+                    modifier = pillModifier
                 )
             }
         }
