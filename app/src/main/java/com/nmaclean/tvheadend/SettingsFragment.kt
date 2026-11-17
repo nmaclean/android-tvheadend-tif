@@ -74,7 +74,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         }
 
         val updatePref = findPreference<Preference>("check_for_updates")
-        updatePref?.summary = "Current version: v${BuildConfig.VERSION_NAME} (check GitHub Releases)"
+        updatePref?.summary = "Current version: v${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TIME}) — Check GitHub Releases"
         updatePref?.setOnPreferenceClickListener {
             val ctx = context ?: return@setOnPreferenceClickListener false
             UpdatePromptDialog(ctx).show()
