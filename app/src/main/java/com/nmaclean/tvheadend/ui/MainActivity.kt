@@ -224,7 +224,7 @@ class MainActivity : ComponentActivity() {
                         seriesRules = seriesRules,
                         isLoading = isLoadingDvr,
                         errorMessage = dvrError,
-                        onRetry = { scope.launch { DvrRepository.refresh(this@MainActivity) } },
+                        onRetry = { scope.launch { DvrRepository.refresh(this@MainActivity, force = true) } },
                         onPlayRecording = { rec ->
                             onPlayRecording(rec) {}
                         },
@@ -313,7 +313,7 @@ class MainActivity : ComponentActivity() {
             .setMessage("${channel.name} • ${TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs)}")
             .setPositiveButton("Record Once") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = TvhUiRepository.scheduleRecording(this@MainActivity, program.eventId)
+                    val ok = DvrRepository.scheduleEvent(this@MainActivity, program.eventId)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Scheduled '${program.title}'" else "Could not schedule recording",
@@ -324,7 +324,7 @@ class MainActivity : ComponentActivity() {
             }
             .setNeutralButton("Record Series") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = TvhUiRepository.addSeriesRule(this@MainActivity, program.title, channel.id)
+                    val ok = DvrRepository.scheduleSeries(this@MainActivity, program.title, channel.id)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Added series rule for '${program.title}'" else "Could not add series rule",

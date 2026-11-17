@@ -291,7 +291,7 @@ object TvhUiRepository {
 
         if (mapped.isEmpty()) {
             // Fallback to direct HTSP EPG fetch when TvContract.Programs is not yet populated
-            withHtspClient(context) { client ->
+            com.nmaclean.tvheadend.htsp.HtspConnectionPool.withClient(context, TAG) { client ->
                 val events = client.fetchEvents(filterStartMs = windowStartMs, filterEndMs = windowEndMs)
                 val grouped = events.groupBy { it.channelId }
                 for ((chId, progs) in grouped) {
@@ -369,66 +369,5 @@ object TvhUiRepository {
             Log.w(TAG, "Failed building HTSP-to-DbId channel map: ${e.message}")
         }
         return result
-    }
-
-    suspend fun loadDvrState(
-        context: Context
-    ): Pair<List<TvhRecording>, List<TvhSeriesRule>> = withContext(Dispatchers.IO) {
-        val settings = TvhSettings(context)
-        if (settings.host.isBlank()) return@withContext emptyList<TvhRecording>() to emptyList()
-        try {
-            val client = HtspClient(settings.host, settings.htspPort)
-            if (client.connect(settings.username, settings.password)) {
-                val state = client.fetchDvrState()
-                client.disconnect()
-                return@withContext state
-            }
-            client.disconnect()
-        } catch (e: Exception) {
-            Log.w(TAG, "Failed to load DVR state: ${e.message}")
-        }
-        emptyList<TvhRecording>() to emptyList()
-    }
-
-    suspend fun scheduleRecording(context: Context, eventId: Long): Boolean = withContext(Dispatchers.IO) {
-        withHtspClient(context) { it.scheduleDvrEvent(eventId) } ?: false
-    }
-
-    suspend fun deleteRecording(context: Context, dvrId: Long): Boolean = withContext(Dispatchers.IO) {
-        withHtspClient(context) { it.deleteDvrEntry(dvrId) } ?: false
-    }
-
-    suspend fun addSeriesRule(context: Context, title: String, channelId: Long?): Boolean = withContext(Dispatchers.IO) {
-        withHtspClient(context) { it.addSeriesRule(title, channelId) } ?: false
-    }
-
-    suspend fun deleteSeriesRule(context: Context, ruleId: String): Boolean = withContext(Dispatchers.IO) {
-        withHtspClient(context) { it.deleteSeriesRule(ruleId) } ?: false
-    }
-
-    fun buildRecordingStreamUrl(context: Context, dvrId: Long): String {
-        val settings = TvhSettings(context)
-        val user = settings.username
-        val pass = settings.password
-        val auth = if (user.isNotBlank()) "$user:$pass@" else ""
-        return "http://$auth${settings.host}:${settings.httpPort}/dvrfile/$dvrId"
-    }
-
-    private inline fun <T> withHtspClient(context: Context, block: (HtspClient) -> T): T? {
-        val settings = TvhSettings(context)
-        if (settings.host.isBlank()) return null
-        val client = HtspClient(settings.host, settings.htspPort)
-        return try {
-            if (client.connect(settings.username, settings.password)) {
-                block(client)
-            } else {
-                null
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "HTSP action failed: ${e.message}")
-            null
-        } finally {
-            client.disconnect()
-        }
     }
 }

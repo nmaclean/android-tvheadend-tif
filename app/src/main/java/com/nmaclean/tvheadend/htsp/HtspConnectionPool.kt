@@ -143,6 +143,28 @@ object HtspConnectionPool {
     }
 
     /**
+     * Runs [block] with a short-lived authenticated [HtspClient] for control/metadata/DVR operations,
+     * keeping the persistent live-streaming socket untouched.
+     */
+    inline fun <T> withClient(context: Context, tag: String = "HtspConnectionPool", block: (HtspClient) -> T): T? {
+        val settings = TvhSettings(context)
+        if (settings.host.isBlank()) return null
+        val client = HtspClient(settings.host, settings.htspPort)
+        return try {
+            if (client.connect(settings.username, settings.password)) {
+                block(client)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.w(tag, "HTSP operation failed: ${e.message}")
+            null
+        } finally {
+            client.disconnect()
+        }
+    }
+
+    /**
      * Asynchronously pre-connects and authenticates the persistent HTSP socket in the background.
      */
     fun preconnectAsync(context: Context) {

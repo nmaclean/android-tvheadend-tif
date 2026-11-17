@@ -4,9 +4,8 @@ import android.util.Log
 import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhConstants
 import com.nmaclean.tvheadend.model.TvhRecording
-import com.nmaclean.tvheadend.model.TvhRecordingStatus
 import com.nmaclean.tvheadend.model.TvhSeriesRule
-import com.nmaclean.tvheadend.model.computeWatchedPercent
+import com.nmaclean.tvheadend.sync.DvrStateReducer
 import java.io.BufferedInputStream
 import java.io.Closeable
 import java.io.IOException
@@ -304,8 +303,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
      * Fetches DVR recordings, scheduled timers, and AutoRec series rules via HTSP async metadata.
      */
     fun fetchDvrState(timeoutMs: Long = 15_000L): Pair<List<TvhRecording>, List<TvhSeriesRule>> {
-        val recordings = mutableListOf<TvhRecording>()
-        val rules = mutableListOf<TvhSeriesRule>()
+        val reducer = DvrStateReducer()
         val channelMap = ChannelRegistry.getAllChannels().associateBy { it.id }
 
         try {
@@ -327,86 +325,14 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                         Log.e(TAG, "HTSP enableAsyncMetadata rejected for DVR: noaccess=${msg["noaccess"]}, error=${msg["error"]}")
                         break
                     }
-                    val method = msg["method"] as? String
-                    when (method) {
-                        "dvrEntryAdd", "dvrEntryUpdate" -> {
-                            val id = (msg["id"] as? Number)?.toLong() ?: continue
-                            val channelId = (msg["channel"] as? Number)?.toLong() ?: 0L
-                            val ch = channelMap[channelId]
-                            val channelName = msg["channelName"] as? String ?: ch?.name ?: "Channel $channelId"
-                            val channelIcon = ch?.icon ?: ""
-                            val title = msg["title"] as? String ?: "Recording"
-                            val subtitle = msg["subtitle"] as? String ?: ""
-                            val description = msg["description"] as? String ?: msg["summary"] as? String ?: ""
-                            val startSec = (msg["start"] as? Number)?.toLong() ?: 0L
-                            val stopSec = (msg["stop"] as? Number)?.toLong() ?: 0L
-                            val playCount = (msg["playcount"] as? Number)?.toInt() ?: 0
-                            val playPosSec = (msg["playposition"] as? Number)?.toLong() ?: 0L
-                            val stateStr = (msg["state"] as? String ?: "").lowercase()
-                            val status = when (stateStr) {
-                                "scheduled" -> TvhRecordingStatus.SCHEDULED
-                                "recording" -> TvhRecordingStatus.RECORDING
-                                "missed", "invalid" -> TvhRecordingStatus.MISSED
-                                else -> TvhRecordingStatus.RECORDED
-                            }
-                            val watched = computeWatchedPercent(playCount, playPosSec, (stopSec - startSec).coerceAtLeast(0L))
-                            val imageUrl = msg["image"] as? String ?: channelIcon
-                            val entry = TvhRecording(
-                                id = id,
-                                eventId = (msg["eventId"] as? Number)?.toLong() ?: 0L,
-                                channelId = channelId,
-                                channelName = channelName,
-                                channelIcon = channelIcon,
-                                title = title,
-                                subtitle = subtitle,
-                                description = description,
-                                startTimeMs = startSec * 1000L,
-                                stopTimeMs = stopSec * 1000L,
-                                status = status,
-                                watchedPercent = watched,
-                                resumePositionMs = playPosSec * 1000L,
-                                playCount = playCount,
-                                imageUrl = imageUrl
-                            )
-                            recordings.removeAll { it.id == id }
-                            recordings.add(entry)
-                        }
-                        "dvrEntryDelete" -> {
-                            val id = (msg["id"] as? Number)?.toLong() ?: continue
-                            recordings.removeAll { it.id == id }
-                        }
-                        "autorecEntryAdd", "autorecEntryUpdate" -> {
-                            val id = msg["id"]?.toString() ?: continue
-                            val title = msg["title"] as? String ?: msg["name"] as? String ?: "Series Rule"
-                            val name = msg["name"] as? String ?: title
-                            val channelId = (msg["channel"] as? Number)?.toLong() ?: 0L
-                            val channelName = channelMap[channelId]?.name ?: if (channelId > 0L) "Channel $channelId" else "Any Channel"
-                            val enabled = ((msg["enabled"] as? Number)?.toInt() ?: 1) != 0
-                            val comment = msg["comment"] as? String ?: ""
-                            val rule = TvhSeriesRule(
-                                id = id,
-                                title = title,
-                                name = name,
-                                channelId = channelId,
-                                channelName = channelName,
-                                enabled = enabled,
-                                comment = comment
-                            )
-                            rules.removeAll { it.id == id }
-                            rules.add(rule)
-                        }
-                        "autorecEntryDelete" -> {
-                            val id = msg["id"]?.toString() ?: continue
-                            rules.removeAll { it.id == id }
-                        }
-                    }
+                    reducer.applyMessage(msg, channelMap)
 
                     if (isInitialSyncCompleted(msg)) {
-                        Log.i(TAG, "HTSP DVR initialSyncCompleted: ${recordings.size} recordings, ${rules.size} rules")
+                        Log.i(TAG, "HTSP DVR initialSyncCompleted: ${reducer.snapshotRecordings().size} recordings, ${reducer.snapshotRules().size} rules")
                         break
                     }
                 } catch (_: SocketTimeoutException) {
-                    if (recordings.isNotEmpty() || rules.isNotEmpty()) break
+                    if (reducer.snapshotRecordings().isNotEmpty() || reducer.snapshotRules().isNotEmpty()) break
                 }
             }
         } catch (e: Exception) {
@@ -416,7 +342,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                 socket?.soTimeout = TvhConstants.SOCKET_SO_TIMEOUT_MS
             } catch (_: Exception) {}
         }
-        return recordings.sortedByDescending { it.startTimeMs } to rules.sortedBy { it.title }
+        return reducer.snapshotRecordings() to reducer.snapshotRules()
     }
 
     /**

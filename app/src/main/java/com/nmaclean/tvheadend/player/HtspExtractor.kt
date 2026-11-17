@@ -159,7 +159,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         return Extractor.RESULT_CONTINUE
     }
 
-    private fun handleStreamAdd(msg: Map<String, Any>, globalMeta: ByteArray? = null) {
+    private fun handleStreamAdd(msg: Map<*, *>, globalMeta: ByteArray? = null) {
         waitingForSubscriptionStart = false
         val index = (msg["index"] as? Number)?.toLong() ?: return
         val type = msg["type"] as? String
@@ -424,17 +424,8 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         val streamsList = msg["streams"] as? List<*>
 
         if (streamsList != null) {
-            var hasVideo = false
             for (item in streamsList) {
-                val streamMap = item as? Map<String, Any> ?: continue
-                val type = streamMap["type"] as? String
-                val handler = streamMap["handler"] as? String
-
-                if (type == "video" || type == "H264" || type == "HEVC" || type == "MPEG2VIDEO" ||
-                    handler == "H264" || handler == "HEVC" || handler == "MPEG2VIDEO") {
-                    hasVideo = true
-                }
-
+                val streamMap = item as? Map<*, *> ?: continue
                 handleStreamAdd(streamMap, globalMeta)
             }
         }
