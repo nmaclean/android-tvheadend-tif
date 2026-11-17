@@ -8,6 +8,7 @@ import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.background
@@ -55,6 +56,14 @@ class MainActivity : ComponentActivity() {
 
     private val shortcutNavTick = mutableIntStateOf(0)
     private val shortcutDestination = mutableStateOf<TvhNavDestination?>(null)
+
+    private val dvrPlayerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+            DvrRepository.refresh(this@MainActivity, force = true)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -350,7 +359,7 @@ class MainActivity : ComponentActivity() {
                     putExtra(DvrPlayerActivity.EXTRA_CHANNEL_NAME, rec.channelName)
                     putExtra(DvrPlayerActivity.EXTRA_RESUME_MS, rec.resumePositionMs)
                 }
-                startActivity(playIntent)
+                dvrPlayerLauncher.launch(playIntent)
             }
             .setNegativeButton("Delete") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {

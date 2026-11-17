@@ -27,6 +27,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -111,6 +114,9 @@ class TvPlayerActivity : FragmentActivity() {
     private val osdVisibleState = mutableStateOf(false)
     private val isTuningState = mutableStateOf(false)
     private val osdInteractionTickState = mutableIntStateOf(0)
+    private val channelNumberEntryState = mutableStateOf("")
+    private var zapRunnable: Runnable? = null
+    private var numberEntryRunnable: Runnable? = null
     private val osdChannelState = mutableStateOf<TvhChannel?>(null)
     private val osdCurrentEpgState = mutableStateOf<EpgRepository.ChannelEpg?>(null)
     private val osdAdjacentChannelsState = mutableStateOf<List<TvhChannel>>(emptyList())
@@ -237,6 +243,27 @@ class TvPlayerActivity : FragmentActivity() {
                             }
                         }
                     )
+
+                    val typedNum = channelNumberEntryState.value
+                    if (typedNum.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .align(androidx.compose.ui.Alignment.TopEnd)
+                                .padding(top = 28.dp, end = 36.dp)
+                                .background(
+                                    androidx.compose.ui.graphics.Color(0xEB0B1221),
+                                    androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+                                )
+                                .padding(horizontal = 18.dp, vertical = 10.dp)
+                        ) {
+                            androidx.tv.material3.Text(
+                                text = "CH $typedNum",
+                                color = androidx.compose.ui.graphics.Color(0xFF00E5FF),
+                                fontSize = 24.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                        }
+                    }
 
                     if (guideOverlayVisibleState.value) {
                         val gridFocusRequester = remember { FocusRequester() }
@@ -942,16 +969,26 @@ class TvPlayerActivity : FragmentActivity() {
         if (osdVisibleState.value) {
             osdInteractionTickState.intValue++
             if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP && channelList.isNotEmpty()) {
-                currentChannelIndex = (currentChannelIndex + 1) % channelList.size
-                playCurrentChannel()
+                stepChannel(1)
                 return true
             }
             if (keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN && channelList.isNotEmpty()) {
-                currentChannelIndex = if (currentChannelIndex - 1 < 0) channelList.size - 1 else currentChannelIndex - 1
-                playCurrentChannel()
+                stepChannel(-1)
                 return true
             }
             return super.onKeyDown(keyCode, event)
+        }
+
+        if (keyCode in KeyEvent.KEYCODE_0..KeyEvent.KEYCODE_9 && channelList.isNotEmpty()) {
+            handleDigitKey(keyCode - KeyEvent.KEYCODE_0)
+            return true
+        }
+
+        if ((keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) &&
+            channelNumberEntryState.value.isNotEmpty()
+        ) {
+            commitChannelNumberEntry()
+            return true
         }
 
         when (keyCode) {
@@ -965,15 +1002,13 @@ class TvPlayerActivity : FragmentActivity() {
             }
             KeyEvent.KEYCODE_CHANNEL_UP -> {
                 if (channelList.isNotEmpty()) {
-                    currentChannelIndex = (currentChannelIndex + 1) % channelList.size
-                    playCurrentChannel()
+                    stepChannel(1)
                 }
                 return true
             }
             KeyEvent.KEYCODE_CHANNEL_DOWN -> {
                 if (channelList.isNotEmpty()) {
-                    currentChannelIndex = if (currentChannelIndex - 1 < 0) channelList.size - 1 else currentChannelIndex - 1
-                    playCurrentChannel()
+                    stepChannel(-1)
                 }
                 return true
             }
@@ -989,7 +1024,47 @@ class TvPlayerActivity : FragmentActivity() {
         return super.onKeyDown(keyCode, event)
     }
 
+    private fun stepChannel(delta: Int) {
+        if (channelList.isEmpty()) return
+        currentChannelIndex = (currentChannelIndex + delta).mod(channelList.size)
+        val previewChannel = channelList[currentChannelIndex]
+        showTopOsdBanner(previewChannel)
+        zapRunnable?.let { osdHandler.removeCallbacks(it) }
+        val runnable = Runnable { playCurrentChannel() }
+        zapRunnable = runnable
+        osdHandler.postDelayed(runnable, 150L)
+    }
+
+    private fun handleDigitKey(digit: Int) {
+        val next = (channelNumberEntryState.value + digit.toString()).take(4)
+        channelNumberEntryState.value = next
+        numberEntryRunnable?.let { osdHandler.removeCallbacks(it) }
+        val runnable = Runnable { commitChannelNumberEntry() }
+        numberEntryRunnable = runnable
+        osdHandler.postDelayed(runnable, 1200L)
+    }
+
+    private fun commitChannelNumberEntry() {
+        numberEntryRunnable?.let { osdHandler.removeCallbacks(it) }
+        numberEntryRunnable = null
+        val targetNumber = channelNumberEntryState.value.toIntOrNull()
+        channelNumberEntryState.value = ""
+        if (targetNumber != null) {
+            val idx = channelList.indexOfFirst { it.number == targetNumber }
+            if (idx >= 0) {
+                currentChannelIndex = idx
+                playCurrentChannel()
+            } else {
+                Toast.makeText(this, "Channel $targetNumber not found", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
     private fun releasePlayer() {
+        zapRunnable?.let { osdHandler.removeCallbacks(it) }
+        zapRunnable = null
+        numberEntryRunnable?.let { osdHandler.removeCallbacks(it) }
+        numberEntryRunnable = null
         currentlyTunedChannelId = null
         currentlyTunedStreamKey = null
         try {

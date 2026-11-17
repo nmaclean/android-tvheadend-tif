@@ -9,6 +9,7 @@ import android.media.tv.TvInputManager
 import android.media.tv.TvInputService
 import android.media.tv.TvTrackInfo
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.Surface
@@ -178,7 +179,9 @@ class TvheadendInputService : TvInputService() {
             }.apply {
                 setEnableDecoderFallback(true)
                 setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-                forceDisableMediaCodecAsynchronousQueueing()
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                    forceDisableMediaCodecAsynchronousQueueing()
+                }
             }
 
             val loadControl = DefaultLoadControl.Builder()
@@ -245,10 +248,6 @@ class TvheadendInputService : TvInputService() {
 
             val streamUri = Uri.parse("htsp://$host:$port/$uuid")
             val p = getOrCreatePlayer()
-
-            // Stop prior playback and flush AudioSink & decoder pipeline before tuning new channel
-            p.stop()
-            p.clearMediaItems()
 
             if (this@TvheadendSession.surface?.isValid == true) {
                 Log.i(TAG, "Binding existing valid surface to ExoPlayer.")
