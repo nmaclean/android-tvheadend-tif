@@ -20,7 +20,10 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import java.io.InputStream
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.net.URL
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Sync manager responsible for connecting to Tvheadend via HTSP, fetching channels, EPG events,
@@ -30,6 +33,31 @@ import java.net.URL
 object TvhSyncManager {
     private const val TAG = "TvhSyncManager"
 
+    data class ConnectionTestResult(
+        val success: Boolean,
+        val channelCount: Int = 0,
+        val httpReachable: Boolean = false,
+        val message: String
+    )
+
+    data class ChannelLogoPreviewItem(
+        val channelId: Long,
+        val number: Int,
+        val name: String,
+        val logoBitmap: Bitmap? = null,
+        val hasLogoUrl: Boolean = false,
+        val logoFailed: Boolean = false
+    )
+
+    data class SyncProgressUpdate(
+        val importedChannels: Int,
+        val totalChannels: Int,
+        val logosLoaded: Int,
+        val currentChannelNumber: Int = 0,
+        val currentChannelName: String = "",
+        val latestPreviewItem: ChannelLogoPreviewItem? = null
+    )
+
     data class SyncResult(
         val success: Boolean,
         val channelCount: Int = 0,
@@ -38,7 +66,59 @@ object TvhSyncManager {
         val error: String? = null
     )
 
-    fun performSync(context: Context): SyncResult {
+    fun testServerConnection(
+        host: String,
+        htspPort: Int,
+        httpPort: Int,
+        username: String,
+        password: String
+    ): ConnectionTestResult {
+        val cleanHost = host.trim()
+        if (cleanHost.isEmpty()) {
+            return ConnectionTestResult(false, message = "Enter a Server IP / Host first")
+        }
+
+        return try {
+            val client = HtspClient(cleanHost, htspPort)
+            if (!client.connect(username, password)) {
+                client.disconnect()
+                return ConnectionTestResult(
+                    false,
+                    message = "HTSP authentication failed at $cleanHost:$htspPort"
+                )
+            }
+            val channels = client.fetchChannels()
+            client.disconnect()
+
+            val httpOk = try {
+                Socket().use { sock ->
+                    val targetHost = if (cleanHost.equals("localhost", ignoreCase = true)) "127.0.0.1" else cleanHost
+                    sock.connect(InetSocketAddress(targetHost, httpPort), 2000)
+                }
+                true
+            } catch (_: Exception) {
+                false
+            }
+
+            val httpLabel = if (httpOk) "HTTP OK" else "HTTP unreachable on :$httpPort"
+            ConnectionTestResult(
+                success = true,
+                channelCount = channels.size,
+                httpReachable = httpOk,
+                message = "Connected • ${channels.size} channels found ($httpLabel)"
+            )
+        } catch (e: Exception) {
+            ConnectionTestResult(
+                false,
+                message = "Connection failed: ${e.message ?: e::class.java.simpleName}"
+            )
+        }
+    }
+
+    fun performSync(
+        context: Context,
+        onProgress: ((SyncProgressUpdate) -> Unit)? = null
+    ): SyncResult {
         val settings = TvhSettings(context)
         val host = settings.host
         val port = settings.htspPort
@@ -108,6 +188,7 @@ object TvhSyncManager {
 
             val syncedDbIds = mutableSetOf<Long>()
             var channelCount = 0
+            val totalChannels = channels.size
 
             for (ch in channels) {
                 val streamKey = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
@@ -152,6 +233,24 @@ object TvhSyncManager {
                         Log.w(TAG, "Failed to insert channel #${ch.number} '${ch.name}' into TvProvider")
                     }
                 }
+
+                onProgress?.invoke(
+                    SyncProgressUpdate(
+                        importedChannels = channelCount,
+                        totalChannels = totalChannels,
+                        logosLoaded = 0,
+                        currentChannelNumber = ch.number,
+                        currentChannelName = ch.name,
+                        latestPreviewItem = ChannelLogoPreviewItem(
+                            channelId = ch.id,
+                            number = ch.number,
+                            name = ch.name,
+                            logoBitmap = null,
+                            hasLogoUrl = ch.icon.isNotEmpty(),
+                            logoFailed = false
+                        )
+                    )
+                )
             }
 
             // Remove channels that no longer exist on Tvheadend
@@ -168,7 +267,11 @@ object TvhSyncManager {
 
             Log.i(TAG, "=== Channel sync complete: $channelCount channels synchronized ===")
 
-            val (logoCount, programCount) = performEpgAndLogoSyncWithStats(context)
+            val (logoCount, programCount) = performEpgAndLogoSyncWithStats(
+                context = context,
+                totalChannels = channelCount,
+                onProgress = onProgress
+            )
 
             return SyncResult(true, channelCount = channelCount, logoCount = logoCount, programCount = programCount)
         } catch (e: Exception) {
@@ -181,7 +284,11 @@ object TvhSyncManager {
         performEpgAndLogoSyncWithStats(context)
     }
 
-    private fun performEpgAndLogoSyncWithStats(context: Context): Pair<Int, Int> {
+    private fun performEpgAndLogoSyncWithStats(
+        context: Context,
+        totalChannels: Int = 0,
+        onProgress: ((SyncProgressUpdate) -> Unit)? = null
+    ): Pair<Int, Int> {
         val settings = TvhSettings(context)
         val host = settings.host
         val port = settings.htspPort
@@ -276,6 +383,10 @@ object TvhSyncManager {
             // 2. Sync Logos concurrently in parallel
             var logoCount = 0
             if (logoUrlMap.isNotEmpty()) {
+                val logosCounter = AtomicInteger(0)
+                val effectiveTotal = if (totalChannels > 0) totalChannels else fetchedChannels.size
+                val channelMetaMap = fetchedChannels.associateBy { it.id }
+
                 val logoResults = runBlocking(Dispatchers.IO) {
                     logoUrlMap.mapNotNull { (htspChId, logoUrl) ->
                         val dbId = channelMap[htspChId] ?: return@mapNotNull null
@@ -284,6 +395,7 @@ object TvhSyncManager {
                         } else logoUrl
 
                         val logoUri = TvContract.buildChannelLogoUri(dbId)
+                        val chMeta = channelMetaMap[htspChId]
                         async {
                             try {
                                 val bitmap = fetchBitmap(fullUrl)
@@ -291,9 +403,69 @@ object TvhSyncManager {
                                     resolver.openOutputStream(logoUri)?.use { out ->
                                         bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
                                     }
+                                    val count = logosCounter.incrementAndGet()
+                                    if (chMeta != null) {
+                                        onProgress?.invoke(
+                                            SyncProgressUpdate(
+                                                importedChannels = effectiveTotal,
+                                                totalChannels = effectiveTotal,
+                                                logosLoaded = count,
+                                                currentChannelNumber = chMeta.number,
+                                                currentChannelName = chMeta.name,
+                                                latestPreviewItem = ChannelLogoPreviewItem(
+                                                    channelId = chMeta.id,
+                                                    number = chMeta.number,
+                                                    name = chMeta.name,
+                                                    logoBitmap = bitmap,
+                                                    hasLogoUrl = true,
+                                                    logoFailed = false
+                                                )
+                                            )
+                                        )
+                                    }
                                     true
-                                } else false
+                                } else {
+                                    if (chMeta != null) {
+                                        onProgress?.invoke(
+                                            SyncProgressUpdate(
+                                                importedChannels = effectiveTotal,
+                                                totalChannels = effectiveTotal,
+                                                logosLoaded = logosCounter.get(),
+                                                currentChannelNumber = chMeta.number,
+                                                currentChannelName = chMeta.name,
+                                                latestPreviewItem = ChannelLogoPreviewItem(
+                                                    channelId = chMeta.id,
+                                                    number = chMeta.number,
+                                                    name = chMeta.name,
+                                                    logoBitmap = null,
+                                                    hasLogoUrl = true,
+                                                    logoFailed = true
+                                                )
+                                            )
+                                        )
+                                    }
+                                    false
+                                }
                             } catch (_: Exception) {
+                                if (chMeta != null) {
+                                    onProgress?.invoke(
+                                        SyncProgressUpdate(
+                                            importedChannels = effectiveTotal,
+                                            totalChannels = effectiveTotal,
+                                            logosLoaded = logosCounter.get(),
+                                            currentChannelNumber = chMeta.number,
+                                            currentChannelName = chMeta.name,
+                                            latestPreviewItem = ChannelLogoPreviewItem(
+                                                channelId = chMeta.id,
+                                                number = chMeta.number,
+                                                name = chMeta.name,
+                                                logoBitmap = null,
+                                                hasLogoUrl = true,
+                                                logoFailed = true
+                                            )
+                                        )
+                                    )
+                                }
                                 false
                             }
                         }
