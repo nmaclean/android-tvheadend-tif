@@ -328,32 +328,8 @@ class InputManagerFragment : VerticalGridSupportFragment() {
     }
 
     private fun loadInputs() {
-        val ctx = requireContext()
-        val tvInputManager = ctx.getSystemService(Context.TV_INPUT_SERVICE) as TvInputManager
-        val inputs = tvInputManager.tvInputList
-        val resolver = ctx.contentResolver
-
-        val inputItems = mutableListOf<TifInputItem>()
-        for (input in inputs) {
-            // Only show TIF software/tuner inputs (exclude hardware passthrough inputs like HDMI, AV, Component)
-            if (input.isPassthroughInput) continue
-
-            var count = 0
-            try {
-                val uri = TvContract.buildChannelsUriForInput(input.id)
-                resolver.query(uri, arrayOf(TvContract.Channels._ID), null, null, null)?.use { cursor ->
-                    count = cursor.count
-                }
-            } catch (ignored: Exception) {}
-            inputItems.add(TifInputItem(input, count))
-        }
-
-        // Deduplicate inputs by user-facing label so duplicate input services (e.g. Google Play Movies) appear only once.
-        // Prefer the instance that has channels if one exists.
-        val deduplicatedItems = inputItems.groupBy { item ->
-            item.inputInfo.loadLabel(ctx)?.toString()?.trim() ?: item.inputInfo.id
-        }.values.map { group ->
-            group.maxByOrNull { it.channelCount } ?: group.first()
+        val deduplicatedItems = TvhUiRepository.loadTvInputs(requireContext()).map {
+            TifInputItem(it.inputInfo, it.channelCount)
         }
 
         mAdapter.clear()

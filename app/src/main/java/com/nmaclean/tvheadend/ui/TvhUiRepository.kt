@@ -370,4 +370,32 @@ object TvhUiRepository {
         }
         return result
     }
+
+    data class TvInputEntry(
+        val inputInfo: android.media.tv.TvInputInfo,
+        val label: String,
+        val channelCount: Int
+    )
+
+    fun loadTvInputs(context: Context): List<TvInputEntry> {
+        val tvInputManager = context.getSystemService(Context.TV_INPUT_SERVICE) as android.media.tv.TvInputManager
+        val resolver = context.contentResolver
+        val rawItems = mutableListOf<TvInputEntry>()
+        for (input in tvInputManager.tvInputList) {
+            if (input.isPassthroughInput) continue
+            var count = 0
+            try {
+                val uri = TvContract.buildChannelsUriForInput(input.id)
+                resolver.query(uri, arrayOf(TvContract.Channels._ID), null, null, null)?.use { cursor ->
+                    count = cursor.count
+                }
+            } catch (_: Exception) {}
+            val label = input.loadLabel(context)?.toString()?.trim()?.ifEmpty { input.id } ?: input.id
+            rawItems.add(TvInputEntry(input, label, count))
+        }
+        return rawItems
+            .groupBy { it.label }
+            .values
+            .map { group -> group.maxByOrNull { it.channelCount } ?: group.first() }
+    }
 }

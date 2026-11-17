@@ -179,11 +179,6 @@ class TvheadendInputService : TvInputService() {
                 setEnableDecoderFallback(true)
                 setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
                 forceDisableMediaCodecAsynchronousQueueing()
-                setMediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
-                    val decoders = MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
-                    Log.i(TAG, "DIAGNOSTIC MediaCodecSelector for $mimeType: ${decoders.map { "${it.name} (hw=${!it.softwareOnly})" }}")
-                    decoders
-                }
             }
 
             val loadControl = DefaultLoadControl.Builder()

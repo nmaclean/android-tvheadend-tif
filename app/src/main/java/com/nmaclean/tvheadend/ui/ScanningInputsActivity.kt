@@ -94,28 +94,9 @@ class ScanningInputsActivity : FragmentActivity() {
     }
 
     private fun loadInputs() {
-        val tvInputManager = getSystemService(Context.TV_INPUT_SERVICE) as TvInputManager
-        val inputs = tvInputManager.tvInputList
-        val resolver = contentResolver
-
-        val rawItems = mutableListOf<InputItem>()
-        for (input in inputs) {
-            if (input.isPassthroughInput) continue
-            var count = 0
-            try {
-                val uri = TvContract.buildChannelsUriForInput(input.id)
-                resolver.query(uri, arrayOf(TvContract.Channels._ID), null, null, null)?.use { cursor ->
-                    count = cursor.count
-                }
-            } catch (_: Exception) {}
-            val label = input.loadLabel(this)?.toString()?.trim()?.ifEmpty { input.id } ?: input.id
-            rawItems.add(InputItem(input, label, count))
+        inputItemsState.value = TvhUiRepository.loadTvInputs(this).map {
+            InputItem(it.inputInfo, it.label, it.channelCount)
         }
-
-        inputItemsState.value = rawItems
-            .groupBy { it.label }
-            .values
-            .map { group -> group.maxByOrNull { it.channelCount } ?: group.first() }
     }
 
     @kotlin.OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)

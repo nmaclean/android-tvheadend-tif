@@ -230,6 +230,18 @@ fun GuideScreen(
             }
         }
 
+        val rowProgramsByChannelId = remember(filteredChannels, guidePrograms, currentEpg, alignedStartMs, windowEndMs) {
+            filteredChannels.associate { ch ->
+                val raw = guidePrograms[ch.id].orEmpty().ifEmpty {
+                    listOfNotNull(currentEpg[ch.id]?.currentProgram, currentEpg[ch.id]?.nextProgram)
+                }
+                val items = raw
+                    .filter { it.endTimeMs > alignedStartMs && it.startTimeMs < windowEndMs }
+                    .map { prog -> prog to TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, ch.name) }
+                ch.id to items
+            }
+        }
+
         // Schedule Timeline Grid with overlaid vertical NOW line
         Box(
             modifier = Modifier.fillMaxSize()
@@ -241,12 +253,7 @@ fun GuideScreen(
                     .focusRestorer()
             ) {
                 itemsIndexed(filteredChannels, key = { _, ch -> ch.id }) { rowIndex, channel ->
-                    val rawPrograms = guidePrograms[channel.id].orEmpty().ifEmpty {
-                        listOfNotNull(currentEpg[channel.id]?.currentProgram, currentEpg[channel.id]?.nextProgram)
-                    }
-                    val rowPrograms = rawPrograms.filter {
-                        it.endTimeMs > alignedStartMs && it.startTimeMs < windowEndMs
-                    }
+                    val rowPrograms = rowProgramsByChannelId[channel.id].orEmpty()
 
                     Row(
                         modifier = Modifier
@@ -298,16 +305,14 @@ fun GuideScreen(
                                         modifier = firstCellMod.fillMaxHeight()
                                     )
                                 } else {
-                                    rowPrograms.forEachIndexed { progIdx, prog ->
+                                    rowPrograms.forEachIndexed { progIdx, (prog, genre) ->
                                         val clampedStartMs = maxOf(prog.startTimeMs, alignedStartMs)
                                         val clampedEndMs = minOf(prog.endTimeMs, windowEndMs)
                                         val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
                                         val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 3f
                                         val widthDp = maxOf(32f, rawWidthDp).dp
-                                        val isFuture = prog.startTimeMs > nowMs + 60_000L
                                         val isRecordingScheduled = prog.eventId in scheduledEventIds ||
                                             prog.title.trim().lowercase() in seriesTitles
-                                        val genre = TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, channel.name)
                                         val cellMod = if (rowIndex == 0 && progIdx == 0) {
                                             baseFocusMod.focusRequester(gridFocusRequester)
                                         } else {
