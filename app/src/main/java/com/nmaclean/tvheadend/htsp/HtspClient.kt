@@ -635,7 +635,8 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             "subscriptionId" to 1,
             "weight" to 100,
             "faststart" to 1,
-            "timeshift" to 1,
+            "timeshift" to 0,
+            "timeshiftPeriod" to 0,
             "normts" to 1
         )
 
