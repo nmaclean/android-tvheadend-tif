@@ -31,6 +31,7 @@ object ChannelRegistry {
     fun getChannelById(id: Long): TvhChannel? {
         synchronized(channelMap) {
             return channelMap[id]
+                ?: channelMap.values.firstOrNull { it.uuid == id.toString() }
         }
     }
 

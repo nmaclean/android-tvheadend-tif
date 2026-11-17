@@ -441,14 +441,15 @@ class TvheadendInputService : TvInputService() {
                         val lastSegment = uri.lastPathSegment?.toLongOrNull()
                         if (lastSegment != null) {
                             val byId = ChannelRegistry.getChannelById(lastSegment)
-                            if (byId != null) return@withContext byId.id.toString()
+                            if (byId != null) return@withContext byId.uuid.ifEmpty { byId.id.toString() }
                             val byNum = ChannelRegistry.getChannelByNumber(lastSegment.toInt())
-                            if (byNum != null) return@withContext byNum.id.toString()
+                            if (byNum != null) return@withContext byNum.uuid.ifEmpty { byNum.id.toString() }
                         }
                         val allChannels = ChannelRegistry.getAllChannels()
                         if (allChannels.isNotEmpty()) {
-                            Log.w(TAG, "Channel not found for URI $uri; falling back to first available channel: ${allChannels.first().name}")
-                            return@withContext allChannels.first().id.toString()
+                            val firstCh = allChannels.first()
+                            Log.w(TAG, "Channel not found for URI $uri; falling back to first available channel: ${firstCh.name}")
+                            return@withContext firstCh.uuid.ifEmpty { firstCh.id.toString() }
                         }
                         return@withContext ""
                     }
@@ -483,7 +484,9 @@ class TvheadendInputService : TvInputService() {
                     var key = keyFromData
                     val idLong = key.toLongOrNull()
 
-                    if (idLong != null && ChannelRegistry.getChannelById(idLong) != null) {
+                    val directMatch = if (idLong != null) ChannelRegistry.getChannelById(idLong) else null
+                    if (directMatch != null) {
+                        key = directMatch.uuid.ifEmpty { directMatch.id.toString() }
                         Log.i(TAG, "StreamKey $key directly matched in ChannelRegistry")
                     } else {
                         val numInt = number.toIntOrNull()
@@ -492,15 +495,16 @@ class TvheadendInputService : TvInputService() {
                         val matchedChannel = matchedByNum ?: matchedByName
 
                         if (matchedChannel != null) {
-                            key = matchedChannel.id.toString()
+                            key = matchedChannel.uuid.ifEmpty { matchedChannel.id.toString() }
                             Log.i(TAG, "Fallback match for channel '$name' (#$number) -> Resolved HTSP Channel ID: $key")
                         } else if (serviceId > 0) {
                             key = serviceId.toString()
                         } else {
                             val allChannels = ChannelRegistry.getAllChannels()
                             if (allChannels.isNotEmpty()) {
-                                key = allChannels.first().id.toString()
-                                Log.w(TAG, "Could not resolve channel key for URI $uri; falling back to first channel: ${allChannels.first().name}")
+                                val firstCh = allChannels.first()
+                                key = firstCh.uuid.ifEmpty { firstCh.id.toString() }
+                                Log.w(TAG, "Could not resolve channel key for URI $uri; falling back to first channel: ${firstCh.name}")
                             }
                         }
                     }
@@ -512,11 +516,12 @@ class TvheadendInputService : TvInputService() {
                         val matchedByName = if (matchedByNum == null && name.isNotEmpty()) ChannelRegistry.getChannelByName(name) else null
                         val matchedChannel = matchedByNum ?: matchedByName
                         if (matchedChannel != null) {
-                            key = matchedChannel.id.toString()
+                            key = matchedChannel.uuid.ifEmpty { matchedChannel.id.toString() }
                         } else {
                             val allChannels = ChannelRegistry.getAllChannels()
                             if (allChannels.isNotEmpty()) {
-                                key = allChannels.first().id.toString()
+                                val firstCh = allChannels.first()
+                                key = firstCh.uuid.ifEmpty { firstCh.id.toString() }
                             }
                         }
                     }

@@ -528,4 +528,112 @@ class HtspExtractorTest {
 
         verify(trackOutput).sampleMetadata(any(), eq(1), eq(keyframePayload.size), eq(0), anyOrNull())
     }
+
+    @Test
+    fun testInlineH264CsdExtractedOnKeyframeWhenWidthHeightAlreadyPresentWithoutMeta() {
+        val extractor = HtspExtractor()
+        val output = mock<ExtractorOutput>()
+        val trackOutput = mock<TrackOutput>()
+        whenever(output.track(eq(1), any())).thenReturn(trackOutput)
+
+        extractor.init(output)
+
+        // DVB-T2 HD subscriptionStart: width/height are set (1920x1080) but meta is absent
+        val streamAdd = mapOf<String, Any>(
+            "method" to "streamAdd",
+            "seq" to 1L,
+            "index" to 1L,
+            "type" to "video",
+            "handler" to "H264",
+            "width" to 1920,
+            "height" to 1080
+        )
+        val inputAdd = mock<ExtractorInput>()
+        setupMockInput(inputAdd, Htsmsg.encode(streamAdd))
+        extractor.read(inputAdd, PositionHolder())
+
+        // First IDR keyframe arrives with inline SPS + PPS + IDR slice and numeric frametype = 'I' (73)
+        val sps = byteArrayOf(0, 0, 0, 1, 0x67, 0x42, 0xE0.toByte(), 0x1E, 0xDA.toByte(), 0x02, 0x80.toByte(), 0x2D, 0x10.toByte())
+        val pps = byteArrayOf(0, 0, 0, 1, 0x68, 0xCE.toByte(), 0x06, 0x82.toByte())
+        val idr = byteArrayOf(0, 0, 0, 1, 0x65, 0x88.toByte(), 0x84.toByte())
+        val keyframePayload = sps + pps + idr
+
+        val pkt = mapOf<String, Any>(
+            "method" to "muxpkt",
+            "stream" to 1L,
+            "dts" to 1_000_000L,
+            "pts" to 1_000_000L,
+            "frametype" to 'I'.code.toLong(),
+            "payload" to keyframePayload
+        )
+        val inputPkt = mock<ExtractorInput>()
+        setupMockInput(inputPkt, Htsmsg.encode(pkt))
+        extractor.read(inputPkt, PositionHolder())
+
+        val formatCaptor = argumentCaptor<Format>()
+        verify(trackOutput, times(2)).format(formatCaptor.capture())
+
+        val updatedFormat = formatCaptor.secondValue
+        assertEquals(2, updatedFormat.initializationData.size)
+        Assert.assertArrayEquals(sps, updatedFormat.initializationData[0])
+        Assert.assertArrayEquals(pps, updatedFormat.initializationData[1])
+        assertEquals("avc1.42E01E", updatedFormat.codecs)
+    }
+
+    @Test
+    fun testSubscriptionStartWithoutVideoPreRegistersStream1BeforeEndTracks() {
+        val extractor = HtspExtractor()
+        val output = mock<ExtractorOutput>()
+        val videoTrackOutput = mock<TrackOutput>()
+        val audioTrackOutput = mock<TrackOutput>()
+        whenever(output.track(eq(1), any())).thenReturn(videoTrackOutput)
+        whenever(output.track(eq(2), any())).thenReturn(audioTrackOutput)
+
+        extractor.init(output)
+
+        // subscriptionStart with only audio stream 2 (faststart = 1 before video IDR arrives)
+        val subStart = mapOf<String, Any>(
+            "method" to "subscriptionStart",
+            "streams" to listOf(
+                mapOf<String, Any>(
+                    "index" to 2L,
+                    "type" to "audio",
+                    "handler" to "AAC",
+                    "rate" to 3,
+                    "channels" to 2
+                )
+            )
+        )
+        val inputStart = mock<ExtractorInput>()
+        setupMockInput(inputStart, Htsmsg.encode(subStart))
+        extractor.read(inputStart, PositionHolder())
+
+        // Early audio muxpkt triggers endTracks()
+        val audioPkt = mapOf<String, Any>(
+            "method" to "muxpkt",
+            "stream" to 2L,
+            "dts" to 1_000_000L,
+            "pts" to 1_000_000L,
+            "payload" to byteArrayOf(0x01, 0x02, 0x03, 0x04)
+        )
+        val inputAudio = mock<ExtractorInput>()
+        setupMockInput(inputAudio, Htsmsg.encode(audioPkt))
+        extractor.read(inputAudio, PositionHolder())
+
+        // Subsequent video muxpkt on stream 1 must NOT be discarded after endTracks()
+        val videoPayload = byteArrayOf(0, 0, 0, 1, 0x65, 0x01)
+        val videoPkt = mapOf<String, Any>(
+            "method" to "muxpkt",
+            "stream" to 1L,
+            "dts" to 1_040_000L,
+            "pts" to 1_040_000L,
+            "frametype" to 'I'.code.toLong(),
+            "payload" to videoPayload
+        )
+        val inputVideo = mock<ExtractorInput>()
+        setupMockInput(inputVideo, Htsmsg.encode(videoPkt))
+        extractor.read(inputVideo, PositionHolder())
+
+        verify(videoTrackOutput).sampleMetadata(eq(40_000L), eq(1), eq(videoPayload.size), eq(0), anyOrNull())
+    }
 }

@@ -423,11 +423,31 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         val globalMeta = msg["meta"] as? ByteArray
         val streamsList = msg["streams"] as? List<*>
 
+        var hasVideo = false
         if (streamsList != null) {
             for (item in streamsList) {
                 val streamMap = item as? Map<*, *> ?: continue
+                val type = (streamMap["type"] as? String)?.trim() ?: ""
+                val handler = (streamMap["handler"] as? String)?.trim() ?: ""
+                if (type == "video" || type == "H264" || type == "HEVC" || type == "MPEG2VIDEO" ||
+                    handler == "H264" || handler == "HEVC" || handler == "MPEG2VIDEO"
+                ) {
+                    hasVideo = true
+                }
                 handleStreamAdd(streamMap, globalMeta)
             }
+        }
+
+        // Pre-register video stream 1 if subscriptionStart omitted video (e.g. faststart = 1 before first IDR arrives)
+        // so that an early audio muxpkt calling endTracks() does not lock out the video track.
+        if (!hasVideo && tracks[1L] == null) {
+            Log.i(TAG, "No video stream in subscriptionStart; pre-registering stream 1 as video/H264 before endTracks()")
+            val syntheticVideoMap = mapOf<String, Any>(
+                "index" to 1L,
+                "type" to "video",
+                "handler" to "H264"
+            )
+            handleStreamAdd(syntheticVideoMap, globalMeta)
         }
 
         extractorOutput?.seekMap(SeekMap.Unseekable(C.TIME_UNSET))
@@ -442,6 +462,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             ptsUs = ptsUs,
             dtsUs = dtsUs,
             isKeyFlag = isKeyFlag,
+            hasExplicitFrameType = pkt.hasFrameType,
             buffer = buffer,
             payloadOffset = pkt.payloadOffset,
             payloadLength = pkt.payloadLength
@@ -453,14 +474,24 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         val payload = msg["payload"] as? ByteArray ?: return
         val ptsUs = (msg["pts"] as? Number)?.toLong() ?: C.TIME_UNSET
         val dtsUs = (msg["dts"] as? Number)?.toLong() ?: C.TIME_UNSET
-        val frameType = msg["frametype"] as? String
+        val rawFrameType = msg["frametype"]
+        val hasExplicitFrameType = rawFrameType != null
+        val frameTypeIsKey = when (rawFrameType) {
+            is String -> rawFrameType == "I" || rawFrameType == "key"
+            is Number -> {
+                val ft = rawFrameType.toInt()
+                ft == 'I'.code || ft == 'i'.code || ft == 1
+            }
+            else -> false
+        }
         val flags = (msg["flags"] as? Number)?.toInt() ?: 0
-        val isKeyFlag = frameType == "I" || frameType == "key" || (flags and 0x01) != 0
+        val isKeyFlag = frameTypeIsKey || (flags and 0x01) != 0
         processMuxPkt(
             streamIndex = streamIndex,
             ptsUs = ptsUs,
             dtsUs = dtsUs,
             isKeyFlag = isKeyFlag,
+            hasExplicitFrameType = hasExplicitFrameType,
             buffer = payload,
             payloadOffset = 0,
             payloadLength = payload.size
@@ -472,6 +503,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         ptsUs: Long,
         dtsUs: Long,
         isKeyFlag: Boolean,
+        hasExplicitFrameType: Boolean = false,
         buffer: ByteArray,
         payloadOffset: Int,
         payloadLength: Int
@@ -543,7 +575,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             }
 
             var isKeyframe = isAudio || isText || isKeyFlag
-            if (!isKeyframe) {
+            if (!isKeyframe && !hasExplicitFrameType) {
                 isKeyframe = containsKeyframe(buffer, payloadOffset, payloadLength, mimeType)
             }
 
@@ -713,9 +745,10 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             return
         }
 
+        val hasCsd = trackHasCsd[streamIndex] ?: false
         val currentWidth = trackWidths[streamIndex] ?: 0
         val currentHeight = trackHeights[streamIndex] ?: 0
-        val needsFormatUpdate = currentWidth == 0 || currentHeight == 0
+        val needsFormatUpdate = !hasCsd || currentWidth == 0 || currentHeight == 0
 
         if (!isAudio && isKeyframe && needsFormatUpdate) {
             val existingFormat = trackFormats[streamIndex]
@@ -723,20 +756,23 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 val csdList = parseAnnexBCsd(buffer.copyOfRange(payloadOffset, payloadOffset + payloadLength), mimeType)
                 if (csdList.isNotEmpty()) {
                     val currentTrack = tracks[streamIndex]
-                    val width = trackWidths[streamIndex] ?: 0
-                    val height = trackHeights[streamIndex] ?: 0
 
                     val builder = existingFormat?.buildUpon() ?: Format.Builder()
                         .setId(streamIndex.toString())
                         .setSampleMimeType(mimeType)
                         .setMaxInputSize(2 * 1024 * 1024)
 
+                    builder.setInitializationData(csdList)
+
                     if (mimeType == MimeTypes.VIDEO_H264) {
                         val spsNal = csdList.firstOrNull { it.size >= 5 && (it[4].toInt() and 0x1F) == 7 }
                         if (spsNal != null) {
-                            parseSpsMetadata(spsNal, builder)
+                            parseSpsMetadata(spsNal, builder, streamIndex)
                         }
                     }
+
+                    val width = trackWidths[streamIndex] ?: 0
+                    val height = trackHeights[streamIndex] ?: 0
 
                     val format = builder.build()
                     currentTrack?.format(format)
@@ -848,7 +884,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                         }
                     } else {
                         val nalUnitType = nalHeaderByte and 0x1F
-                        if (nalUnitType == 5 || nalUnitType == 7 || nalUnitType == 8) {
+                        if (nalUnitType == 5 || nalUnitType == 7) {
                             return true
                         }
                     }
@@ -861,13 +897,17 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         return false
     }
 
-    private fun parseSpsMetadata(spsNalUnit: ByteArray, builder: Format.Builder) {
+    private fun parseSpsMetadata(spsNalUnit: ByteArray, builder: Format.Builder, streamIndex: Long = -1L) {
         try {
             if (spsNalUnit.size >= 5 && (spsNalUnit[4].toInt() and 0x1F) == 7) {
                 val spsData = NalUnitUtil.parseSpsNalUnit(spsNalUnit, 4, spsNalUnit.size)
                 if (spsData.width > 0 && spsData.height > 0) {
                     builder.setWidth(spsData.width)
                     builder.setHeight(spsData.height)
+                    if (streamIndex >= 0L) {
+                        trackWidths[streamIndex] = spsData.width
+                        trackHeights[streamIndex] = spsData.height
+                    }
                 }
                 if (spsData.pixelWidthHeightRatio > 0f) {
                     builder.setPixelWidthHeightRatio(spsData.pixelWidthHeightRatio)

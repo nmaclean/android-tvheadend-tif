@@ -131,6 +131,7 @@ object Htsmsg {
         var hasDts: Boolean = false
         var dts: Long = 0L
         var flags: Int = 0
+        var hasFrameType: Boolean = false
         var frameTypeIsKey: Boolean = false
         var payloadOffset: Int = 0
         var payloadLength: Int = -1
@@ -142,6 +143,7 @@ object Htsmsg {
             hasDts = false
             dts = 0L
             flags = 0
+            hasFrameType = false
             frameTypeIsKey = false
             payloadOffset = 0
             payloadLength = -1
@@ -196,9 +198,17 @@ object Htsmsg {
                 nameLen == 5 && equalsAscii(bytes, nameOffset, 5, "flags") && type == TYPE_S64 -> {
                     out.flags = readS64LE(bytes, dataOffset, dataLen).toInt()
                 }
-                nameLen == 9 && equalsAscii(bytes, nameOffset, 9, "frametype") && type == TYPE_STR -> {
-                    out.frameTypeIsKey = equalsAscii(bytes, dataOffset, dataLen, "I") ||
-                        equalsAscii(bytes, dataOffset, dataLen, "key")
+                nameLen == 9 && equalsAscii(bytes, nameOffset, 9, "frametype") -> {
+                    out.hasFrameType = true
+                    out.frameTypeIsKey = when (type) {
+                        TYPE_STR -> equalsAscii(bytes, dataOffset, dataLen, "I") ||
+                            equalsAscii(bytes, dataOffset, dataLen, "key")
+                        TYPE_S64 -> {
+                            val ft = readS64LE(bytes, dataOffset, dataLen).toInt()
+                            ft == 'I'.code || ft == 'i'.code || ft == 1
+                        }
+                        else -> false
+                    }
                 }
                 nameLen == 7 && equalsAscii(bytes, nameOffset, 7, "payload") && type == TYPE_BIN -> {
                     out.payloadOffset = dataOffset

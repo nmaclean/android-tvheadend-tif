@@ -611,8 +611,9 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         }
 
         if (resolvedChannel != null) {
-            subMsg["channelId"] = resolvedChannel.id
-            Log.i(TAG, "Resolved subscription identifier '$channelIdentifier' to channelId=${resolvedChannel.id} ('${resolvedChannel.name}')")
+            val htspId = resolvedChannel.uuid.toLongOrNull() ?: resolvedChannel.id
+            subMsg["channelId"] = htspId
+            Log.i(TAG, "Resolved subscription identifier '$channelIdentifier' to channelId=$htspId ('${resolvedChannel.name}')")
         } else if (chIdLong != null) {
             subMsg["channelId"] = chIdLong
         } else {

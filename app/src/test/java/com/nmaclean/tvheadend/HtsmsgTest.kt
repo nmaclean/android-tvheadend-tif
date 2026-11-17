@@ -86,4 +86,36 @@ class HtsmsgTest {
 
         assertFalse(Htsmsg.tryDecodeMuxPkt(encoded, 4, bodyLen, view))
     }
+
+    @Test
+    fun testTryDecodeMuxPktSupportsNumericFrameType() {
+        val payload = byteArrayOf(0x00, 0x00, 0x00, 0x01, 0x41, 0x11)
+        val iFrameMsg = mapOf<String, Any>(
+            "method" to "muxpkt",
+            "stream" to 1L,
+            "pts" to 40_000L,
+            "dts" to 0L,
+            "frametype" to 'I'.code.toLong(),
+            "payload" to payload
+        )
+        val encodedI = Htsmsg.encode(iFrameMsg)
+        val viewI = Htsmsg.MuxPktView()
+        assertTrue(Htsmsg.tryDecodeMuxPkt(encodedI, 4, ByteBuffer.wrap(encodedI, 0, 4).int, viewI))
+        assertTrue(viewI.hasFrameType)
+        assertTrue(viewI.frameTypeIsKey)
+
+        val pFrameMsg = mapOf<String, Any>(
+            "method" to "muxpkt",
+            "stream" to 1L,
+            "pts" to 80_000L,
+            "dts" to 40_000L,
+            "frametype" to 'P'.code.toLong(),
+            "payload" to payload
+        )
+        val encodedP = Htsmsg.encode(pFrameMsg)
+        val viewP = Htsmsg.MuxPktView()
+        assertTrue(Htsmsg.tryDecodeMuxPkt(encodedP, 4, ByteBuffer.wrap(encodedP, 0, 4).int, viewP))
+        assertTrue(viewP.hasFrameType)
+        assertFalse(viewP.frameTypeIsKey)
+    }
 }
