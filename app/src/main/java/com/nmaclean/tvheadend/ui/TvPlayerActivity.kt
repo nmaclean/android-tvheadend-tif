@@ -608,10 +608,12 @@ class TvPlayerActivity : FragmentActivity() {
                 .setSingleChoiceItems(labels.toTypedArray(), selectedIndex.coerceAtLeast(0)) { dialog, which ->
                     if (which == 0) {
                         Log.i("TvPlayerActivity", "Subtitles turned off")
+                        tvView.setCaptionEnabled(false)
                         tvView.selectTrack(TvTrackInfo.TYPE_SUBTITLE, null)
                     } else {
                         val chosen = tracks[which - 1]
                         Log.i("TvPlayerActivity", "Selected subtitle track: ${chosen.id}")
+                        tvView.setCaptionEnabled(true)
                         tvView.selectTrack(TvTrackInfo.TYPE_SUBTITLE, chosen.id)
                     }
                     dialog.dismiss()

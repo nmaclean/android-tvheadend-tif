@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SystemUpdate
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,7 +60,6 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.nmaclean.tvheadend.BuildConfig
 import com.nmaclean.tvheadend.R
-import com.nmaclean.tvheadend.SetupActivity
 import com.nmaclean.tvheadend.ui.HomeFragment.HomeAction
 import com.nmaclean.tvheadend.ui.presenter.HomeActionPresenter
 import com.nmaclean.tvheadend.ui.presenter.InputCardPresenter
@@ -87,9 +85,6 @@ class InputManagerActivity : FragmentActivity() {
                     onOpenScanningInputs = {
                         startActivity(Intent(this, ScanningInputsActivity::class.java))
                     },
-                    onOpenSetupWizard = {
-                        startActivity(Intent(this, SetupActivity::class.java))
-                    },
                     onCheckUpdates = {
                         UpdatePromptDialog(this).show()
                     }
@@ -111,28 +106,21 @@ private data class SettingsHubOption(
 private fun SettingsHubScreen(
     onOpenGeneralSettings: () -> Unit,
     onOpenScanningInputs: () -> Unit,
-    onOpenSetupWizard: () -> Unit,
     onCheckUpdates: () -> Unit
 ) {
     val options = remember {
         listOf(
             SettingsHubOption(
                 title = "General Settings",
-                subtitle = "Server IP, ports, credentials, streaming debug & manual sync",
+                subtitle = "Streaming debug mode, manual EPG sync & updates",
                 icon = Icons.Outlined.Settings,
                 onClick = onOpenGeneralSettings
             ),
             SettingsHubOption(
                 title = "Scanning & Inputs",
-                subtitle = "TV inputs, stream sources & channel scan configuration",
+                subtitle = "TV inputs, stream sources & TIF channel setup",
                 icon = Icons.Outlined.LiveTv,
                 onClick = onOpenScanningInputs
-            ),
-            SettingsHubOption(
-                title = "Guided Setup",
-                subtitle = "Run the Tvheadend TIF connection & channel import wizard",
-                icon = Icons.Outlined.Tune,
-                onClick = onOpenSetupWizard
             ),
             SettingsHubOption(
                 title = "App Updates",

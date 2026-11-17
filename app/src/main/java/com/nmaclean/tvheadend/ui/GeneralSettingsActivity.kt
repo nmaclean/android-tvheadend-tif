@@ -1,16 +1,11 @@
 package com.nmaclean.tvheadend.ui
 
 import android.os.Bundle
-import android.text.InputType
-import android.view.inputmethod.EditorInfo
-import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
-import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +48,8 @@ import com.nmaclean.tvheadend.updater.UpdatePromptDialog
 import kotlin.concurrent.thread
 
 /**
- * Midnight-Cyan Compose General Settings screen (server credentials, diagnostic logs, EPG sync & updates).
+ * Midnight-Cyan Compose General Settings screen (diagnostic logs, EPG sync & app updates).
+ * Server connection settings are managed via Android TV TIF Input Setup.
  */
 @OptIn(UnstableApi::class)
 class GeneralSettingsActivity : FragmentActivity() {
@@ -74,12 +70,6 @@ class GeneralSettingsActivity : FragmentActivity() {
                     tick = tick,
                     isSyncing = syncing,
                     settings = settings,
-                    onEditText = { title, currentValue, isNumber, isPassword, onSave ->
-                        promptTextSetting(title, currentValue, isNumber, isPassword) { newVal ->
-                            onSave(newVal)
-                            refreshTick.intValue++
-                        }
-                    },
                     onToggleDebug = {
                         val next = !settings.isStreamingDebugEnabled
                         settings.isStreamingDebugEnabled = next
@@ -115,34 +105,6 @@ class GeneralSettingsActivity : FragmentActivity() {
             }
         }
     }
-
-    private fun promptTextSetting(
-        title: String,
-        currentValue: String,
-        isNumber: Boolean,
-        isPassword: Boolean,
-        onSave: (String) -> Unit
-    ) {
-        val input = EditText(this).apply {
-            setText(currentValue)
-            setSelection(text.length)
-            imeOptions = imeOptions or EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_FLAG_NO_FULLSCREEN
-            inputType = when {
-                isNumber -> InputType.TYPE_CLASS_NUMBER
-                isPassword -> InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-                else -> InputType.TYPE_CLASS_TEXT
-            }
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(input)
-            .setPositiveButton("Save") { _, _ ->
-                onSave(input.text.toString().trim())
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
 }
 
 @kotlin.OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
@@ -151,16 +113,10 @@ private fun GeneralSettingsScreen(
     tick: Int,
     isSyncing: Boolean,
     settings: TvhSettings,
-    onEditText: (title: String, current: String, isNumber: Boolean, isPassword: Boolean, (String) -> Unit) -> Unit,
     onToggleDebug: () -> Unit,
     onSyncNow: () -> Unit,
     onCheckUpdates: () -> Unit
 ) {
-    val host = remember(tick) { settings.host.ifBlank { "Not configured" } }
-    val htspPort = remember(tick) { settings.htspPort }
-    val httpPort = remember(tick) { settings.httpPort }
-    val username = remember(tick) { settings.username.ifBlank { "None" } }
-    val passwordMask = remember(tick) { if (settings.password.isNotEmpty()) "••••••••" else "Not set" }
     val debugOn = remember(tick) { settings.isStreamingDebugEnabled }
 
     Column(
@@ -185,7 +141,7 @@ private fun GeneralSettingsScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Server connection, encrypted credentials & diagnostics",
+                    text = "Diagnostics, EPG sync & app updates (server configured via TIF Input)",
                     color = MidnightCyanTokens.TextSecondary,
                     fontSize = 14.sp
                 )
@@ -202,64 +158,7 @@ private fun GeneralSettingsScreen(
                 .fillMaxSize()
                 .focusRestorer()
         ) {
-            item { SectionLabel("TVHEADEND SERVER") }
-            item {
-                SettingsRowItem(
-                    title = "Server Host / IP",
-                    summary = host,
-                    onClick = {
-                        onEditText("Server Host / IP", settings.host, false, false) {
-                            settings.host = it
-                        }
-                    }
-                )
-            }
-            item {
-                SettingsRowItem(
-                    title = "HTSP Port",
-                    summary = htspPort.toString(),
-                    onClick = {
-                        onEditText("HTSP Port", htspPort.toString(), true, false) { v ->
-                            v.toIntOrNull()?.let { settings.htspPort = it }
-                        }
-                    }
-                )
-            }
-            item {
-                SettingsRowItem(
-                    title = "HTTP Port",
-                    summary = httpPort.toString(),
-                    onClick = {
-                        onEditText("HTTP Port", httpPort.toString(), true, false) { v ->
-                            v.toIntOrNull()?.let { settings.httpPort = it }
-                        }
-                    }
-                )
-            }
-            item {
-                SettingsRowItem(
-                    title = "Username",
-                    summary = username,
-                    onClick = {
-                        onEditText("Username", settings.username, false, false) {
-                            settings.username = it
-                        }
-                    }
-                )
-            }
-            item {
-                SettingsRowItem(
-                    title = "Password",
-                    summary = passwordMask,
-                    onClick = {
-                        onEditText("Password", settings.password, false, true) {
-                            settings.password = it
-                        }
-                    }
-                )
-            }
-
-            item { Spacer(modifier = Modifier.height(8.dp)); SectionLabel("PLAYBACK & DIAGNOSTICS") }
+            item { SectionLabel("PLAYBACK & DIAGNOSTICS") }
             item {
                 SettingsRowItem(
                     title = "Streaming Debug Mode",

@@ -281,6 +281,8 @@ class TvheadendInputService : TvInputService() {
                 )
                 setUserDefaultStyle()
                 setUserDefaultTextSize()
+                setApplyEmbeddedStyles(true)
+                setApplyEmbeddedFontSizes(true)
                 setBottomPaddingFraction(settings.subtitleBottomPaddingFraction)
             }
             subtitleView = view
@@ -359,6 +361,9 @@ class TvheadendInputService : TvInputService() {
         override fun onSetCaptionEnabled(enabled: Boolean) {
             Log.i(TAG, "onSetCaptionEnabled called: enabled=$enabled")
             subtitleView?.visibility = if (enabled) View.VISIBLE else View.GONE
+            if (enabled) {
+                subtitleView?.bringToFront()
+            }
         }
 
         /**
