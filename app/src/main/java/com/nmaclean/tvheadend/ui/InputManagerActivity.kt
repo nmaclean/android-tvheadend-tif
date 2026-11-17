@@ -7,7 +7,45 @@ import android.media.tv.TvInputInfo
 import android.media.tv.TvInputManager
 import android.os.Bundle
 import android.view.View
+import androidx.activity.compose.setContent
 import androidx.annotation.OptIn
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LiveTv
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.focusRestorer
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.leanback.app.RowsSupportFragment
 import androidx.leanback.app.VerticalGridSupportFragment
@@ -18,24 +56,178 @@ import androidx.leanback.widget.ListRowPresenter
 import androidx.leanback.widget.OnItemViewClickedListener
 import androidx.leanback.widget.VerticalGridPresenter
 import androidx.media3.common.util.UnstableApi
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Icon
+import androidx.tv.material3.Text
+import com.nmaclean.tvheadend.BuildConfig
 import com.nmaclean.tvheadend.R
+import com.nmaclean.tvheadend.SetupActivity
 import com.nmaclean.tvheadend.ui.HomeFragment.HomeAction
 import com.nmaclean.tvheadend.ui.presenter.HomeActionPresenter
 import com.nmaclean.tvheadend.ui.presenter.InputCardPresenter
+import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
+import com.nmaclean.tvheadend.ui.theme.TvClockHeader
+import com.nmaclean.tvheadend.ui.theme.TvTheme
+import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
+import com.nmaclean.tvheadend.updater.UpdatePromptDialog
 
 /**
- * Settings Hub activity presenting General Settings and Scanning & Inputs options.
+ * Settings Hub activity presenting Midnight-Cyan Compose cards for General Settings, Scanning & Inputs, Setup, and Updates.
  */
 @OptIn(UnstableApi::class)
 class InputManagerActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        setContent {
+            TvTheme {
+                SettingsHubScreen(
+                    onOpenGeneralSettings = {
+                        startActivity(Intent(this, GeneralSettingsActivity::class.java))
+                    },
+                    onOpenScanningInputs = {
+                        startActivity(Intent(this, ScanningInputsActivity::class.java))
+                    },
+                    onOpenSetupWizard = {
+                        startActivity(Intent(this, SetupActivity::class.java))
+                    },
+                    onCheckUpdates = {
+                        UpdatePromptDialog(this).show()
+                    }
+                )
+            }
+        }
+    }
+}
 
-        if (savedInstanceState == null) {
-            supportFragmentManager.beginTransaction()
-                .replace(R.id.main_browse_fragment, SettingsHubFragment())
-                .commit()
+private data class SettingsHubOption(
+    val title: String,
+    val subtitle: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit
+)
+
+@kotlin.OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SettingsHubScreen(
+    onOpenGeneralSettings: () -> Unit,
+    onOpenScanningInputs: () -> Unit,
+    onOpenSetupWizard: () -> Unit,
+    onCheckUpdates: () -> Unit
+) {
+    val options = remember {
+        listOf(
+            SettingsHubOption(
+                title = "General Settings",
+                subtitle = "Server IP, ports, credentials, streaming debug & manual sync",
+                icon = Icons.Outlined.Settings,
+                onClick = onOpenGeneralSettings
+            ),
+            SettingsHubOption(
+                title = "Scanning & Inputs",
+                subtitle = "TV inputs, stream sources & channel scan configuration",
+                icon = Icons.Outlined.LiveTv,
+                onClick = onOpenScanningInputs
+            ),
+            SettingsHubOption(
+                title = "Guided Setup",
+                subtitle = "Run the Tvheadend TIF connection & channel import wizard",
+                icon = Icons.Outlined.Tune,
+                onClick = onOpenSetupWizard
+            ),
+            SettingsHubOption(
+                title = "App Updates",
+                subtitle = "Installed: v${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TIME})",
+                icon = Icons.Outlined.SystemUpdate,
+                onClick = onCheckUpdates
+            )
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MidnightCyanTokens.BackgroundBrush)
+            .padding(
+                horizontal = MidnightCyanTokens.OverscanHorizontal,
+                vertical = MidnightCyanTokens.OverscanVertical
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Settings",
+                    color = MidnightCyanTokens.TextPrimary,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Configure Tvheadend server, TIF inputs & diagnostics",
+                    color = MidnightCyanTokens.TextSecondary,
+                    fontSize = 14.sp
+                )
+            }
+            TvClockHeader()
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
+            verticalArrangement = Arrangement.spacedBy(18.dp),
+            horizontalArrangement = Arrangement.spacedBy(18.dp),
+            contentPadding = PaddingValues(bottom = 24.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .focusRestorer()
+        ) {
+            items(options, key = { it.title }) { option ->
+                SettingsHubCard(option = option)
+            }
+        }
+    }
+}
+
+@kotlin.OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SettingsHubCard(option: SettingsHubOption) {
+    var isFocused by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(124.dp)
+            .clip(RoundedCornerShape(MidnightCyanTokens.CardCornerRadius))
+            .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
+            .focusCyanBorder(isFocused = isFocused)
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusable()
+            .clickable(onClick = option.onClick)
+            .padding(20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(18.dp)
+    ) {
+        Icon(
+            imageVector = option.icon,
+            contentDescription = option.title,
+            tint = if (isFocused) MidnightCyanTokens.CyanAccent else MidnightCyanTokens.TextSecondary,
+            modifier = Modifier.size(34.dp)
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = option.title,
+                color = MidnightCyanTokens.TextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = option.subtitle,
+                color = MidnightCyanTokens.TextSecondary,
+                fontSize = 13.sp
+            )
         }
     }
 }
