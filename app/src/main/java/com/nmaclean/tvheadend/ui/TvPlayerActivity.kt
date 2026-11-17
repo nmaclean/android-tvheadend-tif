@@ -30,6 +30,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +49,7 @@ import com.nmaclean.tvheadend.htsp.ChannelRegistry
 import com.nmaclean.tvheadend.htsp.HtspConnectionPool
 import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhSettings
+import com.nmaclean.tvheadend.sync.DvrRepository
 import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.ui.components.PlayerOsdOverlay
 import com.nmaclean.tvheadend.ui.components.TrackOption
@@ -246,6 +248,8 @@ class TvPlayerActivity : FragmentActivity() {
                                 } catch (_: Exception) {}
                             }
                         }
+                        val scheduledIds = DvrRepository.scheduledEventIds.collectAsState()
+                        val seriesTitles = DvrRepository.seriesTitles.collectAsState()
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -256,6 +260,8 @@ class TvPlayerActivity : FragmentActivity() {
                                 currentEpg = guideCurrentEpgState.value,
                                 guidePrograms = guideProgramsState.value,
                                 windowStartMs = guideWindowStartState.longValue,
+                                scheduledEventIds = scheduledIds.value,
+                                seriesTitles = seriesTitles.value,
                                 onTuneChannel = { selectedChannel ->
                                     epgChannelSelected = true
                                     guideOverlayVisibleState.value = false

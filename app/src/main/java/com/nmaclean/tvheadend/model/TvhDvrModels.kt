@@ -15,6 +15,7 @@ enum class TvhRecordingStatus {
  */
 data class TvhRecording(
     val id: Long,
+    val eventId: Long = 0L,
     val channelId: Long,
     val channelName: String,
     val channelIcon: String = "",
@@ -25,6 +26,7 @@ data class TvhRecording(
     val stopTimeMs: Long,
     val status: TvhRecordingStatus,
     val watchedPercent: Int = 0,
+    val resumePositionMs: Long = 0L,
     val playCount: Int = 0,
     val imageUrl: String = ""
 ) {
@@ -42,6 +44,7 @@ data class TvhSeriesRule(
     val channelId: Long = 0L,
     val channelName: String = "",
     val enabled: Boolean = true,
+    val fulltext: Boolean = false,
     val comment: String = ""
 )
 

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -31,9 +32,11 @@ import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhRecording
 import com.nmaclean.tvheadend.model.TvhSeriesRule
 import com.nmaclean.tvheadend.model.TvhSettings
+import com.nmaclean.tvheadend.sync.DvrRepository
 import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.sync.TvhSyncManager
 import com.nmaclean.tvheadend.sync.TvhSyncWorker
+import com.nmaclean.tvheadend.ui.components.ProgramDetailsModal
 import com.nmaclean.tvheadend.ui.components.TvhNavDestination
 import com.nmaclean.tvheadend.ui.components.TvhNavigationRail
 import com.nmaclean.tvheadend.ui.screens.GuideScreen
@@ -100,12 +103,14 @@ class MainActivity : ComponentActivity() {
         var channels by remember { mutableStateOf<List<TvhChannel>>(emptyList()) }
         var currentEpg by remember { mutableStateOf<Map<Long, EpgRepository.ChannelEpg>>(emptyMap()) }
         var guidePrograms by remember { mutableStateOf<Map<Long, List<EpgRepository.ProgramInfo>>>(emptyMap()) }
-        var recordings by remember { mutableStateOf<List<TvhRecording>>(emptyList()) }
-        var seriesRules by remember { mutableStateOf<List<TvhSeriesRule>>(emptyList()) }
+        val recordings by DvrRepository.recordings.collectAsState()
+        val seriesRules by DvrRepository.seriesRules.collectAsState()
+        val scheduledEventIds by DvrRepository.scheduledEventIds.collectAsState()
+        val seriesTitles by DvrRepository.seriesTitles.collectAsState()
+        val isLoadingDvr by DvrRepository.isLoading.collectAsState()
         var isLoadingChannels by remember { mutableStateOf(true) }
-        var isLoadingDvr by remember { mutableStateOf(false) }
         var windowStartMs by remember { mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L) }
-        var dvrRefreshTick by remember { mutableIntStateOf(0) }
+        var selectedProgramModal by remember { mutableStateOf<Pair<TvhChannel, EpgRepository.ProgramInfo>?>(null) }
         val guideGridFocusRequester = remember { FocusRequester() }
         var focusGuideTick by remember { mutableIntStateOf(0) }
         val scope = rememberCoroutineScope()
@@ -152,13 +157,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        LaunchedEffect(selectedDestination, dvrRefreshTick) {
-            if (selectedDestination == TvhNavDestination.RECORDINGS) {
-                isLoadingDvr = true
-                val (recs, rules) = TvhUiRepository.loadDvrState(this@MainActivity)
-                recordings = recs
-                seriesRules = rules
-                isLoadingDvr = false
+        LaunchedEffect(selectedDestination) {
+            if (selectedDestination == TvhNavDestination.RECORDINGS || selectedDestination == TvhNavDestination.GUIDE) {
+                DvrRepository.refresh(this@MainActivity)
             }
         }
 
@@ -208,9 +209,11 @@ class MainActivity : ComponentActivity() {
                             currentEpg = currentEpg,
                             guidePrograms = guidePrograms,
                             windowStartMs = windowStartMs,
+                            scheduledEventIds = scheduledEventIds,
+                            seriesTitles = seriesTitles,
                             onTuneChannel = onTuneChannel,
                             onScheduleProgram = { ch, prog ->
-                                onScheduleProgram(ch, prog) { dvrRefreshTick++ }
+                                selectedProgramModal = ch to prog
                             },
                             gridFocusRequester = guideGridFocusRequester
                         )
@@ -220,18 +223,68 @@ class MainActivity : ComponentActivity() {
                         seriesRules = seriesRules,
                         isLoading = isLoadingDvr,
                         onPlayRecording = { rec ->
-                            onPlayRecording(rec) { dvrRefreshTick++ }
+                            onPlayRecording(rec) {}
                         },
                         onCancelScheduled = { rec ->
-                            onCancelScheduled(rec) { dvrRefreshTick++ }
+                            onCancelScheduled(rec) {}
                         },
-                        onDeleteSeriesRule = { rule ->
-                            onDeleteSeriesRule(rule) { dvrRefreshTick++ }
+                        onSeriesRuleClick = { rule ->
+                            onDeleteSeriesRule(rule) {}
                         }
                     )
                     TvhNavDestination.SETTINGS -> {
                         // Settings opens InputManagerActivity directly from the rail
                     }
+                }
+
+                val modalPair = selectedProgramModal
+                if (modalPair != null) {
+                    val (ch, prog) = modalPair
+                    val now = System.currentTimeMillis()
+                    val isLiveNow = now in prog.startTimeMs..prog.endTimeMs
+                    val isScheduled = prog.eventId in scheduledEventIds
+                    val hasSeries = prog.title.trim().lowercase() in seriesTitles
+                    ProgramDetailsModal(
+                        channel = ch,
+                        program = prog,
+                        isScheduled = isScheduled,
+                        hasSeriesRule = hasSeries,
+                        isLiveNow = isLiveNow,
+                        onTuneLive = {
+                            selectedProgramModal = null
+                            onTuneChannel(ch)
+                        },
+                        onToggleRecordEpisode = {
+                            scope.launch {
+                                val existing = DvrRepository.findActiveRecordingForEvent(prog.eventId)
+                                val ok = if (existing != null) {
+                                    DvrRepository.cancelTimer(this@MainActivity, existing.id)
+                                } else {
+                                    DvrRepository.scheduleEvent(this@MainActivity, prog.eventId)
+                                }
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    when {
+                                        existing != null && ok -> "Cancelled '${prog.title}'"
+                                        existing == null && ok -> "Scheduled '${prog.title}'"
+                                        else -> "DVR action failed"
+                                    },
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        onScheduleSeries = {
+                            scope.launch {
+                                val ok = DvrRepository.scheduleSeries(this@MainActivity, prog.title, ch.id)
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    if (ok) "Added series rule for '${prog.title}'" else "Could not add series rule",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        onDismiss = { selectedProgramModal = null }
+                    )
                 }
             }
         }
@@ -288,19 +341,17 @@ class MainActivity : ComponentActivity() {
             .setTitle(rec.title)
             .setMessage("${rec.channelName} • ${rec.durationMinutes} min")
             .setPositiveButton("Play") { _, _ ->
-                val url = TvhUiRepository.buildRecordingStreamUrl(this, rec.id)
-                val playIntent = Intent(Intent.ACTION_VIEW).apply {
-                    setDataAndType(Uri.parse(url), "video/*")
+                val playIntent = Intent(this, DvrPlayerActivity::class.java).apply {
+                    putExtra(DvrPlayerActivity.EXTRA_DVR_ID, rec.id)
+                    putExtra(DvrPlayerActivity.EXTRA_TITLE, rec.title)
+                    putExtra(DvrPlayerActivity.EXTRA_CHANNEL_NAME, rec.channelName)
+                    putExtra(DvrPlayerActivity.EXTRA_RESUME_MS, rec.resumePositionMs)
                 }
-                try {
-                    startActivity(playIntent)
-                } catch (_: Exception) {
-                    Toast.makeText(this, "No external video player available for $url", Toast.LENGTH_SHORT).show()
-                }
+                startActivity(playIntent)
             }
             .setNegativeButton("Delete") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = TvhUiRepository.deleteRecording(this@MainActivity, rec.id)
+                    val ok = DvrRepository.deleteRecording(this@MainActivity, rec.id)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Deleted '${rec.title}'" else "Failed to delete recording",
@@ -319,7 +370,7 @@ class MainActivity : ComponentActivity() {
             .setMessage("${rec.title} (${rec.channelName})")
             .setPositiveButton("Cancel Timer") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = TvhUiRepository.deleteRecording(this@MainActivity, rec.id)
+                    val ok = DvrRepository.cancelTimer(this@MainActivity, rec.id)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Cancelled '${rec.title}'" else "Failed to cancel timer",
@@ -334,11 +385,22 @@ class MainActivity : ComponentActivity() {
 
     private fun promptDeleteSeriesRule(rule: TvhSeriesRule, onRefresh: () -> Unit) {
         AlertDialog.Builder(this)
-            .setTitle("Delete Series Rule?")
-            .setMessage("${rule.title} (${rule.channelName})")
-            .setPositiveButton("Delete") { _, _ ->
+            .setTitle(rule.title)
+            .setMessage("${rule.channelName} • ${if (rule.enabled) "Active" else "Paused"}")
+            .setPositiveButton(if (rule.enabled) "Pause Rule" else "Enable Rule") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = TvhUiRepository.deleteSeriesRule(this@MainActivity, rule.id)
+                    val ok = DvrRepository.toggleSeriesRule(this@MainActivity, rule)
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (ok) "Updated '${rule.title}'" else "Failed to update rule",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    if (ok) onRefresh()
+                }
+            }
+            .setNegativeButton("Delete Rule") { _, _ ->
+                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                    val ok = DvrRepository.deleteSeriesRule(this@MainActivity, rule.id)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Removed rule '${rule.title}'" else "Failed to remove rule",
@@ -347,7 +409,7 @@ class MainActivity : ComponentActivity() {
                     if (ok) onRefresh()
                 }
             }
-            .setNegativeButton("Keep", null)
+            .setNeutralButton("Close", null)
             .show()
     }
 

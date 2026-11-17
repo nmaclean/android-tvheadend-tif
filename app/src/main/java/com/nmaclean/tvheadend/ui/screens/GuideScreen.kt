@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +83,8 @@ fun GuideScreen(
     currentEpg: Map<Long, EpgRepository.ChannelEpg>,
     guidePrograms: Map<Long, List<EpgRepository.ProgramInfo>>,
     windowStartMs: Long,
+    scheduledEventIds: Set<Long> = emptySet(),
+    seriesTitles: Set<String> = emptySet(),
     onTuneChannel: (TvhChannel) -> Unit,
     onScheduleProgram: (TvhChannel, EpgRepository.ProgramInfo) -> Unit,
     gridFocusRequester: FocusRequester = remember { FocusRequester() },
@@ -303,6 +307,8 @@ fun GuideScreen(
                                         val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 3f
                                         val widthDp = maxOf(44f, rawWidthDp).dp
                                         val isFuture = prog.startTimeMs > nowMs + 60_000L
+                                        val isRecordingScheduled = prog.eventId in scheduledEventIds ||
+                                            prog.title.trim().lowercase() in seriesTitles
                                         val genre = TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, channel.name)
                                         val cellMod = if (rowIndex == 0 && progIdx == 0) {
                                             baseFocusMod.focusRequester(gridFocusRequester)
@@ -312,17 +318,14 @@ fun GuideScreen(
                                         GuideProgramCell(
                                             title = prog.title,
                                             genre = genre,
+                                            isRecordingScheduled = isRecordingScheduled,
                                             widthDp = widthDp,
                                             onFocused = {
                                                 focusedChannel = channel
                                                 focusedProgram = prog
                                             },
                                             onClick = {
-                                                if (isFuture) {
-                                                    onScheduleProgram(channel, prog)
-                                                } else {
-                                                    onTuneChannel(channel)
-                                                }
+                                                onScheduleProgram(channel, prog)
                                             },
                                             modifier = cellMod
                                                 .offset(x = startOffsetDp)
@@ -555,6 +558,7 @@ private fun ChannelIdentityTile(
 private fun GuideProgramCell(
     title: String,
     genre: TvhUiRepository.EpgGenre = TvhUiRepository.EpgGenre.GENERAL,
+    isRecordingScheduled: Boolean = false,
     widthDp: androidx.compose.ui.unit.Dp,
     onFocused: () -> Unit,
     onClick: () -> Unit,
@@ -585,20 +589,30 @@ private fun GuideProgramCell(
                     .background(accentColor)
             )
         }
-        Box(
+        Row(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
                 .padding(horizontal = 12.dp, vertical = 8.dp),
-            contentAlignment = Alignment.CenterStart
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
+            if (isRecordingScheduled) {
+                Box(
+                    modifier = Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFFF1744))
+                )
+            }
             Text(
                 text = title,
                 color = MidnightCyanTokens.TextPrimary,
                 fontSize = 14.sp,
                 fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
             )
         }
     }

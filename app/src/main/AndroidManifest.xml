@@ -52,6 +52,11 @@
             android:theme="@style/Theme.Tvheadend" />
 
         <activity
+            android:name=".ui.DvrPlayerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
             android:name=".ui.ChannelGridActivity"
             android:exported="false"
             android:theme="@style/Theme.Tvheadend" />

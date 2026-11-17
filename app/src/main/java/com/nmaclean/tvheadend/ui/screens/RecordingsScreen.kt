@@ -38,6 +38,7 @@ import androidx.tv.material3.Text
 import com.nmaclean.tvheadend.model.TvhRecording
 import com.nmaclean.tvheadend.model.TvhRecordingStatus
 import com.nmaclean.tvheadend.model.TvhSeriesRule
+import com.nmaclean.tvheadend.ui.TvhUiRepository
 import com.nmaclean.tvheadend.ui.components.TvhMediaCard
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvTopBarWithClock
@@ -57,7 +58,7 @@ fun RecordingsScreen(
     isLoading: Boolean,
     onPlayRecording: (TvhRecording) -> Unit,
     onCancelScheduled: (TvhRecording) -> Unit,
-    onDeleteSeriesRule: (TvhSeriesRule) -> Unit,
+    onSeriesRuleClick: (TvhSeriesRule) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tabs = listOf("Recorded", "Scheduled", "Series Rules")
@@ -145,13 +146,16 @@ fun RecordingsScreen(
                     ) {
                         items(scheduledItems, key = { it.id }) { rec ->
                             val dateStr = if (rec.startTimeMs > 0L) dateFormat.format(Date(rec.startTimeMs)) else ""
+                            val timeStr = TvhUiRepository.formatTimeRange(rec.startTimeMs, rec.stopTimeMs)
+                            val isActive = rec.status == TvhRecordingStatus.RECORDING
                             TvhMediaCard(
                                 title = rec.title,
-                                subtitle = "${rec.channelName} • $dateStr • ${rec.durationMinutes}m",
+                                subtitle = "${rec.channelName} • $dateStr • $timeStr",
                                 imageUrl = rec.imageUrl,
                                 channelFallbackLabel = rec.channelName,
-                                progressPercent = 0,
-                                topRightBadge = "SCHEDULED",
+                                progressPercent = if (isActive) rec.watchedPercent else 0,
+                                showLiveBadge = isActive,
+                                topRightBadge = if (isActive) "RECORDING" else "SCHEDULED",
                                 onClick = { onCancelScheduled(rec) }
                             )
                         }
@@ -174,7 +178,7 @@ fun RecordingsScreen(
                         items(seriesRules, key = { it.id }) { rule ->
                             SeriesRuleCard(
                                 rule = rule,
-                                onClick = { onDeleteSeriesRule(rule) }
+                                onClick = { onSeriesRuleClick(rule) }
                             )
                         }
                     }
@@ -244,7 +248,7 @@ private fun SeriesRuleCard(
             overflow = TextOverflow.Ellipsis
         )
         Text(
-            text = "Press OK to remove series rule",
+            text = "Press OK to toggle or delete rule",
             color = MidnightCyanTokens.TextMuted,
             fontSize = 11.sp
         )

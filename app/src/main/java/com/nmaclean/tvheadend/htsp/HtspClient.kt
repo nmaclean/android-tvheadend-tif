@@ -349,6 +349,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                             val imageUrl = msg["image"] as? String ?: channelIcon
                             val entry = TvhRecording(
                                 id = id,
+                                eventId = (msg["eventId"] as? Number)?.toLong() ?: 0L,
                                 channelId = channelId,
                                 channelName = channelName,
                                 channelIcon = channelIcon,
@@ -359,6 +360,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                                 stopTimeMs = stopSec * 1000L,
                                 status = status,
                                 watchedPercent = watched,
+                                resumePositionMs = playPosSec * 1000L,
                                 playCount = playCount,
                                 imageUrl = imageUrl
                             )
@@ -406,21 +408,76 @@ class HtspClient(val host: String, val port: Int) : Closeable {
      * Schedules a single DVR recording for an EPG [eventId].
      */
     @Synchronized
-    fun scheduleDvrEvent(eventId: Long): Boolean {
+    @JvmOverloads
+    fun scheduleDvrEvent(
+        eventId: Long,
+        startExtraMin: Long = 0L,
+        stopExtraMin: Long = 0L,
+        configName: String? = null
+    ): Boolean {
         val seq = sequenceNumber++
-        sendMessage(
-            mapOf(
-                "method" to "addDvrEntry",
-                "seq" to seq,
-                "eventId" to eventId
-            )
+        val msg = mutableMapOf<String, Any?>(
+            "method" to "addDvrEntry",
+            "seq" to seq,
+            "eventId" to eventId
         )
+        if (startExtraMin > 0L) msg["startExtra"] = startExtraMin
+        if (stopExtraMin > 0L) msg["stopExtra"] = stopExtraMin
+        if (!configName.isNullOrBlank()) msg["configName"] = configName
+        sendMessage(msg)
         val response = readResponse(seq.toLong()) ?: return false
         return response["success"] == 1L || response["success"] == 1 || response["id"] != null
     }
 
     /**
-     * Cancels a scheduled timer or deletes a completed DVR entry.
+     * Schedules a manual DVR recording by channel and UTC timestamps (seconds).
+     */
+    @Synchronized
+    fun scheduleManualDvr(
+        channelId: Long,
+        startSec: Long,
+        stopSec: Long,
+        title: String,
+        startExtraMin: Long = 0L,
+        stopExtraMin: Long = 0L,
+        configName: String? = null
+    ): Boolean {
+        val seq = sequenceNumber++
+        val msg = mutableMapOf<String, Any?>(
+            "method" to "addDvrEntry",
+            "seq" to seq,
+            "channelId" to channelId,
+            "start" to startSec,
+            "stop" to stopSec,
+            "title" to title
+        )
+        if (startExtraMin > 0L) msg["startExtra"] = startExtraMin
+        if (stopExtraMin > 0L) msg["stopExtra"] = stopExtraMin
+        if (!configName.isNullOrBlank()) msg["configName"] = configName
+        sendMessage(msg)
+        val response = readResponse(seq.toLong()) ?: return false
+        return response["success"] == 1L || response["success"] == 1 || response["id"] != null
+    }
+
+    /**
+     * Cancels an active or scheduled DVR timer (`cancelDvrEntry`).
+     */
+    @Synchronized
+    fun cancelDvrEntry(dvrId: Long): Boolean {
+        val seq = sequenceNumber++
+        sendMessage(
+            mapOf(
+                "method" to "cancelDvrEntry",
+                "seq" to seq,
+                "id" to dvrId
+            )
+        )
+        val response = readResponse(seq.toLong()) ?: return false
+        return response["success"] == 1L || response["success"] == 1
+    }
+
+    /**
+     * Deletes a completed DVR recording from disk (`deleteDvrEntry`).
      */
     @Synchronized
     fun deleteDvrEntry(dvrId: Long): Boolean {
@@ -440,14 +497,16 @@ class HtspClient(val host: String, val port: Int) : Closeable {
      * Creates an AutoRec series rule for [title], optionally scoped to [channelId].
      */
     @Synchronized
-    fun addSeriesRule(title: String, channelId: Long? = null): Boolean {
+    @JvmOverloads
+    fun addSeriesRule(title: String, channelId: Long? = null, fulltext: Boolean = false): Boolean {
         val seq = sequenceNumber++
         val msg = mutableMapOf<String, Any?>(
             "method" to "addAutorecEntry",
             "seq" to seq,
             "enabled" to 1,
             "name" to title,
-            "title" to title
+            "title" to title,
+            "fulltext" to if (fulltext) 1 else 0
         )
         if (channelId != null && channelId > 0L) {
             msg["channelId"] = channelId
@@ -455,6 +514,24 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         sendMessage(msg)
         val response = readResponse(seq.toLong()) ?: return false
         return response["success"] == 1L || response["success"] == 1 || response["id"] != null
+    }
+
+    /**
+     * Enables or disables an AutoRec series rule (`updateAutorecEntry`).
+     */
+    @Synchronized
+    fun updateSeriesRuleEnabled(ruleId: String, enabled: Boolean): Boolean {
+        val seq = sequenceNumber++
+        sendMessage(
+            mapOf(
+                "method" to "updateAutorecEntry",
+                "seq" to seq,
+                "id" to ruleId,
+                "enabled" to if (enabled) 1 else 0
+            )
+        )
+        val response = readResponse(seq.toLong()) ?: return false
+        return response["success"] == 1L || response["success"] == 1
     }
 
     /**
@@ -472,6 +549,62 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         )
         val response = readResponse(seq.toLong()) ?: return false
         return response["success"] == 1L || response["success"] == 1
+    }
+
+    /**
+     * Opens a DVR or server file over HTSP (`fileOpen`). Returns `Pair(fileId, fileSizeBytes)`.
+     */
+    @Synchronized
+    fun fileOpen(path: String): Pair<Long, Long>? {
+        val seq = sequenceNumber++
+        sendMessage(
+            mapOf(
+                "method" to "fileOpen",
+                "seq" to seq,
+                "file" to path
+            )
+        )
+        val response = readResponse(seq.toLong()) ?: return null
+        val fileId = (response["id"] as? Number)?.toLong() ?: return null
+        val size = (response["size"] as? Number)?.toLong() ?: -1L
+        return fileId to size
+    }
+
+    /**
+     * Reads up to [size] bytes at [offset] from an open HTSP file handle (`fileRead`).
+     */
+    @Synchronized
+    fun fileRead(fileId: Long, offset: Long, size: Int): ByteArray? {
+        val seq = sequenceNumber++
+        sendMessage(
+            mapOf(
+                "method" to "fileRead",
+                "seq" to seq,
+                "id" to fileId,
+                "size" to size,
+                "offset" to offset
+            )
+        )
+        val response = readResponse(seq.toLong()) ?: return null
+        return response["data"] as? ByteArray
+    }
+
+    /**
+     * Closes an open HTSP file handle (`fileClose`).
+     */
+    @Synchronized
+    fun fileClose(fileId: Long) {
+        try {
+            val seq = sequenceNumber++
+            sendMessage(
+                mapOf(
+                    "method" to "fileClose",
+                    "seq" to seq,
+                    "id" to fileId
+                )
+            )
+            readResponse(seq.toLong(), timeoutMs = 1000L)
+        } catch (_: Exception) {}
     }
 
     /**
