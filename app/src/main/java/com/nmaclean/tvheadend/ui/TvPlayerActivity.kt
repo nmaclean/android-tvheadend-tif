@@ -26,6 +26,9 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.FragmentActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
@@ -38,7 +41,9 @@ import com.nmaclean.tvheadend.htsp.HtspConnectionPool
 import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.EpgRepository
+import com.nmaclean.tvheadend.ui.components.PlayerOsdOverlay
 import com.nmaclean.tvheadend.ui.guide.EpgTimelineOverlayFragment
+import com.nmaclean.tvheadend.ui.theme.TvTheme
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -90,6 +95,13 @@ class TvPlayerActivity : FragmentActivity() {
     }
 
     private val settings by lazy { TvhSettings(this) }
+
+    private val osdVisibleState = mutableStateOf(false)
+    private val osdInteractionTickState = mutableIntStateOf(0)
+    private val osdChannelState = mutableStateOf<TvhChannel?>(null)
+    private val osdCurrentEpgState = mutableStateOf<EpgRepository.ChannelEpg?>(null)
+    private val osdAdjacentChannelsState = mutableStateOf<List<TvhChannel>>(emptyList())
+    private val osdAdjacentEpgState = mutableStateOf<Map<Long, EpgRepository.ChannelEpg>>(emptyMap())
 
     private fun updateDebugOverlay() {
         val debugBadge = findViewById<View>(R.id.debug_overlay_badge)
@@ -169,6 +181,40 @@ class TvPlayerActivity : FragmentActivity() {
 
         // Bottom Overlay
         bottomMochiMenu = findViewById(R.id.bottom_mochi_menu)
+
+        findViewById<ComposeView>(R.id.compose_osd_overlay)?.setContent {
+            TvTheme {
+                PlayerOsdOverlay(
+                    visible = osdVisibleState.value,
+                    interactionTick = osdInteractionTickState.intValue,
+                    currentChannel = osdChannelState.value,
+                    currentEpg = osdCurrentEpgState.value,
+                    adjacentChannels = osdAdjacentChannelsState.value,
+                    adjacentEpg = osdAdjacentEpgState.value,
+                    onTimeout = { osdVisibleState.value = false },
+                    onGuideClick = {
+                        osdVisibleState.value = false
+                        openEpgGuide()
+                    },
+                    onAudioSubtitlesClick = {
+                        osdInteractionTickState.intValue++
+                        showAudioOrSubtitlePicker()
+                    },
+                    onSettingsClick = {
+                        osdVisibleState.value = false
+                        startActivity(Intent(this, InputManagerActivity::class.java))
+                    },
+                    onQuickZapChannel = { selectedChannel ->
+                        osdInteractionTickState.intValue++
+                        val idx = channelList.indexOfFirst { it.id == selectedChannel.id }
+                        if (idx != -1 && idx != currentChannelIndex) {
+                            currentChannelIndex = idx
+                            playCurrentChannel()
+                        }
+                    }
+                )
+            }
+        }
 
         handleTuneIntent(intent)
     }
@@ -341,7 +387,42 @@ class TvPlayerActivity : FragmentActivity() {
         showTopOsdBanner(channel)
     }
 
+    private fun showAudioOrSubtitlePicker() {
+        AlertDialog.Builder(this)
+            .setTitle("Audio & Subtitles")
+            .setItems(arrayOf("Audio Track", "Subtitles")) { _, which ->
+                if (which == 0) {
+                    showTrackSelectionDialog(TvTrackInfo.TYPE_AUDIO)
+                } else {
+                    showTrackSelectionDialog(TvTrackInfo.TYPE_SUBTITLE)
+                }
+            }
+            .show()
+    }
+
+    private fun showComposeOsdOverlay(channel: TvhChannel?) {
+        val target = channel ?: channelList.getOrNull(currentChannelIndex)
+        osdChannelState.value = target
+        osdVisibleState.value = true
+        osdInteractionTickState.intValue++
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val currentEpg = if (target != null) {
+                EpgRepository.getCurrentAndNextProgram(this@TvPlayerActivity, target.id)
+            } else null
+            val adjacent = channelList.filter { it.id != target?.id }.take(12)
+            val adjacentMap = TvhUiRepository.loadCurrentEpgMap(this@TvPlayerActivity, adjacent)
+            withContext(Dispatchers.Main) {
+                osdCurrentEpgState.value = currentEpg
+                osdAdjacentChannelsState.value = adjacent
+                osdAdjacentEpgState.value = adjacentMap
+            }
+        }
+    }
+
     private fun showTopOsdBanner(channel: TvhChannel) {
+        showComposeOsdOverlay(channel)
+        return
         osdChannelNum.text = channel.number.toString()
         osdChannelName.text = channel.name
 
@@ -672,6 +753,10 @@ class TvPlayerActivity : FragmentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (osdVisibleState.value) {
+                osdVisibleState.value = false
+                return true
+            }
             if (bottomMochiMenu.visibility == View.VISIBLE || topOsdBanner.visibility == View.VISIBLE) {
                 osdHandler.removeCallbacks(hideOsdRunnable)
                 topOsdBanner.visibility = View.GONE
@@ -680,7 +765,18 @@ class TvPlayerActivity : FragmentActivity() {
             }
         }
 
-        if (bottomMochiMenu.visibility == View.VISIBLE) {
+        if (osdVisibleState.value) {
+            osdInteractionTickState.intValue++
+            if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP && channelList.isNotEmpty()) {
+                currentChannelIndex = (currentChannelIndex + 1) % channelList.size
+                playCurrentChannel()
+                return true
+            }
+            if (keyCode == KeyEvent.KEYCODE_CHANNEL_DOWN && channelList.isNotEmpty()) {
+                currentChannelIndex = if (currentChannelIndex - 1 < 0) channelList.size - 1 else currentChannelIndex - 1
+                playCurrentChannel()
+                return true
+            }
             return super.onKeyDown(keyCode, event)
         }
 
@@ -693,22 +789,22 @@ class TvPlayerActivity : FragmentActivity() {
                 showTrackSelectionDialog(TvTrackInfo.TYPE_AUDIO)
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_CHANNEL_UP -> {
+            KeyEvent.KEYCODE_CHANNEL_UP -> {
                 if (channelList.isNotEmpty()) {
                     currentChannelIndex = (currentChannelIndex + 1) % channelList.size
                     playCurrentChannel()
                 }
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_CHANNEL_DOWN -> {
+            KeyEvent.KEYCODE_CHANNEL_DOWN -> {
                 if (channelList.isNotEmpty()) {
                     currentChannelIndex = if (currentChannelIndex - 1 < 0) channelList.size - 1 else currentChannelIndex - 1
                     playCurrentChannel()
                 }
                 return true
             }
-            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_MENU -> {
-                toggleBottomMochiMenu()
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_MENU, KeyEvent.KEYCODE_INFO -> {
+                showComposeOsdOverlay(channelList.getOrNull(currentChannelIndex))
                 return true
             }
             KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_DPAD_RIGHT -> {

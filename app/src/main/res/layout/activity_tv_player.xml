@@ -310,4 +310,11 @@
 
     </LinearLayout>
 
+    <!-- Jetpack Compose Midnight-Cyan Interactive OSD Overlay -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/compose_osd_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:elevation="16dp" />
+
 </FrameLayout>
