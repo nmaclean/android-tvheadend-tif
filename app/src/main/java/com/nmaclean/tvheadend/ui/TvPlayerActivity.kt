@@ -50,6 +50,8 @@ import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.ui.components.PlayerOsdOverlay
+import com.nmaclean.tvheadend.ui.components.TrackOption
+import com.nmaclean.tvheadend.ui.components.TrackSelectionOverlay
 import com.nmaclean.tvheadend.ui.screens.GuideScreen
 import com.nmaclean.tvheadend.ui.theme.TvTheme
 import java.text.SimpleDateFormat
@@ -116,6 +118,12 @@ class TvPlayerActivity : FragmentActivity() {
     private val guideCurrentEpgState = mutableStateOf<Map<Long, EpgRepository.ChannelEpg>>(emptyMap())
     private val guideProgramsState = mutableStateOf<Map<Long, List<EpgRepository.ProgramInfo>>>(emptyMap())
     private val guideWindowStartState = mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L)
+
+    private val trackOverlayVisibleState = mutableStateOf(false)
+    private val audioTrackOptionsState = mutableStateOf<List<TrackOption>>(emptyList())
+    private val selectedAudioIdState = mutableStateOf<String?>(null)
+    private val subtitleTrackOptionsState = mutableStateOf<List<TrackOption>>(emptyList())
+    private val selectedSubtitleIdState = mutableStateOf<String?>(null)
 
     private fun updateDebugOverlay() {
         val debugBadge = findViewById<View>(R.id.debug_overlay_badge)
@@ -200,7 +208,7 @@ class TvPlayerActivity : FragmentActivity() {
             TvTheme {
                 Box(modifier = Modifier.fillMaxSize()) {
                     PlayerOsdOverlay(
-                        visible = osdVisibleState.value && !guideOverlayVisibleState.value,
+                        visible = osdVisibleState.value && !guideOverlayVisibleState.value && !trackOverlayVisibleState.value,
                         interactionTick = osdInteractionTickState.intValue,
                         currentChannel = osdChannelState.value,
                         currentEpg = osdCurrentEpgState.value,
@@ -212,7 +220,7 @@ class TvPlayerActivity : FragmentActivity() {
                             openEpgGuide()
                         },
                         onAudioSubtitlesClick = {
-                            osdInteractionTickState.intValue++
+                            osdVisibleState.value = false
                             showAudioOrSubtitlePicker()
                         },
                         onSettingsClick = {
@@ -274,6 +282,33 @@ class TvPlayerActivity : FragmentActivity() {
                                 gridFocusRequester = gridFocusRequester
                             )
                         }
+                    }
+
+                    if (trackOverlayVisibleState.value) {
+                        TrackSelectionOverlay(
+                            audioTracks = audioTrackOptionsState.value,
+                            selectedAudioId = selectedAudioIdState.value,
+                            subtitleTracks = subtitleTrackOptionsState.value,
+                            selectedSubtitleId = selectedSubtitleIdState.value,
+                            onSelectAudio = { trackId ->
+                                Log.i("TvPlayerActivity", "Selected audio track: $trackId")
+                                tvView.selectTrack(TvTrackInfo.TYPE_AUDIO, trackId)
+                                selectedAudioIdState.value = trackId
+                            },
+                            onSelectSubtitle = { trackId ->
+                                if (trackId == null) {
+                                    Log.i("TvPlayerActivity", "Subtitles turned off")
+                                    tvView.setCaptionEnabled(false)
+                                    tvView.selectTrack(TvTrackInfo.TYPE_SUBTITLE, null)
+                                } else {
+                                    Log.i("TvPlayerActivity", "Selected subtitle track: $trackId")
+                                    tvView.setCaptionEnabled(true)
+                                    tvView.selectTrack(TvTrackInfo.TYPE_SUBTITLE, trackId)
+                                }
+                                selectedSubtitleIdState.value = trackId
+                            },
+                            onDismiss = { trackOverlayVisibleState.value = false }
+                        )
                     }
                 }
             }
@@ -461,16 +496,29 @@ class TvPlayerActivity : FragmentActivity() {
     }
 
     private fun showAudioOrSubtitlePicker() {
-        AlertDialog.Builder(this)
-            .setTitle("Audio & Subtitles")
-            .setItems(arrayOf("Audio Track", "Subtitles")) { _, which ->
-                if (which == 0) {
-                    showTrackSelectionDialog(TvTrackInfo.TYPE_AUDIO)
-                } else {
-                    showTrackSelectionDialog(TvTrackInfo.TYPE_SUBTITLE)
-                }
-            }
-            .show()
+        val rawAudio = tvView.getTracks(TvTrackInfo.TYPE_AUDIO) ?: emptyList()
+        val rawSubs = tvView.getTracks(TvTrackInfo.TYPE_SUBTITLE) ?: emptyList()
+
+        audioTrackOptionsState.value = rawAudio.mapIndexed { idx, info ->
+            val lang = info.language?.takeIf { it.isNotBlank() }?.let {
+                try { Locale(it).displayLanguage.ifEmpty { it } } catch (_: Exception) { it }
+            } ?: "Audio ${idx + 1}"
+            val chText = if (info.audioChannelCount > 0) "${info.audioChannelCount} ch" else ""
+            TrackOption(id = info.id, label = lang, detail = chText)
+        }
+        selectedAudioIdState.value = tvView.getSelectedTrack(TvTrackInfo.TYPE_AUDIO)
+            ?: rawAudio.firstOrNull()?.id
+
+        val subOptions = mutableListOf(TrackOption(id = null, label = "Off", detail = "Disable subtitles"))
+        rawSubs.forEachIndexed { idx, info ->
+            val lang = info.language?.takeIf { it.isNotBlank() }?.let {
+                try { Locale(it).displayLanguage.ifEmpty { it } } catch (_: Exception) { it }
+            } ?: "Subtitle ${idx + 1}"
+            subOptions.add(TrackOption(id = info.id, label = lang))
+        }
+        subtitleTrackOptionsState.value = subOptions
+        selectedSubtitleIdState.value = tvView.getSelectedTrack(TvTrackInfo.TYPE_SUBTITLE)
+        trackOverlayVisibleState.value = true
     }
 
     private fun showComposeOsdOverlay(channel: TvhChannel?) {
@@ -857,6 +905,10 @@ class TvPlayerActivity : FragmentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (trackOverlayVisibleState.value) {
+                trackOverlayVisibleState.value = false
+                return true
+            }
             if (guideOverlayVisibleState.value) {
                 guideOverlayVisibleState.value = false
                 if (openedFromEpgIntent && !epgChannelSelected) {
@@ -876,7 +928,7 @@ class TvPlayerActivity : FragmentActivity() {
             }
         }
 
-        if (guideOverlayVisibleState.value) {
+        if (trackOverlayVisibleState.value || guideOverlayVisibleState.value) {
             return super.onKeyDown(keyCode, event)
         }
 
