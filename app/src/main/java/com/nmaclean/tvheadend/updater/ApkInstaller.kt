@@ -1,5 +1,6 @@
 package com.nmaclean.tvheadend.updater
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -55,7 +56,21 @@ object ApkInstaller {
      */
     fun installApk(context: Context, apkFile: File): Boolean {
         if (!canInstallPackages(context)) {
-            context.startActivity(buildUnknownSourcesIntent(context))
+            try {
+                context.startActivity(buildUnknownSourcesIntent(context))
+            } catch (_: ActivityNotFoundException) {
+                val appDetailsIntent = Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:${context.packageName}")
+                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                try {
+                    context.startActivity(appDetailsIntent)
+                } catch (_: ActivityNotFoundException) {
+                    context.startActivity(
+                        Intent(Settings.ACTION_SECURITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }
             return false
         }
         context.startActivity(buildInstallIntent(context, apkFile))

@@ -21,7 +21,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -43,6 +42,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.nmaclean.tvheadend.BuildConfig
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -192,13 +192,16 @@ fun UpdatePromptCard(
                         Button(
                             onClick = {
                                 scope.launch {
-                                    var progressFraction by mutableFloatStateOf(0f)
                                     uiState = UpdateUiState.Downloading(state.release, 0f)
                                     try {
                                         val apk = updateManager.downloadApk(context, state.release.apkDownloadUrl) { done, total ->
                                             if (total > 0L) {
-                                                progressFraction = (done.toFloat() / total.toFloat()).coerceIn(0f, 1f)
-                                                uiState = UpdateUiState.Downloading(state.release, progressFraction)
+                                                val progressFraction = (done.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                                                scope.launch(Dispatchers.Main) {
+                                                    if (uiState is UpdateUiState.Downloading) {
+                                                        uiState = UpdateUiState.Downloading(state.release, progressFraction)
+                                                    }
+                                                }
                                             }
                                         }
                                         uiState = UpdateUiState.ReadyToInstall(state.release, apk)

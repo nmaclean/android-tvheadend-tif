@@ -19,8 +19,8 @@ android {
         applicationId = "com.nmaclean.tvheadend"
         minSdk = 26
         targetSdk = 34
-        versionCode = ciVersionCode ?: 3
-        versionName = ciVersionName ?: "1.0.2"
+        versionCode = ciVersionCode ?: 10000
+        versionName = ciVersionName ?: "1.0.0"
 
         val buildTime = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(Date())
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
