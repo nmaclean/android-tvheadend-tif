@@ -307,7 +307,8 @@ class TvPlayerActivity : FragmentActivity() {
         if (idLong != null && idLong > 0L) {
             val tifInputId = TvContract.buildInputId(ComponentName(this, TvheadendInputService::class.java))
             val targetInputId = if (channelInputId.contains("/")) channelInputId else tifInputId
-            val initialChannel = TvhChannel(idLong, channelId, channelName, channelNum, "", targetInputId)
+            val logoUri = TvContract.buildChannelLogoUri(idLong).toString()
+            val initialChannel = TvhChannel(idLong, channelId, channelName, channelNum, logoUri, targetInputId)
             val streamKey = if (initialChannel.uuid.isNotEmpty()) initialChannel.uuid else initialChannel.id.toString()
 
             val isAlreadyTuned = currentlyTunedChannelId == idLong ||
@@ -347,7 +348,13 @@ class TvPlayerActivity : FragmentActivity() {
         val cachedChannels = ChannelRegistry.getAllChannels()
         if (cachedChannels.isNotEmpty()) {
             channelList.clear()
-            channelList.addAll(cachedChannels)
+            channelList.addAll(
+                cachedChannels.map { ch ->
+                    if (ch.icon.isBlank() && ch.id > 0L) {
+                        ch.copy(icon = TvContract.buildChannelLogoUri(ch.id).toString())
+                    } else ch
+                }
+            )
             channelList.sortBy { it.number }
             currentChannelIndex = channelList.indexOfFirst { it.id.toString() == initialId || it.uuid == initialId || it.number == initialNum }
             if (currentChannelIndex == -1) currentChannelIndex = 0
@@ -395,7 +402,8 @@ class TvPlayerActivity : FragmentActivity() {
                         if (bytes != null && bytes.isNotEmpty()) String(bytes, Charsets.UTF_8) else serviceId.toString()
                     } else serviceId.toString()
 
-                    loadedChannels.add(TvhChannel(dbId, streamKey, name, num, "", inputId))
+                    val logoUri = TvContract.buildChannelLogoUri(dbId).toString()
+                    loadedChannels.add(TvhChannel(dbId, streamKey, name, num, logoUri, inputId))
                 }
             }
 
