@@ -1,6 +1,7 @@
 package com.nmaclean.tvheadend.updater
 
 import android.content.Context
+import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.nmaclean.tvheadend.BuildConfig
 import java.io.File
@@ -94,6 +95,53 @@ class GitHubUpdateManager(
     }
 
     /**
+     * Fetches recent stable APK releases from GitHub Releases (newest first) for version selection/rollback.
+     */
+    suspend fun fetchReleases(limit: Int = 15): Result<List<GitHubReleaseInfo>> = withContext(Dispatchers.IO) {
+        val url = "$apiBaseUrl/repos/$owner/$repo/releases?per_page=$limit"
+        val request = Request.Builder()
+            .url(url)
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "android-tvheadend-tif/${BuildConfig.VERSION_NAME}")
+            .build()
+
+        try {
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return@withContext Result.failure(IOException("GitHub API returned HTTP ${response.code}"))
+                }
+                val body = response.body?.string().orEmpty()
+                if (body.isBlank()) {
+                    return@withContext Result.failure(IOException("Empty response from GitHub API"))
+                }
+                Result.success(parseReleasesListJson(body))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Parses a GitHub Releases API JSON array into a list of installable [GitHubReleaseInfo] entries.
+     */
+    internal fun parseReleasesListJson(json: String): List<GitHubReleaseInfo> {
+        val arr = try {
+            JsonParser.parseString(json).asJsonArray
+        } catch (_: Exception) {
+            return emptyList()
+        }
+        val list = mutableListOf<GitHubReleaseInfo>()
+        for (el in arr) {
+            if (!el.isJsonObject) continue
+            val info = parseReleaseObject(el.asJsonObject) ?: continue
+            if (!info.isPreRelease) {
+                list.add(info)
+            }
+        }
+        return list
+    }
+
+    /**
      * Parses a GitHub Releases API JSON payload into [GitHubReleaseInfo], returning `null`
      * if the release is a draft or has no downloadable `.apk` asset.
      */
@@ -103,6 +151,10 @@ class GitHubUpdateManager(
         } catch (_: Exception) {
             return null
         }
+        return parseReleaseObject(root)
+    }
+
+    private fun parseReleaseObject(root: JsonObject): GitHubReleaseInfo? {
 
         if (root.get("draft")?.asBoolean == true) {
             return null

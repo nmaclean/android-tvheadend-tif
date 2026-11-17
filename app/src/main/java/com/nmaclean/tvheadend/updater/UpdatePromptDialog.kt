@@ -73,6 +73,7 @@ class UpdatePromptDialog(
             .setTitle("Software Update")
             .setView(scrollView)
             .setPositiveButton("Download & Install", null)
+            .setNeutralButton("Choose Version", null)
             .setNegativeButton("Close") { d, _ ->
                 activeJob?.cancel()
                 d.dismiss()
@@ -86,10 +87,12 @@ class UpdatePromptDialog(
         alertDialog.show()
 
         alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { applyTvFocusStyle(it) }
+        alertDialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.let { applyTvFocusStyle(it) }
         alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { applyTvFocusStyle(it) }
 
-        // Hide positive button while checking
+        // Hide action buttons while checking
         alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+        alertDialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility = View.GONE
         alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
 
         startUpdateCheck()
@@ -102,6 +105,7 @@ class UpdatePromptDialog(
         progressBar.isIndeterminate = true
         messageView.text = "Checking GitHub Releases for updates (installed v${BuildConfig.VERSION_NAME})..."
         d.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility = View.GONE
 
         activeJob = scope.launch {
             Log.i(TAG, "Checking for updates (installed v${BuildConfig.VERSION_NAME})...")
@@ -124,6 +128,11 @@ class UpdatePromptDialog(
             setOnClickListener { startUpdateCheck() }
             requestFocus()
         }
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.apply {
+            text = "Choose Version"
+            visibility = View.VISIBLE
+            setOnClickListener { openVersionSelector() }
+        }
     }
 
     private fun showAvailable(release: GitHubReleaseInfo) {
@@ -132,17 +141,70 @@ class UpdatePromptDialog(
         Log.i(TAG, "Update available: ${release.tagName} (${release.apkDownloadUrl})")
         progressBar.visibility = View.GONE
         val notes = release.releaseNotes.ifBlank { "No release notes provided." }
-        messageView.text = "Update available: ${release.tagName} (installed v${BuildConfig.VERSION_NAME})\n\n$notes"
+        val isSame = release.versionName.equals(BuildConfig.VERSION_NAME, ignoreCase = true)
+        val header = if (isSame) {
+            "Selected version: ${release.tagName} (currently installed)"
+        } else {
+            "Release ${release.tagName} (installed v${BuildConfig.VERSION_NAME})"
+        }
+        messageView.text = "$header\n\n$notes"
 
         d.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Later"
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.apply {
+            text = "Choose Version"
+            visibility = View.VISIBLE
+            setOnClickListener { openVersionSelector() }
+        }
         d.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
-            text = "Download & Install"
+            text = if (isSame) "Reinstall" else "Download & Install"
             visibility = View.VISIBLE
             setOnClickListener {
                 Log.i(TAG, "Download & Install clicked for ${release.tagName}")
                 startDownloadAndInstall(release)
             }
             requestFocus()
+        }
+    }
+
+    private fun openVersionSelector() {
+        val d = dialog ?: return
+        if (!d.isShowing) return
+        activeJob?.cancel()
+        progressBar.visibility = View.VISIBLE
+        progressBar.isIndeterminate = true
+        messageView.text = "Loading available releases from GitHub..."
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility = View.GONE
+
+        activeJob = scope.launch {
+            val res = updateManager.fetchReleases()
+            if (!d.isShowing) return@launch
+            progressBar.visibility = View.GONE
+            res.onSuccess { releases ->
+                if (releases.isEmpty()) {
+                    showError("No installable APK releases found.")
+                    return@onSuccess
+                }
+                val labels = releases.mapIndexed { idx, rel ->
+                    val tags = buildList {
+                        if (idx == 0) add("Latest")
+                        if (rel.versionName.equals(BuildConfig.VERSION_NAME, ignoreCase = true)) add("Installed")
+                    }
+                    if (tags.isEmpty()) rel.tagName else "${rel.tagName} (${tags.joinToString(", ")})"
+                }.toTypedArray()
+
+                AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Select App Version")
+                    .setItems(labels) { _, which ->
+                        showAvailable(releases[which])
+                    }
+                    .setNegativeButton("Back") { _, _ ->
+                        startUpdateCheck()
+                    }
+                    .show()
+            }.onFailure { err ->
+                showError(err.message ?: "Failed to load release list")
+            }
         }
     }
 
@@ -155,6 +217,8 @@ class UpdatePromptDialog(
         progressBar.progress = 0
         messageView.text = "Downloading ${release.assetName}..."
         d.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility = View.GONE
+        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility = View.GONE
 
         activeJob = scope.launch {
             try {

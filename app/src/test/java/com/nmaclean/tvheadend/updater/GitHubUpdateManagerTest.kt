@@ -118,4 +118,43 @@ class GitHubUpdateManagerTest {
         assertNull(manager.parseLatestReleaseJson("not-json"))
         assertNull(manager.parseLatestReleaseJson("{}"))
     }
+
+    @Test
+    fun testParseReleasesListFiltersDraftsPreReleasesAndMissingApks() {
+        val json = """
+            [
+              {
+                "tag_name": "v1.2.8",
+                "prerelease": false,
+                "draft": false,
+                "body": "Latest",
+                "assets": [{"name": "app-1.2.8.apk", "size": 100, "browser_download_url": "https://example.com/128.apk"}]
+              },
+              {
+                "tag_name": "v1.2.8-rc1",
+                "prerelease": true,
+                "draft": false,
+                "assets": [{"name": "app-rc1.apk", "size": 100, "browser_download_url": "https://example.com/rc1.apk"}]
+              },
+              {
+                "tag_name": "v1.2.7",
+                "prerelease": false,
+                "draft": true,
+                "assets": [{"name": "app-1.2.7.apk", "size": 100, "browser_download_url": "https://example.com/127.apk"}]
+              },
+              {
+                "tag_name": "v1.2.6",
+                "prerelease": false,
+                "draft": false,
+                "body": "Previous",
+                "assets": [{"name": "app-1.2.6.apk", "size": 90, "browser_download_url": "https://example.com/126.apk"}]
+              }
+            ]
+        """.trimIndent()
+
+        val list = manager.parseReleasesListJson(json)
+        assertEquals(2, list.size)
+        assertEquals("v1.2.8", list[0].tagName)
+        assertEquals("v1.2.6", list[1].tagName)
+    }
 }
