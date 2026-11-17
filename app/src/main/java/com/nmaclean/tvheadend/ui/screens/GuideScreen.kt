@@ -65,11 +65,11 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val DP_PER_MINUTE = 4.2f
+private const val DP_PER_MINUTE = 3.0f
 private const val SLOT_MINUTES = 30
 private const val TOTAL_SLOTS = 8 // 4-hour continuous window
-private val CHANNEL_HEADER_WIDTH = 116.dp
-private val ROW_HEIGHT = 64.dp
+private val CHANNEL_HEADER_WIDTH = 96.dp
+private val ROW_HEIGHT = 48.dp
 
 /**
  * Continuous EPG Guide with inline preview card, sticky 30-minute intervals, and vertical cyan NOW line (`epg.png`).
@@ -235,7 +235,7 @@ fun GuideScreen(
             modifier = Modifier.fillMaxSize()
         ) {
             LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .focusRestorer()
@@ -303,7 +303,7 @@ fun GuideScreen(
                                         val clampedEndMs = minOf(prog.endTimeMs, windowEndMs)
                                         val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
                                         val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 3f
-                                        val widthDp = maxOf(44f, rawWidthDp).dp
+                                        val widthDp = maxOf(32f, rawWidthDp).dp
                                         val isFuture = prog.startTimeMs > nowMs + 60_000L
                                         val isRecordingScheduled = prog.eventId in scheduledEventIds ||
                                             prog.title.trim().lowercase() in seriesTitles
@@ -462,16 +462,16 @@ private fun ChannelIdentityTile(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(MidnightCyanTokens.CardBg)
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(
             text = channel.number.toString(),
             color = MidnightCyanTokens.TextSecondary,
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold
         )
         var logoFailed by remember(channel.id, channel.icon) { mutableStateOf(false) }
@@ -484,13 +484,13 @@ private fun ChannelIdentityTile(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(vertical = 4.dp)
+                    .padding(vertical = 2.dp)
             )
         } else {
             Text(
                 text = channel.name,
                 color = MidnightCyanTokens.TextPrimary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -518,9 +518,9 @@ private fun GuideProgramCell(
     Row(
         modifier = modifier
             .width(widthDp)
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(bgColor)
-            .focusCyanBorder(isFocused = isFocused, cornerRadius = 10.dp)
+            .focusCyanBorder(isFocused = isFocused, cornerRadius = 8.dp)
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused()
@@ -540,14 +540,14 @@ private fun GuideProgramCell(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxHeight()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             if (isRecordingScheduled) {
                 Box(
                     modifier = Modifier
-                        .size(8.dp)
+                        .size(7.dp)
                         .clip(CircleShape)
                         .background(Color(0xFFFF1744))
                 )
@@ -555,7 +555,7 @@ private fun GuideProgramCell(
             Text(
                 text = title,
                 color = MidnightCyanTokens.TextPrimary,
-                fontSize = 14.sp,
+                fontSize = 12.sp,
                 fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
