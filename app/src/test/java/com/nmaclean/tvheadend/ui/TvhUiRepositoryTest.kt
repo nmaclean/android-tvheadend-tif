@@ -68,4 +68,14 @@ class TvhUiRepositoryTest {
         assertEquals(listOf(cbeebies), TvhUiRepository.filterChannelsByCategory(channels, "Kids", epg))
         assertEquals(listOf(bbcOne), TvhUiRepository.filterChannelsByCategory(channels, "Favourites", epg, setOf(1L)))
     }
+
+    @Test
+    fun testClassifyEpgGenre() {
+        assertEquals(TvhUiRepository.EpgGenre.SPORT, TvhUiRepository.classifyEpgGenre("Match of the Day", null, "BBC One"))
+        assertEquals(TvhUiRepository.EpgGenre.NEWS, TvhUiRepository.classifyEpgGenre("BBC News at Six", null, "BBC One"))
+        assertEquals(TvhUiRepository.EpgGenre.MOVIES, TvhUiRepository.classifyEpgGenre("Evening Film: Skyfall", null, "ITV1"))
+        assertEquals(TvhUiRepository.EpgGenre.KIDS, TvhUiRepository.classifyEpgGenre("Bluey", null, "CBeebies"))
+        assertEquals(TvhUiRepository.EpgGenre.DOCUMENTARY, TvhUiRepository.classifyEpgGenre("Grand Designs", null, "Channel 4"))
+        assertEquals(TvhUiRepository.EpgGenre.DRAMA, TvhUiRepository.classifyEpgGenre("University Challenge", null, "BBC Two"))
+    }
 }

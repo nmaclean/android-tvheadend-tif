@@ -35,6 +35,38 @@ object TvhUiRepository {
         "Kids"
     )
 
+    enum class EpgGenre(
+        val label: String,
+        val cardBgHex: Long,
+        val cardFocusedHex: Long,
+        val accentHex: Long
+    ) {
+        SPORT("SPORT", 0xFF102E2A, 0xFF16403A, 0xFF22C55E),
+        NEWS("NEWS", 0xFF2E1722, 0xFF40202F, 0xFFEF4444),
+        MOVIES("MOVIES", 0xFF231938, 0xFF322450, 0xFFA855F7),
+        KIDS("KIDS", 0xFF2D2414, 0xFF40321B, 0xFFF59E0B),
+        DRAMA("ENTERTAINMENT", 0xFF182442, 0xFF22335C, 0xFF60A5FA),
+        DOCUMENTARY("FACTUAL", 0xFF12283A, 0xFF1A3852, 0xFF38BDF8),
+        GENERAL("", 0xFF162238, 0xFF1D2D49, 0x00000000)
+    }
+
+    fun classifyEpgGenre(
+        title: String,
+        summary: String? = null,
+        channelName: String = ""
+    ): EpgGenre {
+        val text = "${title.lowercase(Locale.getDefault())} ${summary?.lowercase(Locale.getDefault()) ?: ""} ${channelName.lowercase(Locale.getDefault())}"
+        return when {
+            listOf("sport", "football", "match of the day", "premier league", "f1", "formula 1", "racing", "rugby", "cricket", "tennis", "golf", "snooker", "athletics", "boxing", "wimbledon").any { text.contains(it) } -> EpgGenre.SPORT
+            listOf("news", "weather", "parliament", "question time", "newsnight", "politics", "breakfast", "pmqs", "world at one").any { text.contains(it) } -> EpgGenre.NEWS
+            listOf("film", "movie", "cinema", "premiere", "james bond", "thriller").any { text.contains(it) } -> EpgGenre.MOVIES
+            listOf("cbeebies", "cbbc", "kids", "cartoon", "bluey", "peppa", "bing", "hey duggee", "octonauts", "disney", "citv").any { text.contains(it) } -> EpgGenre.KIDS
+            listOf("planet earth", "horizon", "grand designs", "countryfile", "antiques", "history", "nature", "wildlife", "documentary", "24 hours in", "panorama", "dispatches").any { text.contains(it) } -> EpgGenre.DOCUMENTARY
+            listOf("eastenders", "coronation street", "emmerdale", "hollyoaks", "the chase", "pointless", "university challenge", "only connect", "strictly", "the one show", "drama", "comedy", "quiz", "eggheads").any { text.contains(it) } -> EpgGenre.DRAMA
+            else -> EpgGenre.GENERAL
+        }
+    }
+
     private val timeFormat = ThreadLocal.withInitial {
         SimpleDateFormat("HH:mm", Locale.getDefault())
     }

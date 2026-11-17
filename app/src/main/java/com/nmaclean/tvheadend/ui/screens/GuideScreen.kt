@@ -264,6 +264,7 @@ fun GuideScreen(
                                 if (rowPrograms.isEmpty()) {
                                     GuideProgramCell(
                                         title = "${channel.name} — Live Broadcast",
+                                        genre = TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name),
                                         widthDp = (120 * DP_PER_MINUTE).dp,
                                         onFocused = {
                                             focusedChannel = channel
@@ -286,8 +287,10 @@ fun GuideScreen(
                                                 dpPerMinute = DP_PER_MINUTE
                                             ).dp
                                             val isFuture = prog.startTimeMs > nowMs + 60_000L
+                                            val genre = TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, channel.name)
                                             GuideProgramCell(
                                                 title = prog.title,
+                                                genre = genre,
                                                 widthDp = widthDp,
                                                 onFocused = {
                                                     focusedChannel = channel
@@ -387,19 +390,46 @@ private fun GuideInlinePreviewCard(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        // Center: Title, time range, and episode synopsis
+        // Center: Title, time range, genre tag, and episode synopsis
+        val previewGenre = if (program != null) {
+            TvhUiRepository.classifyEpgGenre(program.title, program.summary, channel?.name ?: "")
+        } else {
+            TvhUiRepository.EpgGenre.GENERAL
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.Center
         ) {
-            Text(
-                text = program?.title ?: channel?.name ?: "Select a program",
-                color = MidnightCyanTokens.TextPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = program?.title ?: channel?.name ?: "Select a program",
+                    color = MidnightCyanTokens.TextPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (previewGenre != TvhUiRepository.EpgGenre.GENERAL) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(Color(previewGenre.accentHex).copy(alpha = 0.22f))
+                            .padding(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = previewGenre.label,
+                            color = Color(previewGenre.accentHex),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.6.sp
+                        )
+                    }
+                }
+            }
             if (program != null) {
                 Text(
                     text = TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs),
@@ -502,34 +532,52 @@ private fun ChannelIdentityTile(
 @Composable
 private fun GuideProgramCell(
     title: String,
+    genre: TvhUiRepository.EpgGenre = TvhUiRepository.EpgGenre.GENERAL,
     widthDp: androidx.compose.ui.unit.Dp,
     onFocused: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    val bgColor = if (isFocused) Color(genre.cardFocusedHex) else Color(genre.cardBgHex)
+    val accentColor = Color(genre.accentHex)
 
-    Box(
+    Row(
         modifier = modifier
             .width(widthDp)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
+            .background(bgColor)
             .focusCyanBorder(isFocused = isFocused, cornerRadius = 10.dp)
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused()
             }
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        contentAlignment = Alignment.CenterStart
+            .clickable(onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = title,
-            color = MidnightCyanTokens.TextPrimary,
-            fontSize = 14.sp,
-            fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis
-        )
+        if (genre != TvhUiRepository.EpgGenre.GENERAL) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(accentColor)
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = title,
+                color = MidnightCyanTokens.TextPrimary,
+                fontSize = 14.sp,
+                fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
