@@ -132,7 +132,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         }
 
         val readDurationMs = System.currentTimeMillis() - readStartMs
-        if (TvhSettings(context).isStreamingDebugEnabled && readDurationMs > 200) {
+        if (TvhSettings.isStreamingDebugCached && readDurationMs > 200) {
             if (totalBytesRead < 2048L) {
                 Log.i(TAG, "TVH_STREAM_DEBUG: [TUNER LOCK] Server tuner lock / initial stream arrival wait took ${readDurationMs}ms")
             } else if (readDurationMs > 3000) {
@@ -143,7 +143,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         }
 
         if (bytesRead == -1) {
-            if (TvhSettings(context).isStreamingDebugEnabled) {
+            if (TvhSettings.isStreamingDebugCached) {
                 Log.d(TAG, "TVH_STREAM_DEBUG: HtspDataSource read EOF reached after $totalBytesRead total bytes ($readCount reads)")
             }
             return C.RESULT_END_OF_INPUT
@@ -152,7 +152,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         if (bytesRead > 0) {
             totalBytesRead += bytesRead
             readCount++
-            if (TvhSettings(context).isStreamingDebugEnabled) {
+            if (TvhSettings.isStreamingDebugCached) {
                 val now = System.currentTimeMillis()
                 if (lastStatTimeMs == 0L) {
                     lastStatTimeMs = now
@@ -178,7 +178,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
     override fun close() {
         if (opened) {
             opened = false
-            if (TvhSettings(context).isStreamingDebugEnabled) {
+            if (TvhSettings.isStreamingDebugCached) {
                 Log.i(TAG, "TVH_STREAM_DEBUG: Closing HtspDataSource ($currentUri). Session stats: $totalBytesRead total bytes read in $readCount reads.")
             } else {
                 Log.i(TAG, "=== Closing HtspDataSource ($currentUri) ===")

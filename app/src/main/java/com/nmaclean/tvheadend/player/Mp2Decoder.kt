@@ -20,6 +20,22 @@ class Mp2Decoder {
     private var vOffsetRight = 0
     private var decodedFrameCount = 0
 
+    // Reusable per-frame scratch buffers to avoid allocations on the 24ms audio hot path
+    private val bitAlloc = Array(2) { IntArray(32) }
+    private val steps = Array(2) { IntArray(32) }
+    private val scfsi = Array(2) { IntArray(32) }
+    private val scaleFactors = Array(2) { Array(32) { FloatArray(3) } }
+    private val pcmOutput = ByteArray(1152 * 2 * 2) // 1152 samples x 2 channels x 2 bytes
+    private val sampleBuffer = Array(2) { FloatArray(32) }
+    private val groupedSamples = Array(2) { Array(32) { IntArray(3) } }
+    private val leftPcmScratch = ShortArray(32)
+    private val rightPcmScratch = ShortArray(32)
+    private val bitReader = BitReader()
+
+    /**
+     * Decodes a single MP2 frame into 16-bit stereo PCM.
+     * Note: returns a reused internal buffer valid until the next [decodeFrame] call.
+     */
     fun decodeFrame(input: ByteArray, offset: Int, length: Int): ByteArray? {
         if (length < 4) return null
 
@@ -54,12 +70,16 @@ class Mp2Decoder {
         val frameSize = 144 * bitrate / sampleRate + padding
         if (length < frameSize) return null
 
-        val bitReader = BitReader(input, offset + 4)
+        bitReader.reset(input, offset + 4)
 
         // Read bit allocation table for 32 subbands
         val sblimit = if (sampleRate == 48000) 27 else 30
-        val bitAlloc = Array(2) { IntArray(32) }
-        val steps = Array(2) { IntArray(32) }
+        bitAlloc[0].fill(0)
+        bitAlloc[1].fill(0)
+        steps[0].fill(0)
+        steps[1].fill(0)
+        scfsi[0].fill(0)
+        scfsi[1].fill(0)
 
         val bitratePerChannel = bitrate / channels
         val allocTable = if (bitratePerChannel >= 56) ALLOC_TABLE_A else ALLOC_TABLE_B
@@ -82,14 +102,12 @@ class Mp2Decoder {
         }
 
         // Read scale factor selection information (SCFSI)
-        val scfsi = Array(2) { IntArray(32) }
         for (sb in 0 until sblimit) {
             if (bitAlloc[0][sb] != 0) scfsi[0][sb] = bitReader.readBits(2)
             if (channels == 2 && bitAlloc[1][sb] != 0) scfsi[1][sb] = bitReader.readBits(2)
         }
 
         // Read scale factors
-        val scaleFactors = Array(2) { Array(32) { FloatArray(3) } }
         for (sb in 0 until sblimit) {
             for (ch in 0 until channels) {
                 if (bitAlloc[ch][sb] != 0) {
@@ -125,11 +143,7 @@ class Mp2Decoder {
         }
 
         // De-quantize subband samples & apply synthesis filterbank (12 parts of 3 triplets = 36 x 32 samples = 1152)
-        val pcmOutput = ByteArray(1152 * 2 * 2) // 1152 samples x 2 channels x 2 bytes
         var pcmPos = 0
-
-        val sampleBuffer = Array(2) { FloatArray(32) }
-        val groupedSamples = Array(2) { Array(32) { IntArray(3) } }
 
         for (gr in 0 until 12) {
             val part = gr / 4
@@ -184,12 +198,12 @@ class Mp2Decoder {
                 }
 
                 // Synthesis polyphase filterbank for left channel
-                val leftPCM = synthesize(sampleBuffer[0], vBufferLeft, vOffsetLeft)
+                val leftPCM = synthesize(sampleBuffer[0], vBufferLeft, vOffsetLeft, leftPcmScratch)
                 vOffsetLeft = (vOffsetLeft - 64) and 1023
 
                 // Synthesis polyphase filterbank for right channel
                 val rightPCM = if (channels == 2) {
-                    val r = synthesize(sampleBuffer[1], vBufferRight, vOffsetRight)
+                    val r = synthesize(sampleBuffer[1], vBufferRight, vOffsetRight, rightPcmScratch)
                     vOffsetRight = (vOffsetRight - 64) and 1023
                     r
                 } else leftPCM
@@ -256,8 +270,7 @@ class Mp2Decoder {
         }
     }
 
-    private fun synthesize(subbands: FloatArray, vBuffer: FloatArray, vOffset: Int): ShortArray {
-        val pcm = ShortArray(32)
+    private fun synthesize(subbands: FloatArray, vBuffer: FloatArray, vOffset: Int, pcm: ShortArray): ShortArray {
         // Matrixing
         for (k in 0 until 64) {
             var sum = 0f
@@ -279,9 +292,16 @@ class Mp2Decoder {
         return pcm
     }
 
-    private class BitReader(private val data: ByteArray, startOffset: Int) {
-        private var bytePos = startOffset
+    private class BitReader {
+        private var data: ByteArray = EMPTY_BYTES
+        private var bytePos = 0
         private var bitPos = 0
+
+        fun reset(data: ByteArray, startOffset: Int) {
+            this.data = data
+            this.bytePos = startOffset
+            this.bitPos = 0
+        }
 
         fun readBits(count: Int): Int {
             if (count == 0) return 0
@@ -307,6 +327,7 @@ class Mp2Decoder {
     }
 
     companion object {
+        private val EMPTY_BYTES = ByteArray(0)
         private val BITRATE_V1_L2 = intArrayOf(0, 32, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320, 384, 0)
         private val BITRATE_V2_L2 = intArrayOf(0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160, 0)
 

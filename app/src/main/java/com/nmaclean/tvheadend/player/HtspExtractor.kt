@@ -31,7 +31,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
     }
 
     private val isDebug: Boolean
-        get() = context?.let { TvhSettings(it).isStreamingDebugEnabled } == true
+        get() = TvhSettings.isStreamingDebugCached
 
     private var extractorOutput: ExtractorOutput? = null
     private val tracks = mutableMapOf<Long, TrackOutput>()
@@ -66,6 +66,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
 
     override fun init(output: ExtractorOutput) {
         this.extractorOutput = output
+        context?.let { TvhSettings(it) }
         output.seekMap(SeekMap.Unseekable(C.TIME_UNSET))
         Log.i(TAG, "=== HtspExtractor initialized ===")
     }
@@ -508,7 +509,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
 
         if (isKeyframe) {
             hasSeenKeyframe[streamIndex] = true
-            if (isDebug) {
+            if (isDebug && (!isAudio || audioPktCount < 3 || audioPktCount % 250 == 0)) {
                 Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=${payload.size}")
             }
         }
