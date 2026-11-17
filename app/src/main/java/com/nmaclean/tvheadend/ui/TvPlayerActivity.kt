@@ -879,7 +879,7 @@ class TvPlayerActivity : FragmentActivity() {
             .setMessage("${channel.name} • ${TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs)}")
             .setPositiveButton("Record Once") { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
-                    val ok = com.nmaclean.tvheadend.sync.DvrRepository.scheduleEvent(this@TvPlayerActivity, program.eventId)
+                    val ok = com.nmaclean.tvheadend.sync.DvrRepository.scheduleProgram(this@TvPlayerActivity, channel, program)
                     Toast.makeText(
                         this@TvPlayerActivity,
                         if (ok) "Scheduled '${program.title}'" else "Could not schedule recording",
@@ -889,7 +889,8 @@ class TvPlayerActivity : FragmentActivity() {
             }
             .setNeutralButton("Record Series") { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
-                    val ok = com.nmaclean.tvheadend.sync.DvrRepository.scheduleSeries(this@TvPlayerActivity, program.title, channel.id)
+                    val htspChId = com.nmaclean.tvheadend.sync.DvrRepository.resolveHtspChannelId(this@TvPlayerActivity, channel)
+                    val ok = com.nmaclean.tvheadend.sync.DvrRepository.scheduleSeries(this@TvPlayerActivity, program.title, htspChId)
                     Toast.makeText(
                         this@TvPlayerActivity,
                         if (ok) "Added series rule for '${program.title}'" else "Could not add series rule",

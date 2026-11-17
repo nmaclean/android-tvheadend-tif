@@ -198,12 +198,95 @@ object DvrRepository {
         }
     }
 
+    fun resolveHtspChannelId(context: Context, channel: TvhChannel): Long {
+        channel.uuid.toLongOrNull()?.let { if (it > 0L) return it }
+        com.nmaclean.tvheadend.htsp.ChannelRegistry.getChannelByNumber(channel.number)?.let { if (it.id > 0L) return it.id }
+        com.nmaclean.tvheadend.htsp.ChannelRegistry.getChannelByName(channel.name)?.let { if (it.id > 0L) return it.id }
+        try {
+            val uri = android.content.ContentUris.withAppendedId(android.media.tv.TvContract.Channels.CONTENT_URI, channel.id)
+            context.contentResolver.query(
+                uri,
+                arrayOf(
+                    android.media.tv.TvContract.Channels.COLUMN_SERVICE_ID,
+                    android.media.tv.TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA
+                ),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataCol = cursor.getColumnIndex(android.media.tv.TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA)
+                    if (dataCol >= 0 && !cursor.isNull(dataCol)) {
+                        val bytes = cursor.getBlob(dataCol)
+                        if (bytes != null && bytes.isNotEmpty()) {
+                            val key = String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim()
+                            key.toLongOrNull()?.let { if (it > 0L) return it }
+                        }
+                    }
+                    val svcCol = cursor.getColumnIndex(android.media.tv.TvContract.Channels.COLUMN_SERVICE_ID)
+                    if (svcCol >= 0 && !cursor.isNull(svcCol)) {
+                        val svcId = cursor.getLong(svcCol)
+                        if (svcId > 0L) return svcId
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return if (channel.id > 0L) channel.id else 0L
+    }
+
+    /**
+     * Schedules a recording for [program] on [channel].
+     * Attempts event-based scheduling first if [program.eventId] is known,
+     * then seamlessly falls back to channel + start/end time scheduling.
+     */
+    suspend fun scheduleProgram(
+        context: Context,
+        channel: TvhChannel,
+        program: EpgRepository.ProgramInfo,
+        startExtraMin: Long = 0L,
+        stopExtraMin: Long = 0L
+    ): Boolean = withContext(Dispatchers.IO) {
+        val htspChannelId = resolveHtspChannelId(context, channel)
+        val ok = HtspConnectionPool.withClient(context, TAG) { client ->
+            var success = false
+            if (program.eventId > 0L) {
+                success = client.scheduleDvrEvent(program.eventId, startExtraMin, stopExtraMin)
+                if (success) {
+                    android.util.Log.i(TAG, "Scheduled DVR recording by eventId ${program.eventId} for '${program.title}'")
+                } else {
+                    android.util.Log.w(TAG, "Failed scheduling by eventId ${program.eventId}, falling back to manual channel/time scheduling...")
+                }
+            }
+            if (!success && htspChannelId > 0L) {
+                val nowSec = System.currentTimeMillis() / 1000L
+                val startSec = if (program.startTimeMs > 0L) program.startTimeMs / 1000L else nowSec
+                val stopSec = if (program.endTimeMs > program.startTimeMs) program.endTimeMs / 1000L else (startSec + 2 * 3600L)
+                val title = program.title.ifBlank { "${channel.name} Recording" }
+                success = client.scheduleManualDvr(
+                    channelId = htspChannelId,
+                    startSec = startSec,
+                    stopSec = stopSec,
+                    title = title,
+                    startExtraMin = startExtraMin,
+                    stopExtraMin = stopExtraMin
+                )
+                if (success) {
+                    android.util.Log.i(TAG, "Scheduled manual DVR recording for '$title' on channel $htspChannelId ($startSec..$stopSec)")
+                } else {
+                    android.util.Log.w(TAG, "Failed manual DVR scheduling for '$title' on channel $htspChannelId")
+                }
+            }
+            success
+        } ?: false
+        if (ok) refresh(context, force = true)
+        ok
+    }
+
     suspend fun scheduleEvent(
         context: Context,
         eventId: Long,
         startExtraMin: Long = 0L,
         stopExtraMin: Long = 0L
     ): Boolean = withContext(Dispatchers.IO) {
+        if (eventId <= 0L) return@withContext false
         val ok = HtspConnectionPool.withClient(context, TAG) { it.scheduleDvrEvent(eventId, startExtraMin, stopExtraMin) } ?: false
         if (ok) refresh(context, force = true)
         ok
@@ -249,12 +332,30 @@ object DvrRepository {
         ok
     }
 
-    fun findActiveRecordingForEvent(eventId: Long): TvhRecording? {
-        if (eventId <= 0L) return null
-        return _recordings.value.firstOrNull {
-            it.eventId == eventId &&
-                (it.status == TvhRecordingStatus.SCHEDULED || it.status == TvhRecordingStatus.RECORDING)
+    fun findActiveRecording(
+        eventId: Long = 0L,
+        channelId: Long = 0L,
+        title: String? = null,
+        startTimeMs: Long = 0L
+    ): TvhRecording? {
+        return _recordings.value.firstOrNull { rec ->
+            val isActive = rec.status == TvhRecordingStatus.SCHEDULED || rec.status == TvhRecordingStatus.RECORDING
+            if (!isActive) return@firstOrNull false
+
+            if (eventId > 0L && rec.eventId == eventId) return@firstOrNull true
+
+            if (channelId > 0L && rec.channelId == channelId && !title.isNullOrBlank()) {
+                val titleMatches = rec.title.trim().equals(title.trim(), ignoreCase = true)
+                val timeMatches = startTimeMs <= 0L || Math.abs(rec.startTimeMs - startTimeMs) < 10 * 60_000L
+                if (titleMatches && timeMatches) return@firstOrNull true
+            }
+
+            false
         }
+    }
+
+    fun findActiveRecordingForEvent(eventId: Long): TvhRecording? {
+        return findActiveRecording(eventId = eventId)
     }
 
     fun saveResumePosition(context: Context, dvrId: Long, positionMs: Long, durationMs: Long) {

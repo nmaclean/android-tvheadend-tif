@@ -366,8 +366,16 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         if (stopExtraMin > 0L) msg["stopExtra"] = stopExtraMin
         if (!configName.isNullOrBlank()) msg["configName"] = configName
         sendMessage(msg)
-        val response = readResponse(seq.toLong()) ?: return false
-        return response["success"] == 1L || response["success"] == 1 || response["id"] != null
+        val response = readResponse(seq.toLong())
+        if (response == null) {
+            Log.w(TAG, "scheduleDvrEvent: null response for eventId=$eventId (seq=$seq)")
+            return false
+        }
+        val ok = response["success"] == 1L || response["success"] == 1 || response["success"] == true || response["id"] != null
+        if (!ok) {
+            Log.w(TAG, "scheduleDvrEvent failed for eventId=$eventId: error=${response["error"]}, noaccess=${response["noaccess"]}, response=$response")
+        }
+        return ok
     }
 
     /**
@@ -396,8 +404,16 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         if (stopExtraMin > 0L) msg["stopExtra"] = stopExtraMin
         if (!configName.isNullOrBlank()) msg["configName"] = configName
         sendMessage(msg)
-        val response = readResponse(seq.toLong()) ?: return false
-        return response["success"] == 1L || response["success"] == 1 || response["id"] != null
+        val response = readResponse(seq.toLong())
+        if (response == null) {
+            Log.w(TAG, "scheduleManualDvr: null response for channelId=$channelId, title='$title' (seq=$seq)")
+            return false
+        }
+        val ok = response["success"] == 1L || response["success"] == 1 || response["success"] == true || response["id"] != null
+        if (!ok) {
+            Log.w(TAG, "scheduleManualDvr failed for channelId=$channelId, title='$title': error=${response["error"]}, noaccess=${response["noaccess"]}, response=$response")
+        }
+        return ok
     }
 
     /**
@@ -414,7 +430,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             )
         )
         val response = readResponse(seq.toLong()) ?: return false
-        return response["success"] == 1L || response["success"] == 1
+        return response["success"] == 1L || response["success"] == 1 || response["success"] == true || response.containsKey("id")
     }
 
     /**
@@ -431,7 +447,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             )
         )
         val response = readResponse(seq.toLong()) ?: return false
-        return response["success"] == 1L || response["success"] == 1
+        return response["success"] == 1L || response["success"] == 1 || response["success"] == true || response.containsKey("id")
     }
 
     /**
@@ -451,10 +467,19 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         )
         if (channelId != null && channelId > 0L) {
             msg["channelId"] = channelId
+            msg["channel"] = channelId
         }
         sendMessage(msg)
-        val response = readResponse(seq.toLong()) ?: return false
-        return response["success"] == 1L || response["success"] == 1 || response["id"] != null
+        val response = readResponse(seq.toLong())
+        if (response == null) {
+            Log.w(TAG, "addSeriesRule: null response for title='$title' (seq=$seq)")
+            return false
+        }
+        val ok = response["success"] == 1L || response["success"] == 1 || response["success"] == true || response["id"] != null
+        if (!ok) {
+            Log.w(TAG, "addSeriesRule failed for title='$title': error=${response["error"]}, noaccess=${response["noaccess"]}, response=$response")
+        }
+        return ok
     }
 
     /**

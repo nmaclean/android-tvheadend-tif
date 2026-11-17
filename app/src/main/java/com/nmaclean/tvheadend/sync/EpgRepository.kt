@@ -48,7 +48,9 @@ object EpgRepository {
             TvContract.Programs.COLUMN_TITLE,
             TvContract.Programs.COLUMN_SHORT_DESCRIPTION,
             TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
-            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS
+            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS,
+            TvContract.Programs.COLUMN_EVENT_ID,
+            TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA
         )
 
         val programsUri = try {
@@ -73,9 +75,11 @@ object EpgRepository {
                 val descCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_SHORT_DESCRIPTION)
                 val startCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS)
                 val endCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS)
+                val eventIdCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_EVENT_ID)
+                val dataCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA)
 
                 while (cursor.moveToNext()) {
-                    val eventId = if (idCol >= 0) cursor.getLong(idCol) else 0L
+                    val eventId = extractEventId(cursor, eventIdCol, dataCol)
                     val chId = if (chCol >= 0) cursor.getLong(chCol) else channelIdentifier
                     val title = if (titleCol >= 0) cursor.getString(titleCol) ?: "No Title" else "No Title"
                     val desc = if (descCol >= 0) cursor.getString(descCol) else null
@@ -109,7 +113,9 @@ object EpgRepository {
             TvContract.Programs.COLUMN_TITLE,
             TvContract.Programs.COLUMN_SHORT_DESCRIPTION,
             TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
-            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS
+            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS,
+            TvContract.Programs.COLUMN_EVENT_ID,
+            TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA
         )
 
         val programsUri = try {
@@ -134,9 +140,11 @@ object EpgRepository {
                 val descCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_SHORT_DESCRIPTION)
                 val startCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS)
                 val endCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS)
+                val eventIdCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_EVENT_ID)
+                val dataCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA)
 
                 while (cursor.moveToNext()) {
-                    val eventId = if (idCol >= 0) cursor.getLong(idCol) else 0L
+                    val eventId = extractEventId(cursor, eventIdCol, dataCol)
                     val chId = if (chCol >= 0) cursor.getLong(chCol) else channelIdentifier
                     val title = if (titleCol >= 0) cursor.getString(titleCol) ?: "No Title" else "No Title"
                     val desc = if (descCol >= 0) cursor.getString(descCol) else null
@@ -167,7 +175,9 @@ object EpgRepository {
             TvContract.Programs.COLUMN_TITLE,
             TvContract.Programs.COLUMN_SHORT_DESCRIPTION,
             TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
-            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS
+            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS,
+            TvContract.Programs.COLUMN_EVENT_ID,
+            TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA
         )
         val selection = "${TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS} >= ? AND ${TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS} <= ?"
         val selectionArgs = arrayOf(startWindowMs.toString(), endWindowMs.toString())
@@ -187,9 +197,11 @@ object EpgRepository {
                 val descCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_SHORT_DESCRIPTION)
                 val startCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS)
                 val endCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS)
+                val eventIdCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_EVENT_ID)
+                val dataCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA)
 
                 while (cursor.moveToNext()) {
-                    val eventId = if (idCol >= 0) cursor.getLong(idCol) else 0L
+                    val eventId = extractEventId(cursor, eventIdCol, dataCol)
                     val chId = if (chCol >= 0) cursor.getLong(chCol) else continue
                     val title = if (titleCol >= 0) cursor.getString(titleCol) ?: "No Title" else "No Title"
                     val desc = if (descCol >= 0) cursor.getString(descCol) else null
@@ -242,5 +254,23 @@ object EpgRepository {
         }
 
         return map
+    }
+
+    private fun extractEventId(cursor: android.database.Cursor, eventIdCol: Int, dataCol: Int): Long {
+        if (eventIdCol >= 0 && !cursor.isNull(eventIdCol)) {
+            val id = cursor.getString(eventIdCol)?.toLongOrNull()
+            if (id != null && id > 0L) return id
+        }
+        if (dataCol >= 0 && !cursor.isNull(dataCol)) {
+            try {
+                val bytes = cursor.getBlob(dataCol)
+                if (bytes != null && bytes.isNotEmpty()) {
+                    val str = String(bytes, java.nio.charset.StandardCharsets.UTF_8)
+                    val id = str.substringBefore(':').toLongOrNull()
+                    if (id != null && id > 0L) return id
+                }
+            } catch (_: Exception) {}
+        }
+        return 0L
     }
 }

@@ -319,7 +319,7 @@ fun GuideScreen(
                                         val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
                                         val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 3f
                                         val widthDp = maxOf(32f, rawWidthDp).dp
-                                        val isRecordingScheduled = prog.eventId in scheduledEventIds ||
+                                        val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in scheduledEventIds) ||
                                             prog.title.trim().lowercase() in seriesTitles
                                         val cellMod = if (rowIndex == 0 && progIdx == 0) {
                                             baseFocusMod.focusRequester(gridFocusRequester)

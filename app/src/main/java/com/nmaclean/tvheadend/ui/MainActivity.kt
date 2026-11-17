@@ -256,7 +256,14 @@ class MainActivity : ComponentActivity() {
                     val (ch, prog) = modalPair
                     val now = System.currentTimeMillis()
                     val isLiveNow = now in prog.startTimeMs..prog.endTimeMs
-                    val isScheduled = prog.eventId in scheduledEventIds
+                    val htspChId = DvrRepository.resolveHtspChannelId(this@MainActivity, ch)
+                    val existing = DvrRepository.findActiveRecording(
+                        eventId = prog.eventId,
+                        channelId = htspChId,
+                        title = prog.title,
+                        startTimeMs = prog.startTimeMs
+                    )
+                    val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in scheduledEventIds)
                     val hasSeries = prog.title.trim().lowercase() in seriesTitles
                     ProgramDetailsModal(
                         channel = ch,
@@ -270,17 +277,22 @@ class MainActivity : ComponentActivity() {
                         },
                         onToggleRecordEpisode = {
                             scope.launch {
-                                val existing = DvrRepository.findActiveRecordingForEvent(prog.eventId)
-                                val ok = if (existing != null) {
-                                    DvrRepository.cancelTimer(this@MainActivity, existing.id)
+                                val currentExisting = DvrRepository.findActiveRecording(
+                                    eventId = prog.eventId,
+                                    channelId = htspChId,
+                                    title = prog.title,
+                                    startTimeMs = prog.startTimeMs
+                                )
+                                val ok = if (currentExisting != null) {
+                                    DvrRepository.cancelTimer(this@MainActivity, currentExisting.id)
                                 } else {
-                                    DvrRepository.scheduleEvent(this@MainActivity, prog.eventId)
+                                    DvrRepository.scheduleProgram(this@MainActivity, ch, prog)
                                 }
                                 Toast.makeText(
                                     this@MainActivity,
                                     when {
-                                        existing != null && ok -> "Cancelled '${prog.title}'"
-                                        existing == null && ok -> "Scheduled '${prog.title}'"
+                                        currentExisting != null && ok -> "Cancelled '${prog.title}'"
+                                        currentExisting == null && ok -> "Scheduled '${prog.title}'"
                                         else -> "DVR action failed"
                                     },
                                     Toast.LENGTH_SHORT
@@ -289,7 +301,7 @@ class MainActivity : ComponentActivity() {
                         },
                         onScheduleSeries = {
                             scope.launch {
-                                val ok = DvrRepository.scheduleSeries(this@MainActivity, prog.title, ch.id)
+                                val ok = DvrRepository.scheduleSeries(this@MainActivity, prog.title, htspChId)
                                 Toast.makeText(
                                     this@MainActivity,
                                     if (ok) "Added series rule for '${prog.title}'" else "Could not add series rule",
@@ -324,7 +336,7 @@ class MainActivity : ComponentActivity() {
             .setMessage("${channel.name} • ${TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs)}")
             .setPositiveButton("Record Once") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = DvrRepository.scheduleEvent(this@MainActivity, program.eventId)
+                    val ok = DvrRepository.scheduleProgram(this@MainActivity, channel, program)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Scheduled '${program.title}'" else "Could not schedule recording",
@@ -335,7 +347,8 @@ class MainActivity : ComponentActivity() {
             }
             .setNeutralButton("Record Series") { _, _ ->
                 kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    val ok = DvrRepository.scheduleSeries(this@MainActivity, program.title, channel.id)
+                    val htspChId = DvrRepository.resolveHtspChannelId(this@MainActivity, channel)
+                    val ok = DvrRepository.scheduleSeries(this@MainActivity, program.title, htspChId)
                     Toast.makeText(
                         this@MainActivity,
                         if (ok) "Added series rule for '${program.title}'" else "Could not add series rule",

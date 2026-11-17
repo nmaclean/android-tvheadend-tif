@@ -363,6 +363,10 @@ object TvhSyncManager {
                         put(TvContract.Programs.COLUMN_SHORT_DESCRIPTION, prog.summary)
                         put(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS, prog.startTime)
                         put(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS, prog.stopTime)
+                        if (prog.eventId > 0L) {
+                            put(TvContract.Programs.COLUMN_EVENT_ID, prog.eventId.toString())
+                            put(TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA, "${prog.eventId}:${prog.channelId}".toByteArray(Charsets.UTF_8))
+                        }
                     }
                     contentValuesList.add(values)
                 }
