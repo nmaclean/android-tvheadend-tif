@@ -157,4 +157,31 @@ class GitHubUpdateManagerTest {
         assertEquals("v1.2.8", list[0].tagName)
         assertEquals("v1.2.6", list[1].tagName)
     }
+
+    @Test
+    fun testParseReleasesAtomFallback() {
+        val atomXml = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <entry>
+                <link rel="alternate" type="text/html" href="https://github.com/nmaclean/android-tvheadend-tif/releases/tag/v1.2.15"/>
+                <title>v1.2.15</title>
+              </entry>
+              <entry>
+                <link rel="alternate" type="text/html" href="https://github.com/nmaclean/android-tvheadend-tif/releases/tag/v1.2.14"/>
+                <title>v1.2.14</title>
+              </entry>
+            </feed>
+        """.trimIndent()
+
+        val list = manager.parseReleasesAtom(atomXml, limit = 15)
+        assertEquals(2, list.size)
+        assertEquals("v1.2.15", list[0].tagName)
+        assertEquals("1.2.15", list[0].versionName)
+        assertEquals(
+            "https://github.com/nmaclean/android-tvheadend-tif/releases/download/v1.2.15/app-release.apk",
+            list[0].apkDownloadUrl
+        )
+        assertEquals("v1.2.14", list[1].tagName)
+    }
 }

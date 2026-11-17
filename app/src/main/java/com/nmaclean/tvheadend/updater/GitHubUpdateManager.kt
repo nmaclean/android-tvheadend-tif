@@ -47,12 +47,14 @@ class GitHubUpdateManager(
         const val DEFAULT_OWNER = "nmaclean"
         const val DEFAULT_REPO = "android-tvheadend-tif"
         const val GITHUB_API_BASE_URL = "https://api.github.com"
+        const val GITHUB_WEB_BASE_URL = "https://github.com"
         private const val UPDATES_DIR = "updates"
         private const val UPDATE_APK_NAME = "update.apk"
     }
 
     /**
      * Checks GitHub Releases for a newer stable APK release compared to [currentVersion].
+     * Falls back to GitHub's non-API `releases.atom` feed when `api.github.com` returns 403/429 rate limits.
      */
     suspend fun checkForUpdate(
         currentVersion: String = BuildConfig.VERSION_NAME
@@ -67,6 +69,14 @@ class GitHubUpdateManager(
         try {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
+                    val atomFallback = fetchReleasesViaAtom(limit = 5).getOrNull()?.firstOrNull()
+                    if (atomFallback != null) {
+                        return@withContext if (SemVerComparator.isNewer(atomFallback.tagName, currentVersion)) {
+                            UpdateCheckResult.UpdateAvailable(atomFallback)
+                        } else {
+                            UpdateCheckResult.UpToDate(currentVersion)
+                        }
+                    }
                     return@withContext UpdateCheckResult.Error(
                         "GitHub API returned HTTP ${response.code}"
                     )
@@ -90,12 +100,22 @@ class GitHubUpdateManager(
                 }
             }
         } catch (e: Exception) {
-            UpdateCheckResult.Error(e.message ?: "Failed to check for updates")
+            val atomFallback = fetchReleasesViaAtom(limit = 5).getOrNull()?.firstOrNull()
+            if (atomFallback != null) {
+                if (SemVerComparator.isNewer(atomFallback.tagName, currentVersion)) {
+                    UpdateCheckResult.UpdateAvailable(atomFallback)
+                } else {
+                    UpdateCheckResult.UpToDate(currentVersion)
+                }
+            } else {
+                UpdateCheckResult.Error(e.message ?: "Failed to check for updates")
+            }
         }
     }
 
     /**
      * Fetches recent stable APK releases from GitHub Releases (newest first) for version selection/rollback.
+     * Falls back to GitHub's `releases.atom` feed when `api.github.com` is rate-limited (HTTP 403/429).
      */
     suspend fun fetchReleases(limit: Int = 15): Result<List<GitHubReleaseInfo>> = withContext(Dispatchers.IO) {
         val url = "$apiBaseUrl/repos/$owner/$repo/releases?per_page=$limit"
@@ -108,17 +128,84 @@ class GitHubUpdateManager(
         try {
             httpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
+                    val atomResult = fetchReleasesViaAtom(limit = limit)
+                    if (atomResult.isSuccess) return@withContext atomResult
                     return@withContext Result.failure(IOException("GitHub API returned HTTP ${response.code}"))
                 }
                 val body = response.body?.string().orEmpty()
                 if (body.isBlank()) {
+                    val atomResult = fetchReleasesViaAtom(limit = limit)
+                    if (atomResult.isSuccess) return@withContext atomResult
                     return@withContext Result.failure(IOException("Empty response from GitHub API"))
                 }
                 Result.success(parseReleasesListJson(body))
             }
         } catch (e: Exception) {
+            val atomResult = fetchReleasesViaAtom(limit = limit)
+            if (atomResult.isSuccess) atomResult else Result.failure(e)
+        }
+    }
+
+    private fun fetchReleasesViaAtom(limit: Int): Result<List<GitHubReleaseInfo>> {
+        val atomUrl = "$GITHUB_WEB_BASE_URL/$owner/$repo/releases.atom"
+        val request = Request.Builder()
+            .url(atomUrl)
+            .header("Accept", "application/atom+xml,application/xml,text/xml")
+            .header("User-Agent", "android-tvheadend-tif/${BuildConfig.VERSION_NAME}")
+            .build()
+
+        return try {
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    return Result.failure(IOException("GitHub Atom feed returned HTTP ${response.code}"))
+                }
+                val xml = response.body?.string().orEmpty()
+                val parsed = parseReleasesAtom(xml, limit)
+                if (parsed.isEmpty()) {
+                    Result.failure(IOException("No releases found in GitHub Atom feed"))
+                } else {
+                    Result.success(parsed)
+                }
+            }
+        } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * Parses GitHub's `releases.atom` XML feed into [GitHubReleaseInfo] entries with direct APK download URLs.
+     */
+    internal fun parseReleasesAtom(xml: String, limit: Int = 15): List<GitHubReleaseInfo> {
+        if (xml.isBlank()) return emptyList()
+        val entryRegex = Regex("<entry>(.*?)</entry>", setOf(RegexOption.DOT_MATCHES_ALL))
+        val linkRegex = Regex("""href="https?://[^"]*/releases/tag/([^"/\s]+)"""")
+        val titleRegex = Regex("<title>([^<]+)</title>")
+
+        val results = mutableListOf<GitHubReleaseInfo>()
+        for (match in entryRegex.findAll(xml)) {
+            if (results.size >= limit) break
+            val entry = match.groupValues[1]
+            val tagName = linkRegex.find(entry)?.groupValues?.getOrNull(1)?.trim()
+                ?: titleRegex.find(entry)?.groupValues?.getOrNull(1)?.trim()
+                ?: continue
+            if (tagName.isBlank()) continue
+            val isPre = tagName.contains("-", ignoreCase = true)
+            if (isPre) continue
+
+            val downloadUrl = "$GITHUB_WEB_BASE_URL/$owner/$repo/releases/download/$tagName/app-release.apk"
+            results.add(
+                GitHubReleaseInfo(
+                    tagName = tagName,
+                    versionName = tagName.removePrefix("v").removePrefix("V"),
+                    releaseNotes = "Release $tagName",
+                    apkDownloadUrl = downloadUrl,
+                    assetName = "app-release.apk",
+                    assetSizeBytes = 0L,
+                    isPreRelease = false
+                )
+            )
+        }
+        return results
     }
 
     /**
