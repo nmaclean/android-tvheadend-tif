@@ -34,6 +34,9 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -77,6 +80,7 @@ fun GuideScreen(
     windowStartMs: Long,
     onTuneChannel: (TvhChannel) -> Unit,
     onScheduleProgram: (TvhChannel, EpgRepository.ProgramInfo) -> Unit,
+    gridFocusRequester: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier
 ) {
     val categories = TvhUiRepository.CHANNEL_CATEGORIES
@@ -131,7 +135,9 @@ fun GuideScreen(
             pills = categories,
             selectedIndex = selectedCategoryIdx,
             onSelect = { selectedCategoryIdx = it },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusProperties { down = gridFocusRequester }
         )
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -212,6 +218,7 @@ fun GuideScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier
                     .fillMaxSize()
+                    .focusRequester(gridFocusRequester)
                     .focusRestorer()
             ) {
                 items(filteredChannels, key = { it.id }) { channel ->

@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.media3.common.util.UnstableApi
 import com.nmaclean.tvheadend.htsp.HtspConnectionPool
 import com.nmaclean.tvheadend.model.TvhChannel
@@ -102,6 +103,8 @@ class MainActivity : ComponentActivity() {
         var isLoadingDvr by remember { mutableStateOf(false) }
         var windowStartMs by remember { mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L) }
         var dvrRefreshTick by remember { mutableIntStateOf(0) }
+        val guideGridFocusRequester = remember { FocusRequester() }
+        var focusGuideTick by remember { mutableIntStateOf(0) }
         val scope = rememberCoroutineScope()
 
         LaunchedEffect(Unit) {
@@ -147,6 +150,9 @@ class MainActivity : ComponentActivity() {
                         onOpenSettings()
                     } else {
                         selectedDestination = dest
+                        if (dest == TvhNavDestination.GUIDE) {
+                            focusGuideTick++
+                        }
                     }
                 }
             )
@@ -164,16 +170,27 @@ class MainActivity : ComponentActivity() {
                         isLoading = isLoadingChannels,
                         onChannelClick = onTuneChannel
                     )
-                    TvhNavDestination.GUIDE -> GuideScreen(
-                        channels = channels,
-                        currentEpg = currentEpg,
-                        guidePrograms = guidePrograms,
-                        windowStartMs = windowStartMs,
-                        onTuneChannel = onTuneChannel,
-                        onScheduleProgram = { ch, prog ->
-                            onScheduleProgram(ch, prog) { dvrRefreshTick++ }
+                    TvhNavDestination.GUIDE -> {
+                        LaunchedEffect(focusGuideTick, channels.size) {
+                            if (focusGuideTick > 0 && channels.isNotEmpty()) {
+                                kotlinx.coroutines.delay(50L)
+                                try {
+                                    guideGridFocusRequester.requestFocus()
+                                } catch (_: Exception) {}
+                            }
                         }
-                    )
+                        GuideScreen(
+                            channels = channels,
+                            currentEpg = currentEpg,
+                            guidePrograms = guidePrograms,
+                            windowStartMs = windowStartMs,
+                            onTuneChannel = onTuneChannel,
+                            onScheduleProgram = { ch, prog ->
+                                onScheduleProgram(ch, prog) { dvrRefreshTick++ }
+                            },
+                            gridFocusRequester = guideGridFocusRequester
+                        )
+                    }
                     TvhNavDestination.RECORDINGS -> RecordingsScreen(
                         recordings = recordings,
                         seriesRules = seriesRules,

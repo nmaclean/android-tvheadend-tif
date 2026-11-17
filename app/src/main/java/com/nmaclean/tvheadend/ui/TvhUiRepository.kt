@@ -113,14 +113,14 @@ object TvhUiRepository {
     }
 
     suspend fun loadChannels(context: Context): List<TvhChannel> = withContext(Dispatchers.IO) {
-        val cached = ChannelRegistry.getAllChannels()
-        if (cached.isNotEmpty()) return@withContext cached
-
         val fromTvProvider = queryChannelsFromTvProvider(context)
         if (fromTvProvider.isNotEmpty()) {
             ChannelRegistry.updateChannels(fromTvProvider)
             return@withContext fromTvProvider
         }
+
+        val cached = ChannelRegistry.getAllChannels()
+        if (cached.isNotEmpty()) return@withContext cached
 
         val settings = TvhSettings(context)
         if (settings.host.isBlank()) return@withContext emptyList()
@@ -181,12 +181,12 @@ object TvhUiRepository {
                             ""
                         }
                     } else ""
-                    val htspId = providerId.toLongOrNull() ?: rowId
+                    val streamKey = providerId.ifEmpty { rowId.toString() }
                     val inputId = if (inputCol >= 0) cursor.getString(inputCol) ?: "" else ""
                     result.add(
                         TvhChannel(
-                            id = htspId,
-                            uuid = providerId.ifEmpty { htspId.toString() },
+                            id = rowId,
+                            uuid = streamKey,
                             name = name,
                             number = num,
                             icon = "",
