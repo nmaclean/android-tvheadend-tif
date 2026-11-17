@@ -24,6 +24,21 @@ class TvhSettings(context: Context) {
         var isStreamingDebugCached: Boolean = false
             private set
 
+        @Volatile
+        private var cachedSecurePrefs: SharedPreferences? = null
+
+        fun refreshStreamingDebug(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean("streaming_debug", false).also { isStreamingDebugCached = it }
+        }
+
+        internal fun getOrCreateEncryptedPrefs(context: Context): SharedPreferences? {
+            cachedSecurePrefs?.let { return it }
+            return synchronized(this) {
+                cachedSecurePrefs ?: createEncryptedPrefs(context)?.also { cachedSecurePrefs = it }
+            }
+        }
+
         internal fun createEncryptedPrefs(context: Context): SharedPreferences? {
             return try {
                 val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -42,7 +57,7 @@ class TvhSettings(context: Context) {
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val securePrefs: SharedPreferences = createEncryptedPrefs(context) ?: prefs
+    private val securePrefs: SharedPreferences = getOrCreateEncryptedPrefs(context) ?: prefs
 
     init {
         isStreamingDebugCached = prefs.getBoolean("streaming_debug", false)

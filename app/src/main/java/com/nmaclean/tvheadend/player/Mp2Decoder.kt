@@ -1,6 +1,7 @@
 package com.nmaclean.tvheadend.player
 
 import android.util.Log
+import com.nmaclean.tvheadend.model.TvhSettings
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.math.sin
@@ -221,7 +222,7 @@ class Mp2Decoder {
         }
 
         decodedFrameCount++
-        if (decodedFrameCount <= 5 || decodedFrameCount % 100 == 0) {
+        if (TvhSettings.isStreamingDebugCached && (decodedFrameCount <= 5 || decodedFrameCount % 100 == 0)) {
             var maxPeak = 0
             var j = 0
             while (j + 1 < pcmOutput.size) {

@@ -66,7 +66,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
 
     override fun init(output: ExtractorOutput) {
         this.extractorOutput = output
-        context?.let { TvhSettings(it) }
+        context?.let { TvhSettings.refreshStreamingDebug(it) }
         output.seekMap(SeekMap.Unseekable(C.TIME_UNSET))
         Log.i(TAG, "=== HtspExtractor initialized ===")
     }
