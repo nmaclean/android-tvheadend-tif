@@ -71,7 +71,6 @@ fun PlayerOsdOverlay(
     onTimeout: () -> Unit,
     onGuideClick: () -> Unit,
     onAudioSubtitlesClick: () -> Unit,
-    onSettingsClick: () -> Unit,
     onQuickZapChannel: (TvhChannel) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -280,11 +279,6 @@ fun PlayerOsdOverlay(
                             label = "Audio & Subtitles",
                             selected = false,
                             onClick = onAudioSubtitlesClick
-                        )
-                        TvhPillButton(
-                            label = "Settings",
-                            selected = false,
-                            onClick = onSettingsClick
                         )
                     }
                 }

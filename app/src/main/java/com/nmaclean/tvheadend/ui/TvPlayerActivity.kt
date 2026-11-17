@@ -223,10 +223,6 @@ class TvPlayerActivity : FragmentActivity() {
                             osdVisibleState.value = false
                             showAudioOrSubtitlePicker()
                         },
-                        onSettingsClick = {
-                            osdVisibleState.value = false
-                            startActivity(Intent(this@TvPlayerActivity, InputManagerActivity::class.java))
-                        },
                         onQuickZapChannel = { selectedChannel ->
                             osdInteractionTickState.intValue++
                             val idx = channelList.indexOfFirst { it.id == selectedChannel.id }
