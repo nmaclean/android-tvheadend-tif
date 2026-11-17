@@ -1,310 +1,213 @@
 package com.nmaclean.tvheadend.updater
 
 import android.content.Context
-import android.graphics.Color as AndroidColor
-import android.graphics.drawable.ColorDrawable
-import android.os.Bundle
+import android.graphics.Color
 import android.util.Log
-import androidx.activity.ComponentDialog
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Button
-import androidx.tv.material3.ButtonDefaults
-import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.OutlinedButton
-import androidx.tv.material3.Surface
-import androidx.tv.material3.Text
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.ProgressBar
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import com.nmaclean.tvheadend.BuildConfig
 import java.io.File
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
- * UI state machine for the Jetpack Compose for TV in-app updater card.
- */
-sealed class UpdateUiState {
-    data object Checking : UpdateUiState()
-    data class UpToDate(val currentVersion: String) : UpdateUiState()
-    data class Available(val release: GitHubReleaseInfo) : UpdateUiState()
-    data class Downloading(val release: GitHubReleaseInfo, val progress: Float) : UpdateUiState()
-    data class ReadyToInstall(val release: GitHubReleaseInfo, val apkFile: File) : UpdateUiState()
-    data class Error(val message: String) : UpdateUiState()
-}
-
-/**
- * D-pad-navigable Jetpack Compose for TV dialog hosting [UpdatePromptCard].
+ * D-pad-navigable Android TV dialog for checking, downloading, and installing GitHub Releases APKs.
  */
 class UpdatePromptDialog(
-    context: Context,
+    private val context: Context,
     private val updateManager: GitHubUpdateManager = GitHubUpdateManager()
-) : ComponentDialog(context) {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        window?.setBackgroundDrawable(ColorDrawable(AndroidColor.TRANSPARENT))
-        val composeView = ComposeView(context).apply {
-            isFocusable = true
-            isFocusableInTouchMode = true
-            setContent {
-                MaterialTheme {
-                    UpdatePromptCard(
-                        context = context,
-                        updateManager = updateManager,
-                        onDismiss = { dismiss() }
-                    )
-                }
-            }
-        }
-        setContentView(composeView)
-        composeView.post { composeView.requestFocus() }
-    }
-}
-
-/**
- * D-pad-focusable Jetpack Compose for TV card supporting Check, Download progress, and Install states.
- */
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-fun UpdatePromptCard(
-    context: Context,
-    updateManager: GitHubUpdateManager,
-    onDismiss: () -> Unit
 ) {
-    val scope = rememberCoroutineScope()
-    var uiState by remember { mutableStateOf<UpdateUiState>(UpdateUiState.Checking) }
-    val primaryFocusRequester = remember { FocusRequester() }
+    companion object {
+        private const val TAG = "UpdatePrompt"
+    }
 
-    LaunchedEffect(Unit) {
-        uiState = when (val result = updateManager.checkForUpdate(BuildConfig.VERSION_NAME)) {
-            is UpdateCheckResult.UpdateAvailable -> UpdateUiState.Available(result.release)
-            is UpdateCheckResult.UpToDate -> UpdateUiState.UpToDate(result.currentVersion)
-            is UpdateCheckResult.Error -> UpdateUiState.Error(result.message)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var activeJob: Job? = null
+    private var dialog: AlertDialog? = null
+
+    private lateinit var messageView: TextView
+    private lateinit var progressBar: ProgressBar
+
+    fun show() {
+        val density = context.resources.displayMetrics.density
+        val pad = (24 * density).toInt()
+
+        messageView = TextView(context).apply {
+            setTextColor(Color.WHITE)
+            textSize = 15f
+            text = "Checking GitHub Releases for updates (installed v${BuildConfig.VERSION_NAME})..."
+        }
+
+        progressBar = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+            isIndeterminate = true
+            max = 100
+            setPadding(0, (16 * density).toInt(), 0, 0)
+        }
+
+        val contentLayout = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, (16 * density).toInt(), pad, (8 * density).toInt())
+            addView(messageView)
+            addView(progressBar)
+        }
+
+        val scrollView = ScrollView(context).apply {
+            addView(contentLayout)
+        }
+
+        val alertDialog = AlertDialog.Builder(context)
+            .setTitle("Software Update")
+            .setView(scrollView)
+            .setPositiveButton("Download & Install", null)
+            .setNegativeButton("Close") { d, _ ->
+                activeJob?.cancel()
+                d.dismiss()
+            }
+            .setOnDismissListener {
+                activeJob?.cancel()
+            }
+            .create()
+
+        dialog = alertDialog
+        alertDialog.show()
+
+        // Hide positive button while checking
+        alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+        alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.requestFocus()
+
+        startUpdateCheck()
+    }
+
+    private fun startUpdateCheck() {
+        activeJob?.cancel()
+        val d = dialog ?: return
+        progressBar.visibility = View.VISIBLE
+        progressBar.isIndeterminate = true
+        messageView.text = "Checking GitHub Releases for updates (installed v${BuildConfig.VERSION_NAME})..."
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+
+        activeJob = scope.launch {
+            Log.i(TAG, "Checking for updates (installed v${BuildConfig.VERSION_NAME})...")
+            when (val result = updateManager.checkForUpdate(BuildConfig.VERSION_NAME)) {
+                is UpdateCheckResult.UpdateAvailable -> showAvailable(result.release)
+                is UpdateCheckResult.UpToDate -> showUpToDate(result.currentVersion)
+                is UpdateCheckResult.Error -> showError(result.message)
+            }
         }
     }
 
-    LaunchedEffect(uiState) {
-        if (uiState !is UpdateUiState.Checking && uiState !is UpdateUiState.Downloading) {
-            delay(50)
-            runCatching { primaryFocusRequester.requestFocus() }
+    private fun showUpToDate(currentVersion: String) {
+        val d = dialog ?: return
+        if (!d.isShowing) return
+        progressBar.visibility = View.GONE
+        messageView.text = "You are running the latest version (v$currentVersion)."
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+            text = "Check Again"
+            visibility = View.VISIBLE
+            setOnClickListener { startUpdateCheck() }
+            requestFocus()
         }
     }
 
-    Surface(
-        modifier = Modifier
-            .widthIn(min = 420.dp, max = 560.dp)
-            .background(Color(0xFF141923), RoundedCornerShape(16.dp))
-            .border(BorderStroke(1.dp, Color(0xFF2E3A4E)), RoundedCornerShape(16.dp))
-            .padding(24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF141923)),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Text(
-                text = "Software Update",
-                color = Color.White,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold
-            )
+    private fun showAvailable(release: GitHubReleaseInfo) {
+        val d = dialog ?: return
+        if (!d.isShowing) return
+        Log.i(TAG, "Update available: ${release.tagName} (${release.apkDownloadUrl})")
+        progressBar.visibility = View.GONE
+        val notes = release.releaseNotes.ifBlank { "No release notes provided." }
+        messageView.text = "Update available: ${release.tagName} (installed v${BuildConfig.VERSION_NAME})\n\n$notes"
 
-            when (val state = uiState) {
-                is UpdateUiState.Checking -> {
-                    Text(
-                        text = "Checking GitHub Releases for updates (installed v${BuildConfig.VERSION_NAME})...",
-                        color = Color(0xFFB8C4D4),
-                        fontSize = 15.sp
-                    )
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                }
+        d.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Later"
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+            text = "Download & Install"
+            visibility = View.VISIBLE
+            setOnClickListener {
+                Log.i(TAG, "Download & Install clicked for ${release.tagName}")
+                startDownloadAndInstall(release)
+            }
+            requestFocus()
+        }
+    }
 
-                is UpdateUiState.UpToDate -> {
-                    Text(
-                        text = "You are running the latest version (v${state.currentVersion}).",
-                        color = Color(0xFFB8C4D4),
-                        fontSize = 15.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    uiState = UpdateUiState.Checking
-                                    uiState = when (val res = updateManager.checkForUpdate(BuildConfig.VERSION_NAME)) {
-                                        is UpdateCheckResult.UpdateAvailable -> UpdateUiState.Available(res.release)
-                                        is UpdateCheckResult.UpToDate -> UpdateUiState.UpToDate(res.currentVersion)
-                                        is UpdateCheckResult.Error -> UpdateUiState.Error(res.message)
-                                    }
-                                }
-                            },
-                            modifier = Modifier.focusRequester(primaryFocusRequester),
-                            colors = ButtonDefaults.colors(containerColor = Color(0xFF2A62FF))
-                        ) {
-                            Text("Check Again", color = Color.White)
-                        }
-                        OutlinedButton(onClick = onDismiss) {
-                            Text("Close", color = Color.White)
+    private fun startDownloadAndInstall(release: GitHubReleaseInfo) {
+        val d = dialog ?: return
+        if (!d.isShowing) return
+
+        progressBar.visibility = View.VISIBLE
+        progressBar.isIndeterminate = true
+        progressBar.progress = 0
+        messageView.text = "Downloading ${release.assetName}..."
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
+
+        activeJob = scope.launch {
+            try {
+                val apkFile = updateManager.downloadApk(context, release.apkDownloadUrl) { done, total ->
+                    if (total > 0L) {
+                        val pct = ((done * 100L) / total).toInt().coerceIn(0, 100)
+                        scope.launch(Dispatchers.Main) {
+                            if (d.isShowing) {
+                                progressBar.isIndeterminate = false
+                                progressBar.progress = pct
+                                messageView.text = "Downloading ${release.assetName}: $pct%"
+                            }
                         }
                     }
                 }
-
-                is UpdateUiState.Available -> {
-                    Text(
-                        text = "Update available: ${state.release.tagName} (installed v${BuildConfig.VERSION_NAME})",
-                        color = Color(0xFF8FB8FF),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    val notes = state.release.releaseNotes.ifBlank { "No release notes provided." }
-                    Text(
-                        text = notes,
-                        color = Color(0xFFD5DFEC),
-                        fontSize = 14.sp,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(140.dp)
-                            .verticalScroll(rememberScrollState())
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = {
-                                Log.i("UpdatePrompt", "Download & Install clicked for ${state.release.tagName} (${state.release.apkDownloadUrl})")
-                                scope.launch {
-                                    uiState = UpdateUiState.Downloading(state.release, 0f)
-                                    try {
-                                        val apk = updateManager.downloadApk(context, state.release.apkDownloadUrl) { done, total ->
-                                            if (total > 0L) {
-                                                val progressFraction = (done.toFloat() / total.toFloat()).coerceIn(0f, 1f)
-                                                scope.launch(Dispatchers.Main) {
-                                                    if (uiState is UpdateUiState.Downloading) {
-                                                        uiState = UpdateUiState.Downloading(state.release, progressFraction)
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        Log.i("UpdatePrompt", "APK downloaded to ${apk.absolutePath} (${apk.length()} bytes)")
-                                        uiState = UpdateUiState.ReadyToInstall(state.release, apk)
-                                        if (ApkInstaller.installApk(context, apk)) {
-                                            onDismiss()
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e("UpdatePrompt", "Download/install failed", e)
-                                        uiState = UpdateUiState.Error(e.message ?: "Download failed")
-                                    }
-                                }
-                            },
-                            modifier = Modifier.focusRequester(primaryFocusRequester),
-                            colors = ButtonDefaults.colors(containerColor = Color(0xFF2A62FF))
-                        ) {
-                            Text("Download & Install", color = Color.White)
-                        }
-                        OutlinedButton(onClick = onDismiss) {
-                            Text("Later", color = Color.White)
-                        }
-                    }
-                }
-
-                is UpdateUiState.Downloading -> {
-                    val pct = (state.progress * 100).toInt()
-                    Text(
-                        text = "Downloading ${state.release.assetName} ($pct%)...",
-                        color = Color(0xFFB8C4D4),
-                        fontSize = 15.sp
-                    )
-                    if (state.progress > 0f) {
-                        LinearProgressIndicator(
-                            progress = { state.progress },
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                Log.i(TAG, "APK downloaded to ${apkFile.absolutePath} (${apkFile.length()} bytes)")
+                withContext(Dispatchers.Main) {
+                    if (!d.isShowing) return@withContext
+                    if (ApkInstaller.installApk(context, apkFile)) {
+                        d.dismiss()
                     } else {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                        showReadyToInstall(release, apkFile)
                     }
                 }
-
-                is UpdateUiState.ReadyToInstall -> {
-                    Text(
-                        text = "Downloaded ${state.release.tagName}. If prompted, allow 'Install unknown apps' and press Install.",
-                        color = Color(0xFFB8C4D4),
-                        fontSize = 15.sp
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = {
-                                if (ApkInstaller.installApk(context, state.apkFile)) {
-                                    onDismiss()
-                                }
-                            },
-                            modifier = Modifier.focusRequester(primaryFocusRequester),
-                            colors = ButtonDefaults.colors(containerColor = Color(0xFF2A62FF))
-                        ) {
-                            Text("Install Now", color = Color.White)
-                        }
-                        OutlinedButton(onClick = onDismiss) {
-                            Text("Close", color = Color.White)
-                        }
-                    }
-                }
-
-                is UpdateUiState.Error -> {
-                    Text(
-                        text = "Update error: ${state.message}",
-                        color = Color(0xFFFF8A8A),
-                        fontSize = 15.sp
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = {
-                                scope.launch {
-                                    uiState = UpdateUiState.Checking
-                                    uiState = when (val res = updateManager.checkForUpdate(BuildConfig.VERSION_NAME)) {
-                                        is UpdateCheckResult.UpdateAvailable -> UpdateUiState.Available(res.release)
-                                        is UpdateCheckResult.UpToDate -> UpdateUiState.UpToDate(res.currentVersion)
-                                        is UpdateCheckResult.Error -> UpdateUiState.Error(res.message)
-                                    }
-                                }
-                            },
-                            modifier = Modifier.focusRequester(primaryFocusRequester),
-                            colors = ButtonDefaults.colors(containerColor = Color(0xFF2A62FF))
-                        ) {
-                            Text("Retry", color = Color.White)
-                        }
-                        OutlinedButton(onClick = onDismiss) {
-                            Text("Close", color = Color.White)
-                        }
-                    }
+            } catch (e: Exception) {
+                Log.e(TAG, "Download/install failed", e)
+                withContext(Dispatchers.Main) {
+                    showError(e.message ?: "Download failed")
                 }
             }
+        }
+    }
+
+    private fun showReadyToInstall(release: GitHubReleaseInfo, apkFile: File) {
+        val d = dialog ?: return
+        if (!d.isShowing) return
+        progressBar.visibility = View.GONE
+        messageView.text = "Downloaded ${release.tagName}. Allow 'Install unknown apps' if prompted, then press Install Now."
+        d.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Close"
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+            text = "Install Now"
+            visibility = View.VISIBLE
+            setOnClickListener {
+                if (ApkInstaller.installApk(context, apkFile)) {
+                    d.dismiss()
+                }
+            }
+            requestFocus()
+        }
+    }
+
+    private fun showError(message: String) {
+        val d = dialog ?: return
+        if (!d.isShowing) return
+        progressBar.visibility = View.GONE
+        messageView.text = "Update error: $message"
+        d.getButton(AlertDialog.BUTTON_NEGATIVE)?.text = "Close"
+        d.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
+            text = "Retry"
+            visibility = View.VISIBLE
+            setOnClickListener { startUpdateCheck() }
+            requestFocus()
         }
     }
 }
