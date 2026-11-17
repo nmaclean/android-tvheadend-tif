@@ -348,6 +348,7 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
 
         Log.i(TAG, "Sending HTSP subscribe message: $subMsg")
         sendMessage(subMsg)
+        currentSubscriptionToken++
         hasActiveSubscription = true
         return mapOf("success" to true)
     }
@@ -356,14 +357,23 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
     var hasActiveSubscription: Boolean = false
         private set
 
+    @Volatile
+    var currentSubscriptionToken: Long = 0L
+        private set
+
     /**
      * Unsubscribes from the current channel subscription.
      * Note: Tvheadend handles 'unsubscribe' by stopping stream transmission and sending an async
      * 'subscriptionStop' notification (which has no sequence number). 'unsubscribe' is therefore
      * fire-and-forget; the subsequent 'subscribe' call will read its own synchronous response.
+     *
+     * @param expectedToken When non-null, only unsubscribes if [currentSubscriptionToken] still matches,
+     * preventing a delayed close() from an old DataSource from tearing down a newer subscription.
      */
     @Synchronized
-    fun unsubscribe() {
+    @JvmOverloads
+    fun unsubscribe(expectedToken: Long? = null) {
+        if (expectedToken != null && expectedToken != currentSubscriptionToken) return
         if (!hasActiveSubscription) return
         hasActiveSubscription = false
         val seq = sequenceNumber++
@@ -531,6 +541,7 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
      * Closes the active socket connection and releases stream resources.
      */
     fun disconnect() {
+        currentSubscriptionToken++
         hasActiveSubscription = false
         authenticatedUser = null
         try { inputStream?.close() } catch (ignored: Exception) {}

@@ -36,6 +36,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
     }
 
     private var client: HtspClient? = null
+    private var subscriptionToken = 0L
     private var opened = false
     private var currentUri: Uri? = null
     private var totalBytesRead = 0L
@@ -93,6 +94,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
             }
 
             client = activeClient
+            subscriptionToken = activeClient.currentSubscriptionToken
             activeClient.setSoTimeout(0) // Infinite timeout for streaming to prevent SocketTimeoutException during quiet periods or lulls
             opened = true
             TuneTelemetryTracker.shared.recordStage(TuneStage.HTSP_SUBSCRIBED)
@@ -189,10 +191,11 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
                 Log.i(TAG, "=== Closing HtspDataSource ($currentUri) ===")
             }
             try {
-                client?.unsubscribe()
+                client?.unsubscribe(subscriptionToken)
             } catch (e: Exception) {
                 Log.w(TAG, "Error unsubscribing streaming client", e)
             }
+            subscriptionToken = 0L
             client = null
             currentUri = null
             transferEnded()
