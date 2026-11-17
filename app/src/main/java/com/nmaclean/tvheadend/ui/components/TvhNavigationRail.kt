@@ -150,7 +150,6 @@ private fun RailNavItem(
             .background(pillColor)
             .focusCyanBorder(isFocused = itemFocused, cornerRadius = 12.dp)
             .onFocusChanged { itemFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

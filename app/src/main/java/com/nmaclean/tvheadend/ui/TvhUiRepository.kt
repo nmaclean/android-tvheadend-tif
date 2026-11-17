@@ -206,9 +206,11 @@ object TvhUiRepository {
         channels: List<TvhChannel>
     ): Map<Long, EpgRepository.ChannelEpg> = withContext(Dispatchers.IO) {
         if (channels.isEmpty()) return@withContext emptyMap()
+        val htspToDb = buildHtspToDbIdMap(context, channels)
         val pairs = channels.map { ch ->
             async {
-                ch.id to EpgRepository.getCurrentAndNextProgram(context, ch.id)
+                val queryId = htspToDb[ch.id] ?: ch.id
+                ch.id to EpgRepository.getCurrentAndNextProgram(context, queryId)
             }
         }.awaitAll()
         pairs.toMap()
@@ -216,10 +218,96 @@ object TvhUiRepository {
 
     suspend fun loadGuideWindow(
         context: Context,
+        channels: List<TvhChannel>,
         windowStartMs: Long,
         windowEndMs: Long
     ): Map<Long, List<EpgRepository.ProgramInfo>> = withContext(Dispatchers.IO) {
-        EpgRepository.getAllProgramsInWindow(context, windowStartMs, windowEndMs)
+        val rawByDbId = EpgRepository.getAllProgramsInWindow(context, windowStartMs, windowEndMs)
+        val htspToDb = buildHtspToDbIdMap(context, channels)
+        val dbToHtsp = htspToDb.entries.associate { (htspId, dbId) -> dbId to htspId }
+
+        val mapped = mutableMapOf<Long, List<EpgRepository.ProgramInfo>>()
+        for ((dbId, list) in rawByDbId) {
+            val htspId = dbToHtsp[dbId] ?: dbId
+            mapped[htspId] = list
+        }
+
+        if (mapped.isEmpty()) {
+            // Fallback to direct HTSP EPG fetch when TvContract.Programs is not yet populated
+            withHtspClient(context) { client ->
+                val events = client.fetchEvents(filterStartMs = windowStartMs, filterEndMs = windowEndMs)
+                val grouped = events.groupBy { it.channelId }
+                for ((chId, progs) in grouped) {
+                    mapped[chId] = progs.sortedBy { it.startTime }.map { p ->
+                        EpgRepository.ProgramInfo(
+                            eventId = p.eventId,
+                            channelId = p.channelId,
+                            title = p.title,
+                            summary = p.summary,
+                            startTimeMs = p.startTime,
+                            endTimeMs = p.stopTime
+                        )
+                    }
+                }
+            }
+        }
+        mapped
+    }
+
+    private fun buildHtspToDbIdMap(context: Context, channels: List<TvhChannel>): Map<Long, Long> {
+        val result = mutableMapOf<Long, Long>()
+        val byUuid = channels.associateBy { it.uuid }
+        val byId = channels.associateBy { it.id }
+        val byServiceId = channels.associateBy { (it.id and 0x7FFFFFFFL).toInt() }
+        val byNumber = channels.associateBy { it.number }
+
+        try {
+            context.contentResolver.query(
+                TvContract.Channels.CONTENT_URI,
+                arrayOf(
+                    TvContract.Channels._ID,
+                    TvContract.Channels.COLUMN_DISPLAY_NUMBER,
+                    TvContract.Channels.COLUMN_SERVICE_ID,
+                    TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA
+                ),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+                val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
+                val numCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_DISPLAY_NUMBER)
+                val svcCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_SERVICE_ID)
+                val dataCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA)
+                while (cursor.moveToNext()) {
+                    val dbId = if (idCol >= 0) cursor.getLong(idCol) else continue
+                    val providerData = if (dataCol >= 0) {
+                        try {
+                            when (cursor.getType(dataCol)) {
+                                android.database.Cursor.FIELD_TYPE_BLOB -> {
+                                    cursor.getBlob(dataCol)?.let { String(it, StandardCharsets.UTF_8).trim() } ?: ""
+                                }
+                                else -> cursor.getString(dataCol)?.trim() ?: ""
+                            }
+                        } catch (_: Exception) {
+                            ""
+                        }
+                    } else ""
+                    val svcId = if (svcCol >= 0) cursor.getInt(svcCol) else 0
+                    val num = if (numCol >= 0) cursor.getString(numCol)?.toIntOrNull() ?: 0 else 0
+
+                    val matched = providerData.toLongOrNull()?.let { byId[it] }
+                        ?: byUuid[providerData]
+                        ?: byServiceId[svcId]
+                        ?: byNumber[num]
+                    if (matched != null) {
+                        result[matched.id] = dbId
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed building HTSP-to-DbId channel map: ${e.message}")
+        }
+        return result
     }
 
     suspend fun loadDvrState(

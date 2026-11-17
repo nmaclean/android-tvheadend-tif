@@ -206,13 +206,13 @@ fun GuideScreen(
 
         // Schedule Timeline Grid with overlaid vertical NOW line
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .focusRestorer()
+            modifier = Modifier.fillMaxSize()
         ) {
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .focusRestorer()
             ) {
                 items(filteredChannels, key = { it.id }) { channel ->
                     val rowPrograms = guidePrograms[channel.id].orEmpty().ifEmpty {
@@ -498,7 +498,6 @@ private fun GuideProgramCell(
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused()
             }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
         contentAlignment = Alignment.CenterStart

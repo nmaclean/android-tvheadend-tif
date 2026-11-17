@@ -68,7 +68,6 @@ fun TvhMediaCard(
                 )
                 .focusCyanBorder(isFocused = isFocused)
                 .onFocusChanged { isFocused = it.isFocused }
-                .focusable()
                 .clickable(onClick = onClick)
         ) {
             if (imageUrl.isNotBlank()) {

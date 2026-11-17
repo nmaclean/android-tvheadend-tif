@@ -211,7 +211,6 @@ private fun SeriesRuleCard(
             .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
             .focusCyanBorder(isFocused = isFocused, cornerRadius = 12.dp)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)

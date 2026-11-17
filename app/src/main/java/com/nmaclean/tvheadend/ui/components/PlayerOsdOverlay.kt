@@ -329,7 +329,6 @@ private fun QuickZapCard(
             .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
             .focusCyanBorder(isFocused = isFocused, cornerRadius = 10.dp)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

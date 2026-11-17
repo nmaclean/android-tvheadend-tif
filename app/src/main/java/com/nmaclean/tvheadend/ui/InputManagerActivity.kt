@@ -204,7 +204,6 @@ private fun SettingsHubCard(option: SettingsHubOption) {
             .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
             .focusCyanBorder(isFocused = isFocused)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = option.onClick)
             .padding(20.dp),
         verticalAlignment = Alignment.CenterVertically,

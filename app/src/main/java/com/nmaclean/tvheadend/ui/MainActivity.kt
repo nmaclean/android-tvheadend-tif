@@ -118,6 +118,7 @@ class MainActivity : ComponentActivity() {
                 windowStartMs = now - 30 * 60_000L
                 guidePrograms = TvhUiRepository.loadGuideWindow(
                     this@MainActivity,
+                    channels,
                     windowStartMs,
                     windowStartMs + 4 * 60 * 60_000L
                 )

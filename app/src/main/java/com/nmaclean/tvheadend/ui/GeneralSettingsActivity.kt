@@ -320,7 +320,6 @@ private fun SettingsRowItem(
             .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
             .focusCyanBorder(isFocused = isFocused, cornerRadius = 12.dp)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,

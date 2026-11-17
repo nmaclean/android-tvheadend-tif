@@ -183,7 +183,6 @@ fun TvhPillButton(
             .background(bgColor)
             .focusCyanBorder(isFocused = isFocused, cornerRadius = 50.dp)
             .onFocusChanged { isFocused = it.isFocused }
-            .focusable()
             .clickable(onClick = onClick)
             .padding(horizontal = 20.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center
