@@ -1,14 +1,18 @@
 package com.nmaclean.tvheadend.updater
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.util.Log
 import android.view.View
+import android.view.ViewGroup
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.TextView
-import android.app.AlertDialog
 import com.nmaclean.tvheadend.BuildConfig
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
@@ -60,10 +64,12 @@ class UpdatePromptDialog(
         }
 
         val scrollView = ScrollView(context).apply {
+            isFocusable = false
+            descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
             addView(contentLayout)
         }
 
-        val alertDialog = AlertDialog.Builder(context)
+        val alertDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("Software Update")
             .setView(scrollView)
             .setPositiveButton("Download & Install", null)
@@ -78,6 +84,9 @@ class UpdatePromptDialog(
 
         dialog = alertDialog
         alertDialog.show()
+
+        alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { applyTvFocusStyle(it) }
+        alertDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { applyTvFocusStyle(it) }
 
         // Hide positive button while checking
         alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
@@ -197,6 +206,31 @@ class UpdatePromptDialog(
         }
     }
 
+    private fun applyTvFocusStyle(button: Button) {
+        val density = context.resources.displayMetrics.density
+        val radius = 8f * density
+        val padH = (16 * density).toInt()
+        val padV = (8 * density).toInt()
+
+        val focusedBg = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(Color.parseColor("#2A62FF"))
+            setStroke((2 * density).toInt(), Color.WHITE)
+        }
+        val defaultBg = GradientDrawable().apply {
+            cornerRadius = radius
+            setColor(Color.parseColor("#263244"))
+        }
+        val states = StateListDrawable().apply {
+            addState(intArrayOf(android.R.attr.state_focused), focusedBg)
+            addState(intArrayOf(android.R.attr.state_selected), focusedBg)
+            addState(intArrayOf(), defaultBg)
+        }
+        button.background = states
+        button.setTextColor(Color.WHITE)
+        button.setPadding(padH, padV, padH, padV)
+    }
+
     private fun showError(message: String) {
         val d = dialog ?: return
         if (!d.isShowing) return
@@ -207,7 +241,7 @@ class UpdatePromptDialog(
             text = "Retry"
             visibility = View.VISIBLE
             setOnClickListener { startUpdateCheck() }
-            requestFocus()
+            post { requestFocus() }
         }
     }
 }
