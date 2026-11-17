@@ -64,15 +64,20 @@ fun RecordingsScreen(
     onSeriesRuleClick: (TvhSeriesRule) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tabs = listOf("Recorded", "Scheduled", "Series Rules")
-    var selectedTab by remember { mutableIntStateOf(0) }
-
     val recordedItems = remember(recordings) {
         recordings.filter { it.status == TvhRecordingStatus.RECORDED || it.status == TvhRecordingStatus.RECORDING }
     }
     val scheduledItems = remember(recordings) {
         recordings.filter { it.status == TvhRecordingStatus.SCHEDULED }
     }
+    val tabs = remember(recordedItems.size, scheduledItems.size, seriesRules.size) {
+        listOf(
+            if (recordedItems.isNotEmpty()) "Recorded (${recordedItems.size})" else "Recorded",
+            if (scheduledItems.isNotEmpty()) "Scheduled (${scheduledItems.size})" else "Scheduled",
+            if (seriesRules.isNotEmpty()) "Series Rules (${seriesRules.size})" else "Series Rules"
+        )
+    }
+    var selectedTab by remember { mutableIntStateOf(0) }
     val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
 
     Column(

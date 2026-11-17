@@ -197,7 +197,9 @@ class MainActivity : ComponentActivity() {
                     TvhNavDestination.SEARCH -> SearchScreen(
                         channels = channels,
                         currentEpg = currentEpg,
-                        onChannelClick = onTuneChannel
+                        recordings = recordings,
+                        onChannelClick = onTuneChannel,
+                        onRecordingClick = { rec -> onPlayRecording(rec) {} }
                     )
                     TvhNavDestination.LIVE_TV -> LiveTvScreen(
                         channels = channels,

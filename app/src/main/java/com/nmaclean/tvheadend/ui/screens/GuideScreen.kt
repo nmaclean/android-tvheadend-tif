@@ -41,6 +41,9 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -96,14 +99,6 @@ fun GuideScreen(
         TvhUiRepository.filterChannelsByCategory(channels, selectedCategory, currentEpg)
     }
 
-    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            nowMs = System.currentTimeMillis()
-            delay(30_000L)
-        }
-    }
-
     val alignedStartMs = remember(windowStartMs) {
         val cal = Calendar.getInstance().apply {
             timeInMillis = windowStartMs
@@ -129,10 +124,34 @@ fun GuideScreen(
     val slotFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val pillsFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
+    val hourJumpPx = with(androidx.compose.ui.platform.LocalDensity.current) { (60f * DP_PER_MINUTE).dp.toPx().toInt() }
 
     Column(
         modifier = modifier
             .fillMaxSize()
+            .onPreviewKeyEvent { keyEvent ->
+                if (keyEvent.type == KeyEventType.KeyDown) {
+                    when (keyEvent.nativeKeyEvent.keyCode) {
+                        android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> {
+                            scope.launch {
+                                horizontalScrollState.animateScrollTo(
+                                    (horizontalScrollState.value + hourJumpPx).coerceAtMost(horizontalScrollState.maxValue)
+                                )
+                            }
+                            true
+                        }
+                        android.view.KeyEvent.KEYCODE_MEDIA_REWIND -> {
+                            scope.launch {
+                                horizontalScrollState.animateScrollTo(
+                                    (horizontalScrollState.value - hourJumpPx).coerceAtLeast(0)
+                                )
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                } else false
+            }
             .padding(
                 horizontal = MidnightCyanTokens.OverscanHorizontal,
                 vertical = MidnightCyanTokens.OverscanVertical
@@ -182,12 +201,6 @@ fun GuideScreen(
             return@Column
         }
 
-        val nowOffsetDp = TvhUiRepository.computeNowOffsetDp(
-            nowMs = nowMs.coerceIn(alignedStartMs, windowEndMs),
-            windowStartMs = alignedStartMs,
-            dpPerMinute = DP_PER_MINUTE
-        ).dp
-
         // Sticky Time Header Row
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -217,15 +230,10 @@ fun GuideScreen(
                     }
                 }
 
-                // "NOW" label aligned with the vertical cyan line
-                Text(
-                    text = "NOW",
-                    color = MidnightCyanTokens.CyanAccent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .offset(x = (nowOffsetDp - 14.dp).coerceAtLeast(0.dp))
-                        .padding(bottom = 4.dp)
+                // "NOW" label aligned with the vertical cyan line (isolated 30s tick)
+                GuideNowLabel(
+                    alignedStartMs = alignedStartMs,
+                    windowEndMs = windowEndMs
                 )
             }
         }
@@ -342,24 +350,69 @@ fun GuideScreen(
                 }
             }
 
-            // Overlaid vertical NOW tracker line across all rows
-            val scrollOffsetDp = (horizontalScrollState.value / androidx.compose.ui.platform.LocalDensity.current.density).dp
-            val visibleNowX = CHANNEL_HEADER_WIDTH + nowOffsetDp - scrollOffsetDp
-            if (visibleNowX >= CHANNEL_HEADER_WIDTH) {
-                Box(
-                    modifier = Modifier
-                        .offset(x = visibleNowX)
-                        .width(2.dp)
-                        .fillMaxHeight()
-                        .shadow(
-                            elevation = 8.dp,
-                            ambientColor = MidnightCyanTokens.CyanAccent,
-                            spotColor = MidnightCyanTokens.CyanAccent
-                        )
-                        .background(MidnightCyanTokens.CyanAccent)
-                )
-            }
+            // Overlaid vertical NOW tracker line across all rows (isolated 30s tick)
+            GuideNowLineOverlay(
+                alignedStartMs = alignedStartMs,
+                windowEndMs = windowEndMs,
+                horizontalScrollValue = horizontalScrollState.value
+            )
         }
+    }
+}
+
+@Composable
+private fun rememberNowOffsetDp(alignedStartMs: Long, windowEndMs: Long): androidx.compose.ui.unit.Dp {
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMs = System.currentTimeMillis()
+            delay(30_000L)
+        }
+    }
+    return TvhUiRepository.computeNowOffsetDp(
+        nowMs = nowMs.coerceIn(alignedStartMs, windowEndMs),
+        windowStartMs = alignedStartMs,
+        dpPerMinute = DP_PER_MINUTE
+    ).dp
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun GuideNowLabel(alignedStartMs: Long, windowEndMs: Long) {
+    val nowOffsetDp = rememberNowOffsetDp(alignedStartMs, windowEndMs)
+    Text(
+        text = "NOW",
+        color = MidnightCyanTokens.CyanAccent,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier
+            .offset(x = (nowOffsetDp - 14.dp).coerceAtLeast(0.dp))
+            .padding(bottom = 4.dp)
+    )
+}
+
+@Composable
+private fun GuideNowLineOverlay(
+    alignedStartMs: Long,
+    windowEndMs: Long,
+    horizontalScrollValue: Int
+) {
+    val nowOffsetDp = rememberNowOffsetDp(alignedStartMs, windowEndMs)
+    val scrollOffsetDp = (horizontalScrollValue / androidx.compose.ui.platform.LocalDensity.current.density).dp
+    val visibleNowX = CHANNEL_HEADER_WIDTH + nowOffsetDp - scrollOffsetDp
+    if (visibleNowX >= CHANNEL_HEADER_WIDTH) {
+        Box(
+            modifier = Modifier
+                .offset(x = visibleNowX)
+                .width(2.dp)
+                .fillMaxHeight()
+                .shadow(
+                    elevation = 8.dp,
+                    ambientColor = MidnightCyanTokens.CyanAccent,
+                    spotColor = MidnightCyanTokens.CyanAccent
+                )
+                .background(MidnightCyanTokens.CyanAccent)
+        )
     }
 }
 

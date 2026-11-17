@@ -37,6 +37,8 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.nmaclean.tvheadend.model.TvhChannel
+import com.nmaclean.tvheadend.model.TvhRecording
+import com.nmaclean.tvheadend.model.TvhRecordingStatus
 import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.ui.TvhUiRepository
 import com.nmaclean.tvheadend.ui.components.TvhMediaCard
@@ -52,7 +54,9 @@ import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
 fun SearchScreen(
     channels: List<TvhChannel>,
     currentEpg: Map<Long, EpgRepository.ChannelEpg>,
+    recordings: List<TvhRecording> = emptyList(),
     onChannelClick: (TvhChannel) -> Unit,
+    onRecordingClick: (TvhRecording) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
@@ -64,11 +68,28 @@ fun SearchScreen(
             channels
         } else {
             channels.filter { ch ->
-                val epg = currentEpg[ch.id]?.currentProgram
+                val cur = currentEpg[ch.id]?.currentProgram
+                val next = currentEpg[ch.id]?.nextProgram
                 ch.name.lowercase().contains(q) ||
                     ch.number.toString().contains(q) ||
-                    (epg?.title?.lowercase()?.contains(q) == true) ||
-                    (epg?.summary?.lowercase()?.contains(q) == true)
+                    (cur?.title?.lowercase()?.contains(q) == true) ||
+                    (cur?.summary?.lowercase()?.contains(q) == true) ||
+                    (next?.title?.lowercase()?.contains(q) == true)
+            }
+        }
+    }
+
+    val matchingRecordings = remember(query, recordings) {
+        val q = query.trim().lowercase()
+        if (q.isEmpty()) {
+            emptyList()
+        } else {
+            recordings.filter { rec ->
+                (rec.status == TvhRecordingStatus.RECORDED || rec.status == TvhRecordingStatus.RECORDING) &&
+                    (rec.title.lowercase().contains(q) ||
+                        rec.subtitle.lowercase().contains(q) ||
+                        rec.description.lowercase().contains(q) ||
+                        rec.channelName.lowercase().contains(q))
             }
         }
     }
@@ -130,10 +151,10 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        if (matchingChannels.isEmpty()) {
+        if (matchingChannels.isEmpty() && matchingRecordings.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
-                    text = "No channels or shows matching \"$query\"",
+                    text = "No channels, shows, or recordings matching \"$query\"",
                     color = MidnightCyanTokens.TextSecondary,
                     fontSize = 16.sp
                 )
@@ -148,7 +169,7 @@ fun SearchScreen(
                     .fillMaxSize()
                     .focusRestorer()
             ) {
-                items(matchingChannels, key = { it.id }) { channel ->
+                items(matchingChannels, key = { "ch_${it.id}" }) { channel ->
                     val epg = currentEpg[channel.id]?.currentProgram
                     val showTitle = epg?.title?.takeIf { it.isNotBlank() } ?: channel.name
                     val timeRange = if (epg != null) {
@@ -164,6 +185,18 @@ fun SearchScreen(
                         progressPercent = epg?.progressPercent ?: 0,
                         showLiveBadge = true,
                         onClick = { onChannelClick(channel) }
+                    )
+                }
+                items(matchingRecordings, key = { "rec_${it.id}" }) { rec ->
+                    TvhMediaCard(
+                        title = rec.title,
+                        subtitle = "${rec.channelName} • ${rec.durationMinutes}m",
+                        imageUrl = rec.imageUrl,
+                        channelFallbackLabel = rec.channelName,
+                        progressPercent = rec.watchedPercent,
+                        showLiveBadge = rec.status == TvhRecordingStatus.RECORDING,
+                        topRightBadge = if (rec.watchedPercent > 0) "WATCHED ${rec.watchedPercent}%" else "RECORDED",
+                        onClick = { onRecordingClick(rec) }
                     )
                 }
             }
