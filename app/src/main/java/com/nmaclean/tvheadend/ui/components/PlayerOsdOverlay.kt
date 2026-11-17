@@ -31,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -73,6 +75,17 @@ fun PlayerOsdOverlay(
     onQuickZapChannel: (TvhChannel) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val guideFocusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(visible) {
+        if (visible) {
+            delay(60L)
+            try {
+                guideFocusRequester.requestFocus()
+            } catch (_: Exception) {}
+        }
+    }
+
     LaunchedEffect(visible, interactionTick) {
         if (visible) {
             delay(5_000L)
@@ -260,7 +273,8 @@ fun PlayerOsdOverlay(
                         TvhPillButton(
                             label = "Guide",
                             selected = false,
-                            onClick = onGuideClick
+                            onClick = onGuideClick,
+                            modifier = Modifier.focusRequester(guideFocusRequester)
                         )
                         TvhPillButton(
                             label = "Audio & Subtitles",
