@@ -1,5 +1,6 @@
 package com.nmaclean.tvheadend.ui.components
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -63,7 +64,8 @@ fun ProgramDetailsModal(
     modifier: Modifier = Modifier
 ) {
     val primaryFocusRequester = remember { FocusRequester() }
-    LaunchedEffect(program.eventId) {
+    BackHandler(onBack = onDismiss)
+    LaunchedEffect(program.eventId, channel.id) {
         delay(50L)
         try {
             primaryFocusRequester.requestFocus()
@@ -220,14 +222,12 @@ fun ProgramDetailsModal(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (isLiveNow) {
-                    TvhPillButton(
-                        label = "Tune Live",
-                        selected = true,
-                        onClick = onTuneLive,
-                        modifier = Modifier.focusRequester(primaryFocusRequester)
-                    )
-                }
+                TvhPillButton(
+                    label = "Tune Live",
+                    selected = isLiveNow,
+                    onClick = onTuneLive,
+                    modifier = if (isLiveNow) Modifier.focusRequester(primaryFocusRequester) else Modifier
+                )
                 TvhPillButton(
                     label = if (isScheduled) "Scheduled ✓ (Cancel)" else "Record Episode",
                     selected = !isLiveNow && isScheduled,

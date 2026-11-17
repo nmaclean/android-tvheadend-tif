@@ -120,7 +120,7 @@ class DvrPlayerActivity : ComponentActivity() {
         if (savedResume > 5_000L) {
             val mins = (savedResume / 60_000L).toInt()
             val secs = ((savedResume % 60_000L) / 1000L).toInt()
-            AlertDialog.Builder(this)
+            AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
                 .setTitle("Resume Playback?")
                 .setMessage("Resume \"$title\" from ${String.format("%02d:%02d", mins, secs)}?")
                 .setPositiveButton("Resume") { _, _ ->

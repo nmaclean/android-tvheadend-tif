@@ -319,6 +319,7 @@ class MainActivity : ComponentActivity() {
     private fun launchPlayerForChannel(channel: TvhChannel) {
         val intent = Intent(this, TvPlayerActivity::class.java).apply {
             putExtra("channel_id", channel.id.toString())
+            putExtra("channel_uuid", channel.uuid)
             putExtra("channel_name", channel.name)
             putExtra("channel_number", channel.number)
             putExtra("input_id", channel.inputId)
@@ -331,7 +332,7 @@ class MainActivity : ComponentActivity() {
         program: EpgRepository.ProgramInfo,
         onRefresh: () -> Unit
     ) {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
             .setTitle(program.title)
             .setMessage("${channel.name} • ${TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs)}")
             .setPositiveButton("Record Once") { _, _ ->
@@ -364,7 +365,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun promptRecordingAction(rec: TvhRecording, onRefresh: () -> Unit) {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
             .setTitle(rec.title)
             .setMessage("${rec.channelName} • ${rec.durationMinutes} min")
             .setPositiveButton("Play") { _, _ ->
@@ -392,7 +393,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun promptCancelScheduled(rec: TvhRecording, onRefresh: () -> Unit) {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
             .setTitle("Cancel Scheduled Recording?")
             .setMessage("${rec.title} (${rec.channelName})")
             .setPositiveButton("Cancel Timer") { _, _ ->
@@ -411,7 +412,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun promptDeleteSeriesRule(rule: TvhSeriesRule, onRefresh: () -> Unit) {
-        AlertDialog.Builder(this)
+        AlertDialog.Builder(this, androidx.appcompat.R.style.Theme_AppCompat_Dialog_Alert)
             .setTitle(rule.title)
             .setMessage("${rule.channelName} • ${if (rule.enabled) "Active" else "Paused"}")
             .setPositiveButton(if (rule.enabled) "Pause Rule" else "Enable Rule") { _, _ ->

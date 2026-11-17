@@ -269,13 +269,26 @@ fun GuideScreen(
                             .height(ROW_HEIGHT),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Row Header: Channel Number + Picon
+                        // Row Header: Channel Number + Picon (clickable to tune directly)
                         ChannelIdentityTile(
                             channel = channel,
+                            onFocused = {
+                                focusedChannel = channel
+                                focusedProgram = rowPrograms.firstOrNull()?.first
+                                    ?: currentEpg[channel.id]?.currentProgram
+                            },
+                            onClick = { onTuneChannel(channel) },
                             modifier = Modifier
                                 .width(CHANNEL_HEADER_WIDTH)
                                 .fillMaxHeight()
                                 .padding(end = 8.dp)
+                                .then(
+                                    if (rowIndex == 0) {
+                                        Modifier.focusProperties { up = pillsFocusRequester }
+                                    } else {
+                                        Modifier
+                                    }
+                                )
                         )
 
                         // Timeline Program Cells
@@ -516,12 +529,23 @@ private fun GuideInlinePreviewCard(
 @Composable
 private fun ChannelIdentityTile(
     channel: TvhChannel,
+    onFocused: () -> Unit = {},
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    var isFocused by remember { mutableStateOf(false) }
+    val bgColor = if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg
+
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
-            .background(MidnightCyanTokens.CardBg)
+            .background(bgColor)
+            .focusCyanBorder(isFocused = isFocused, cornerRadius = 8.dp)
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
+            .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
