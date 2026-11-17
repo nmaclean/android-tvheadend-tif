@@ -15,6 +15,7 @@ enum class TvhRecordingStatus {
  */
 data class TvhRecording(
     val id: Long,
+    val uuid: String = "",
     val eventId: Long = 0L,
     val channelId: Long,
     val channelName: String,
@@ -28,7 +29,8 @@ data class TvhRecording(
     val watchedPercent: Int = 0,
     val resumePositionMs: Long = 0L,
     val playCount: Int = 0,
-    val imageUrl: String = ""
+    val imageUrl: String = "",
+    val error: String = ""
 ) {
     val durationMinutes: Int
         get() = (((stopTimeMs - startTimeMs).coerceAtLeast(0L)) / 60_000L).toInt()

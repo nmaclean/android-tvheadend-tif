@@ -487,6 +487,7 @@ class MainActivity : ComponentActivity() {
     private fun launchDvrPlayer(rec: TvhRecording, resumePosMs: Long, autoResume: Boolean) {
         val playIntent = Intent(this, DvrPlayerActivity::class.java).apply {
             putExtra(DvrPlayerActivity.EXTRA_DVR_ID, rec.id)
+            putExtra(DvrPlayerActivity.EXTRA_DVR_UUID, rec.uuid)
             putExtra(DvrPlayerActivity.EXTRA_TITLE, rec.title)
             putExtra(DvrPlayerActivity.EXTRA_CHANNEL_NAME, rec.channelName)
             putExtra(DvrPlayerActivity.EXTRA_RESUME_MS, resumePosMs)

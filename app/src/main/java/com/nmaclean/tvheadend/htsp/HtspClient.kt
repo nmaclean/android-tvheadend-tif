@@ -93,6 +93,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                 return false
             }
             Log.i(TAG, "HTSP 'hello' response received: serverName='${helloResp["servername"]}', version='${helloResp["serverversion"]}', htspversion=${helloResp["htspversion"]}")
+            serverWebroot = (helloResp["webroot"] as? String)?.trim()?.trimEnd('/') ?: ""
 
             stateLogger.transitionTo(HtspConnectionState.AUTHENTICATING)
             val challenge = helloResp["challenge"] as? ByteArray
@@ -517,11 +518,20 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         return response["success"] == 1L || response["success"] == 1
     }
 
+    @Volatile
+    var serverWebroot: String = ""
+        private set
+
+    @Volatile
+    var lastFileOpenError: String? = null
+        private set
+
     /**
      * Opens a DVR or server file over HTSP (`fileOpen`). Returns `Pair(fileId, fileSizeBytes)`.
      */
     @Synchronized
     fun fileOpen(path: String): Pair<Long, Long>? {
+        lastFileOpenError = null
         val seq = sequenceNumber++
         sendMessage(
             mapOf(
@@ -530,8 +540,22 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                 "file" to path
             )
         )
-        val response = readResponse(seq.toLong()) ?: return null
-        val fileId = (response["id"] as? Number)?.toLong() ?: return null
+        val response = readResponse(seq.toLong()) ?: run {
+            lastFileOpenError = "No response from server"
+            return null
+        }
+        val err = response["error"] as? String
+        val noAccess = response["noaccess"]
+        if (err != null || noAccess != null) {
+            val reason = err ?: "access denied (noaccess=$noAccess)"
+            lastFileOpenError = reason
+            Log.e(TAG, "HTSP fileOpen('$path') failed: $reason")
+            return null
+        }
+        val fileId = (response["id"] as? Number)?.toLong() ?: run {
+            lastFileOpenError = "Missing file handle id"
+            return null
+        }
         val size = (response["size"] as? Number)?.toLong() ?: -1L
         return fileId to size
     }

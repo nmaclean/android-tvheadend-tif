@@ -27,6 +27,7 @@ class DvrStateReducer {
             "dvrEntryAdd", "dvrEntryUpdate" -> {
                 val id = (msg["id"] as? Number)?.toLong() ?: return false
                 val existing = recordingsById[id]
+                val uuid = msg["idStr"] as? String ?: existing?.uuid ?: ""
                 val channelId = (msg["channel"] as? Number)?.toLong() ?: existing?.channelId ?: 0L
                 val ch = channelMap[channelId]
                 val channelName = msg["channelName"] as? String ?: ch?.name ?: existing?.channelName ?: "Channel $channelId"
@@ -39,6 +40,7 @@ class DvrStateReducer {
                 val eventId = (msg["eventId"] as? Number)?.toLong() ?: existing?.eventId ?: 0L
                 val playCount = (msg["playcount"] as? Number)?.toInt() ?: existing?.playCount ?: 0
                 val playPosMs = (msg["playposition"] as? Number)?.toLong()?.times(1000L) ?: existing?.resumePositionMs ?: 0L
+                val errorStr = (msg["error"] as? String)?.trim() ?: existing?.error ?: ""
                 val status = (msg["state"] as? String)?.lowercase()?.let { stateStr ->
                     when (stateStr) {
                         "scheduled" -> TvhRecordingStatus.SCHEDULED
@@ -53,6 +55,7 @@ class DvrStateReducer {
 
                 recordingsById[id] = TvhRecording(
                     id = id,
+                    uuid = uuid,
                     eventId = eventId,
                     channelId = channelId,
                     channelName = channelName,
@@ -66,7 +69,8 @@ class DvrStateReducer {
                     watchedPercent = watched,
                     resumePositionMs = playPosMs,
                     playCount = playCount,
-                    imageUrl = imageUrl
+                    imageUrl = imageUrl,
+                    error = errorStr
                 )
                 true
             }

@@ -72,6 +72,7 @@ class DvrPlayerActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_DVR_ID = "dvr_id"
+        const val EXTRA_DVR_UUID = "dvr_uuid"
         const val EXTRA_TITLE = "dvr_title"
         const val EXTRA_CHANNEL_NAME = "dvr_channel_name"
         const val EXTRA_RESUME_MS = "dvr_resume_ms"
@@ -81,9 +82,11 @@ class DvrPlayerActivity : ComponentActivity() {
 
     private var player: ExoPlayer? = null
     private var dvrId: Long = -1L
+    private var dvrUuid: String = ""
     private var title: String = "Recording"
     private var channelName: String = ""
-    private var usedHttpFallback = false
+    private var httpFallbackAttempt = 0
+    private var lastHtspError: String? = null
 
     private var hudVisible by mutableStateOf(true)
     private var hudInteractionTick by mutableIntStateOf(0)
@@ -91,12 +94,14 @@ class DvrPlayerActivity : ComponentActivity() {
     private var positionMsState by mutableLongStateOf(0L)
     private var durationMsState by mutableLongStateOf(0L)
     private var resumePromptMs by mutableStateOf<Long?>(null)
+    private var playbackErrorMessage by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         dvrId = intent.getLongExtra(EXTRA_DVR_ID, -1L)
+        dvrUuid = intent.getStringExtra(EXTRA_DVR_UUID) ?: ""
         title = intent.getStringExtra(EXTRA_TITLE) ?: "Recording"
         channelName = intent.getStringExtra(EXTRA_CHANNEL_NAME) ?: ""
         val passedResume = intent.getLongExtra(EXTRA_RESUME_MS, 0L)
@@ -112,17 +117,22 @@ class DvrPlayerActivity : ComponentActivity() {
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    Log.w(TAG, "DVR playback error (${error.message})")
-                    if (!usedHttpFallback) {
-                        usedHttpFallback = true
+                    val causeMsg = error.cause?.message
+                    Log.w(TAG, "DVR playback error (${error.message}; cause=$causeMsg)")
+                    if (httpFallbackAttempt == 0) {
+                        lastHtspError = causeMsg ?: error.message
+                        httpFallbackAttempt = 1
+                        val targetId = dvrUuid.ifBlank { dvrId.toString() }
+                        Log.w(TAG, "Attempting HTTP /dvrfile/$targetId fallback...")
+                        loadHttpFallback(p, targetId, savedResume)
+                    } else if (httpFallbackAttempt == 1 && dvrUuid.isNotBlank() && dvrId > 0L) {
+                        httpFallbackAttempt = 2
                         Log.w(TAG, "Attempting HTTP /dvrfile/$dvrId fallback...")
-                        loadHttpFallback(p, savedResume)
+                        loadHttpFallback(p, dvrId.toString(), savedResume)
                     } else {
-                        Toast.makeText(
-                            this@DvrPlayerActivity,
-                            "Unable to play recording: ${error.errorCodeName}",
-                            Toast.LENGTH_LONG
-                        ).show()
+                        val htspDetail = lastHtspError?.takeIf { it.isNotBlank() }
+                        playbackErrorMessage = htspDetail
+                            ?: "Unable to play recording (${error.errorCodeName})."
                     }
                 }
             })
@@ -191,6 +201,24 @@ class DvrPlayerActivity : ComponentActivity() {
                             }
                         )
                     }
+
+                    val errorMsg = playbackErrorMessage
+                    if (errorMsg != null) {
+                        TvhActionModal(
+                            title = "Recording Unavailable",
+                            subtitle = if (channelName.isNotBlank()) "$title • $channelName" else title,
+                            body = errorMsg,
+                            badgeText = "PLAYBACK ERROR",
+                            actions = listOf(
+                                TvhModalAction(
+                                    label = "Close",
+                                    selected = true,
+                                    onClick = { finish() }
+                                )
+                            ),
+                            onDismiss = { finish() }
+                        )
+                    }
                 }
             }
         }
@@ -198,7 +226,12 @@ class DvrPlayerActivity : ComponentActivity() {
 
     private fun startHtspPlayback(exo: ExoPlayer) {
         val settings = TvhSettings(this)
-        val uri = Uri.parse("htspdvr://${settings.host}:${settings.htspPort}/$dvrId")
+        val baseUri = Uri.parse("htspdvr://${settings.host}:${settings.htspPort}/$dvrId")
+        val uri = if (dvrUuid.isNotBlank()) {
+            baseUri.buildUpon().appendQueryParameter("uuid", dvrUuid).build()
+        } else {
+            baseUri
+        }
         val extractorsFactory = DefaultExtractorsFactory().setConstantBitrateSeekingEnabled(true)
         val source = ProgressiveMediaSource.Factory(HtspDvrDataSource.Factory(this), extractorsFactory)
             .createMediaSource(MediaItem.fromUri(uri))
@@ -206,9 +239,9 @@ class DvrPlayerActivity : ComponentActivity() {
         exo.prepare()
     }
 
-    private fun loadHttpFallback(exo: ExoPlayer, seekPosMs: Long) {
+    private fun loadHttpFallback(exo: ExoPlayer, fileIdentifier: String, seekPosMs: Long) {
         val settings = TvhSettings(this)
-        val url = "http://${settings.host}:${settings.httpPort}/dvrfile/$dvrId"
+        val url = "http://${settings.host}:${settings.httpPort}/dvrfile/$fileIdentifier"
         val headers = if (settings.username.isNotBlank()) {
             val creds = "${settings.username}:${settings.password}"
             val encoded = Base64.encodeToString(creds.toByteArray(StandardCharsets.UTF_8), Base64.NO_WRAP)

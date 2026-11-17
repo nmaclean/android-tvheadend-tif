@@ -42,6 +42,7 @@ class HtspDvrDataSource(private val context: Context) : BaseDataSource(true) {
         currentUri = uri
         val dvrId = uri.lastPathSegment?.toLongOrNull()
             ?: throw IOException("Invalid DVR URI: $uri")
+        val dvrUuid = uri.getQueryParameter("uuid")?.trim().orEmpty()
 
         val settings = TvhSettings(context)
         val host = uri.host ?: settings.host
@@ -54,9 +55,11 @@ class HtspDvrDataSource(private val context: Context) : BaseDataSource(true) {
         }
 
         val openedFile = htsp.fileOpen("dvr/$dvrId")
+            ?: if (dvrUuid.isNotBlank()) htsp.fileOpen("dvr/$dvrUuid") else null
         if (openedFile == null) {
+            val reason = htsp.lastFileOpenError ?: "unknown error"
             htsp.disconnect()
-            throw IOException("HTSP fileOpen failed for dvr/$dvrId")
+            throw IOException("HTSP fileOpen failed for dvr/$dvrId: $reason")
         }
 
         client = htsp
