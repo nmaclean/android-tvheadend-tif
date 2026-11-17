@@ -26,8 +26,16 @@ import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.ComposeView
 import androidx.fragment.app.FragmentActivity
 import androidx.core.content.ContextCompat
@@ -42,7 +50,7 @@ import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.ui.components.PlayerOsdOverlay
-import com.nmaclean.tvheadend.ui.guide.EpgTimelineOverlayFragment
+import com.nmaclean.tvheadend.ui.screens.GuideScreen
 import com.nmaclean.tvheadend.ui.theme.TvTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -102,6 +110,12 @@ class TvPlayerActivity : FragmentActivity() {
     private val osdCurrentEpgState = mutableStateOf<EpgRepository.ChannelEpg?>(null)
     private val osdAdjacentChannelsState = mutableStateOf<List<TvhChannel>>(emptyList())
     private val osdAdjacentEpgState = mutableStateOf<Map<Long, EpgRepository.ChannelEpg>>(emptyMap())
+
+    private val guideOverlayVisibleState = mutableStateOf(false)
+    private val guideChannelsState = mutableStateOf<List<TvhChannel>>(emptyList())
+    private val guideCurrentEpgState = mutableStateOf<Map<Long, EpgRepository.ChannelEpg>>(emptyMap())
+    private val guideProgramsState = mutableStateOf<Map<Long, List<EpgRepository.ProgramInfo>>>(emptyMap())
+    private val guideWindowStartState = mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L)
 
     private fun updateDebugOverlay() {
         val debugBadge = findViewById<View>(R.id.debug_overlay_badge)
@@ -184,35 +198,84 @@ class TvPlayerActivity : FragmentActivity() {
 
         findViewById<ComposeView>(R.id.compose_osd_overlay)?.setContent {
             TvTheme {
-                PlayerOsdOverlay(
-                    visible = osdVisibleState.value,
-                    interactionTick = osdInteractionTickState.intValue,
-                    currentChannel = osdChannelState.value,
-                    currentEpg = osdCurrentEpgState.value,
-                    adjacentChannels = osdAdjacentChannelsState.value,
-                    adjacentEpg = osdAdjacentEpgState.value,
-                    onTimeout = { osdVisibleState.value = false },
-                    onGuideClick = {
-                        osdVisibleState.value = false
-                        openEpgGuide()
-                    },
-                    onAudioSubtitlesClick = {
-                        osdInteractionTickState.intValue++
-                        showAudioOrSubtitlePicker()
-                    },
-                    onSettingsClick = {
-                        osdVisibleState.value = false
-                        startActivity(Intent(this, InputManagerActivity::class.java))
-                    },
-                    onQuickZapChannel = { selectedChannel ->
-                        osdInteractionTickState.intValue++
-                        val idx = channelList.indexOfFirst { it.id == selectedChannel.id }
-                        if (idx != -1 && idx != currentChannelIndex) {
-                            currentChannelIndex = idx
-                            playCurrentChannel()
+                Box(modifier = Modifier.fillMaxSize()) {
+                    PlayerOsdOverlay(
+                        visible = osdVisibleState.value && !guideOverlayVisibleState.value,
+                        interactionTick = osdInteractionTickState.intValue,
+                        currentChannel = osdChannelState.value,
+                        currentEpg = osdCurrentEpgState.value,
+                        adjacentChannels = osdAdjacentChannelsState.value,
+                        adjacentEpg = osdAdjacentEpgState.value,
+                        onTimeout = { osdVisibleState.value = false },
+                        onGuideClick = {
+                            osdVisibleState.value = false
+                            openEpgGuide()
+                        },
+                        onAudioSubtitlesClick = {
+                            osdInteractionTickState.intValue++
+                            showAudioOrSubtitlePicker()
+                        },
+                        onSettingsClick = {
+                            osdVisibleState.value = false
+                            startActivity(Intent(this@TvPlayerActivity, InputManagerActivity::class.java))
+                        },
+                        onQuickZapChannel = { selectedChannel ->
+                            osdInteractionTickState.intValue++
+                            val idx = channelList.indexOfFirst { it.id == selectedChannel.id }
+                            if (idx != -1 && idx != currentChannelIndex) {
+                                currentChannelIndex = idx
+                                playCurrentChannel()
+                            }
+                        }
+                    )
+
+                    if (guideOverlayVisibleState.value) {
+                        val gridFocusRequester = remember { FocusRequester() }
+                        LaunchedEffect(guideChannelsState.value.size) {
+                            if (guideChannelsState.value.isNotEmpty()) {
+                                kotlinx.coroutines.delay(60L)
+                                try {
+                                    gridFocusRequester.requestFocus()
+                                } catch (_: Exception) {}
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(androidx.compose.ui.graphics.Color(0xEB060A12))
+                        ) {
+                            GuideScreen(
+                                channels = guideChannelsState.value,
+                                currentEpg = guideCurrentEpgState.value,
+                                guidePrograms = guideProgramsState.value,
+                                windowStartMs = guideWindowStartState.longValue,
+                                onTuneChannel = { selectedChannel ->
+                                    epgChannelSelected = true
+                                    guideOverlayVisibleState.value = false
+                                    val idx = channelList.indexOfFirst {
+                                        it.id == selectedChannel.id ||
+                                            (it.uuid.isNotEmpty() && it.uuid == selectedChannel.uuid) ||
+                                            (it.number > 0 && it.number == selectedChannel.number)
+                                    }
+                                    if (idx != -1) {
+                                        val targetChannel = channelList[idx]
+                                        val targetStreamKey = if (targetChannel.uuid.isNotEmpty()) targetChannel.uuid else targetChannel.id.toString()
+                                        if (currentlyTunedChannelId == targetChannel.id || (currentlyTunedStreamKey != null && (currentlyTunedStreamKey == targetStreamKey || currentlyTunedStreamKey == targetChannel.id.toString()))) {
+                                            showTopOsdBanner(targetChannel)
+                                        } else {
+                                            currentChannelIndex = idx
+                                            playCurrentChannel()
+                                        }
+                                    }
+                                },
+                                onScheduleProgram = { ch, prog ->
+                                    promptScheduleFromGuide(ch, prog)
+                                },
+                                gridFocusRequester = gridFocusRequester
+                            )
                         }
                     }
-                )
+                }
             }
         }
 
@@ -718,43 +781,79 @@ class TvPlayerActivity : FragmentActivity() {
         }
     }
 
-    private fun openEpgGuide() {
-        if (supportFragmentManager.findFragmentByTag("epg_timeline") != null) return
-
-        osdHandler.removeCallbacks(hideOsdRunnable)
-        topOsdBanner.visibility = View.GONE
-        bottomMochiMenu.visibility = View.GONE
-
-        val fragment = EpgTimelineOverlayFragment.newInstance { selectedChannel ->
-            epgChannelSelected = true
-            val idx = channelList.indexOfFirst {
-                it.id == selectedChannel.id ||
-                (it.uuid.isNotEmpty() && it.uuid == selectedChannel.uuid) ||
-                (it.number > 0 && it.number == selectedChannel.number)
+    private fun promptScheduleFromGuide(channel: TvhChannel, program: EpgRepository.ProgramInfo) {
+        AlertDialog.Builder(this)
+            .setTitle(program.title)
+            .setMessage("${channel.name} • ${TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs)}")
+            .setPositiveButton("Record Once") { _, _ ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    val ok = TvhUiRepository.scheduleRecording(this@TvPlayerActivity, program.eventId)
+                    Toast.makeText(
+                        this@TvPlayerActivity,
+                        if (ok) "Scheduled '${program.title}'" else "Could not schedule recording",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
-            if (idx != -1) {
-                val targetChannel = channelList[idx]
-                val targetStreamKey = if (targetChannel.uuid.isNotEmpty()) targetChannel.uuid else targetChannel.id.toString()
-
-                if (currentlyTunedChannelId == targetChannel.id || (currentlyTunedStreamKey != null && (currentlyTunedStreamKey == targetStreamKey || currentlyTunedStreamKey == targetChannel.id.toString()))) {
-                    Log.i("TvPlayerActivity", "Selected channel '${targetChannel.name}' is already active/playing; doing nothing.")
-                    showTopOsdBanner(targetChannel)
-                } else {
+            .setNeutralButton("Record Series") { _, _ ->
+                CoroutineScope(Dispatchers.Main).launch {
+                    val ok = TvhUiRepository.addSeriesRule(this@TvPlayerActivity, program.title, channel.id)
+                    Toast.makeText(
+                        this@TvPlayerActivity,
+                        if (ok) "Added series rule for '${program.title}'" else "Could not add series rule",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .setNegativeButton("Tune Live") { _, _ ->
+                guideOverlayVisibleState.value = false
+                val idx = channelList.indexOfFirst { it.id == channel.id }
+                if (idx != -1 && idx != currentChannelIndex) {
                     currentChannelIndex = idx
                     playCurrentChannel()
                 }
             }
-        }
-        fragment.onDismissListener = {
-            if (openedFromEpgIntent && !epgChannelSelected) {
-                finish()
+            .show()
+    }
+
+    private fun openEpgGuide() {
+        if (guideOverlayVisibleState.value) return
+
+        osdHandler.removeCallbacks(hideOsdRunnable)
+        osdVisibleState.value = false
+        topOsdBanner.visibility = View.GONE
+        bottomMochiMenu.visibility = View.GONE
+
+        val startMs = System.currentTimeMillis() - 30 * 60_000L
+        guideWindowStartState.longValue = startMs
+        guideOverlayVisibleState.value = true
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val channels = TvhUiRepository.loadChannels(this@TvPlayerActivity)
+            val currentMap = TvhUiRepository.loadCurrentEpgMap(this@TvPlayerActivity, channels)
+            val windowMap = TvhUiRepository.loadGuideWindow(
+                this@TvPlayerActivity,
+                channels,
+                startMs,
+                startMs + 4 * 60 * 60_000L
+            )
+            withContext(Dispatchers.Main) {
+                guideChannelsState.value = channels
+                guideCurrentEpgState.value = currentMap
+                guideProgramsState.value = windowMap
             }
         }
-        fragment.show(supportFragmentManager, "epg_timeline")
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (guideOverlayVisibleState.value) {
+                guideOverlayVisibleState.value = false
+                if (openedFromEpgIntent && !epgChannelSelected) {
+                    finish()
+                }
+                return true
+            }
             if (osdVisibleState.value) {
                 osdVisibleState.value = false
                 return true
@@ -765,6 +864,10 @@ class TvPlayerActivity : FragmentActivity() {
                 bottomMochiMenu.visibility = View.GONE
                 return true
             }
+        }
+
+        if (guideOverlayVisibleState.value) {
+            return super.onKeyDown(keyCode, event)
         }
 
         if (osdVisibleState.value) {
