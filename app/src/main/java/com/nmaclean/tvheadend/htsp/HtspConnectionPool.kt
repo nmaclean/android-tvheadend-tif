@@ -6,6 +6,7 @@ import com.nmaclean.tvheadend.model.TvhSettings
 import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 /**
@@ -17,6 +18,7 @@ object HtspConnectionPool {
     private const val MAX_CONNECT_ATTEMPTS = 3
     private const val INITIAL_BACKOFF_MS = 250L
 
+    private val poolScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activeClient: HtspClient? = null
 
     @Synchronized
@@ -30,7 +32,12 @@ object HtspConnectionPool {
         val targetHost = if (host.equals("localhost", ignoreCase = true)) "127.0.0.1" else host
         val existing = activeClient
 
-        if (existing != null && existing.isConnected && existing.authenticatedUser == user) {
+        if (existing != null &&
+            existing.isConnected &&
+            existing.host == targetHost &&
+            existing.port == port &&
+            existing.authenticatedUser == user
+        ) {
             Log.i(TAG, "Reusing existing authenticated HTSP streaming connection to $targetHost:$port for user '$user'")
             return existing
         }
@@ -124,7 +131,7 @@ object HtspConnectionPool {
         val client = activeClient
         activeClient = null
         if (client != null) {
-            CoroutineScope(Dispatchers.IO).launch {
+            poolScope.launch {
                 try {
                     client.unsubscribe()
                     client.disconnect()
@@ -139,7 +146,7 @@ object HtspConnectionPool {
      * Asynchronously pre-connects and authenticates the persistent HTSP socket in the background.
      */
     fun preconnectAsync(context: Context) {
-        CoroutineScope(Dispatchers.IO).launch {
+        poolScope.launch {
             try {
                 val settings = TvhSettings(context)
                 val host = settings.host

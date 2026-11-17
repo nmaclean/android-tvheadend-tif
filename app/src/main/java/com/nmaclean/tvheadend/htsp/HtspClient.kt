@@ -18,7 +18,7 @@ import java.security.MessageDigest
 /**
  * Lightweight client for interacting with a Tvheadend server via the HTSP (Home TV Streaming Protocol).
  */
-class HtspClient(private val host: String, private val port: Int) : Closeable {
+class HtspClient(val host: String, val port: Int) : Closeable {
 
     companion object {
         const val TAG = "HtspClient"
