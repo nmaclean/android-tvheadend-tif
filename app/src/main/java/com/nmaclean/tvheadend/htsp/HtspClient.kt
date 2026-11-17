@@ -173,10 +173,10 @@ class HtspClient(val host: String, val port: Int) : Closeable {
 
             while (System.currentTimeMillis() - startTime < TvhConstants.ASYNC_METADATA_TIMEOUT_MS) {
                 try {
-                    val msg = readMessage()
+                    val msg = readMessage(skipLargeMuxPkt = false)
                     if (msg == null) {
-                        Log.w(TAG, "readMessage returned null frame")
-                        continue
+                        Log.w(TAG, "readMessage returned null frame (EOF)")
+                        break
                     }
 
                     val method = msg["method"] as? String
@@ -215,7 +215,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                         }
                     }
 
-                    if (msg["initialSyncCompleted"] == true || msg["initialSyncCompleted"] == 1) {
+                    if (isInitialSyncCompleted(msg)) {
                         Log.i(TAG, "HTSP initialSyncCompleted signal received!")
                         break
                     }
@@ -257,7 +257,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
 
             while (System.currentTimeMillis() - startTime < timeoutMs) {
                 try {
-                    val msg = readMessage() ?: continue
+                    val msg = readMessage(skipLargeMuxPkt = false) ?: break
                     val method = msg["method"] as? String
 
                     if (method == "eventAdd" || method == "eventUpdate" || msg.containsKey("eventId")) {
@@ -284,7 +284,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                         }
                     }
 
-                    if (msg["initialSyncCompleted"] == true || msg["initialSyncCompleted"] == 1) break
+                    if (isInitialSyncCompleted(msg)) break
                 } catch (e: SocketTimeoutException) {
                     if (programs.isNotEmpty()) break
                 }
@@ -303,7 +303,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
     /**
      * Fetches DVR recordings, scheduled timers, and AutoRec series rules via HTSP async metadata.
      */
-    fun fetchDvrState(timeoutMs: Long = TvhConstants.ASYNC_METADATA_TIMEOUT_MS): Pair<List<TvhRecording>, List<TvhSeriesRule>> {
+    fun fetchDvrState(timeoutMs: Long = 15_000L): Pair<List<TvhRecording>, List<TvhSeriesRule>> {
         val recordings = mutableListOf<TvhRecording>()
         val rules = mutableListOf<TvhSeriesRule>()
         val channelMap = ChannelRegistry.getAllChannels().associateBy { it.id }
@@ -313,7 +313,6 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             val args = mapOf(
                 "method" to "enableAsyncMetadata",
                 "seq" to seq,
-                "channels" to 0,
                 "epg" to 0
             )
             sendMessage(args)
@@ -322,7 +321,12 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             val startTime = System.currentTimeMillis()
             while (System.currentTimeMillis() - startTime < timeoutMs) {
                 try {
-                    val msg = readMessage() ?: continue
+                    val msg = readMessage(skipLargeMuxPkt = false) ?: break
+                    val msgSeq = (msg["seq"] as? Number)?.toInt()
+                    if (msgSeq == seq && (msg.containsKey("noaccess") || msg.containsKey("error"))) {
+                        Log.e(TAG, "HTSP enableAsyncMetadata rejected for DVR: noaccess=${msg["noaccess"]}, error=${msg["error"]}")
+                        break
+                    }
                     val method = msg["method"] as? String
                     when (method) {
                         "dvrEntryAdd", "dvrEntryUpdate" -> {
@@ -367,6 +371,10 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                             recordings.removeAll { it.id == id }
                             recordings.add(entry)
                         }
+                        "dvrEntryDelete" -> {
+                            val id = (msg["id"] as? Number)?.toLong() ?: continue
+                            recordings.removeAll { it.id == id }
+                        }
                         "autorecEntryAdd", "autorecEntryUpdate" -> {
                             val id = msg["id"]?.toString() ?: continue
                             val title = msg["title"] as? String ?: msg["name"] as? String ?: "Series Rule"
@@ -387,9 +395,16 @@ class HtspClient(val host: String, val port: Int) : Closeable {
                             rules.removeAll { it.id == id }
                             rules.add(rule)
                         }
+                        "autorecEntryDelete" -> {
+                            val id = msg["id"]?.toString() ?: continue
+                            rules.removeAll { it.id == id }
+                        }
                     }
 
-                    if (msg["initialSyncCompleted"] == true || msg["initialSyncCompleted"] == 1) break
+                    if (isInitialSyncCompleted(msg)) {
+                        Log.i(TAG, "HTSP DVR initialSyncCompleted: ${recordings.size} recordings, ${rules.size} rules")
+                        break
+                    }
                 } catch (_: SocketTimeoutException) {
                     if (recordings.isNotEmpty() || rules.isNotEmpty()) break
                 }
@@ -794,8 +809,19 @@ class HtspClient(val host: String, val port: Int) : Closeable {
      * Large media payload frames (> 8192 bytes, which are always 'muxpkt' streaming data)
      * are skipped instantly without allocating buffers or parsing binary HTSMSG structures.
      */
+    private fun isInitialSyncCompleted(msg: Map<*, *>): Boolean =
+        msg["method"] == "initialSyncCompleted" ||
+            msg["initialSyncCompleted"] == true ||
+            msg["initialSyncCompleted"] == 1
+
+    /**
+     * Reads a single HTSP message frame (4-byte big-endian length prefix + Htsmsg payload).
+     * When [skipLargeMuxPkt] is true, large frames (> 8 KB, typically muxpkt) are skipped
+     * without allocating buffers or parsing binary HTSMSG structures.
+     */
     @Synchronized
-    fun readMessage(): Map<*, *>? {
+    @JvmOverloads
+    fun readMessage(skipLargeMuxPkt: Boolean = true): Map<*, *>? {
         val lenBytes = ByteArray(4)
         var read = 0
         while (read < 4) {
@@ -807,7 +833,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         val length = ByteBuffer.wrap(lenBytes).int
         if (length <= 0 || length > TvhConstants.MAX_HTSP_MESSAGE_LENGTH) return null
 
-        if (length > 8192) {
+        if (skipLargeMuxPkt && length > 8192) {
             // Fast-skip large media stream packet (muxpkt) payload without decoding Htsmsg map
             skipBytes(length)
             return mapOf<String, Any?>("method" to "muxpkt", "skipped" to true)

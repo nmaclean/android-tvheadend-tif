@@ -135,6 +135,9 @@ object DvrRepository {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     private fun updateDerivedFlows(context: Context?, recs: List<TvhRecording>, rules: List<TvhSeriesRule>) {
         val mergedRecs = if (context != null) {
             recs.map { rec ->
@@ -167,10 +170,18 @@ object DvrRepository {
 
     suspend fun refresh(context: Context) = withContext(Dispatchers.IO) {
         _isLoading.value = true
+        _errorMessage.value = null
         try {
+            val settings = TvhSettings(context)
+            if (settings.host.isBlank()) {
+                _errorMessage.value = "Tvheadend server host is not configured in Settings."
+                return@withContext
+            }
             val result = withHtspClient(context) { it.fetchDvrState() }
             if (result != null) {
                 updateDerivedFlows(context, result.first, result.second)
+            } else {
+                _errorMessage.value = "Unable to connect to Tvheadend HTSP (${settings.host}:${settings.htspPort})."
             }
         } finally {
             _isLoading.value = false

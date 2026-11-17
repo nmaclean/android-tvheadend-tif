@@ -42,6 +42,7 @@ import com.nmaclean.tvheadend.ui.TvhUiRepository
 import com.nmaclean.tvheadend.ui.components.TvhMediaCard
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvTopBarWithClock
+import com.nmaclean.tvheadend.ui.theme.TvhPillButton
 import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -56,6 +57,8 @@ fun RecordingsScreen(
     recordings: List<TvhRecording>,
     seriesRules: List<TvhSeriesRule>,
     isLoading: Boolean,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {},
     onPlayRecording: (TvhRecording) -> Unit,
     onCancelScheduled: (TvhRecording) -> Unit,
     onSeriesRuleClick: (TvhSeriesRule) -> Unit,
@@ -95,6 +98,27 @@ fun RecordingsScreen(
                     text = "Loading DVR library from Tvheadend...",
                     color = MidnightCyanTokens.TextSecondary,
                     fontSize = 16.sp
+                )
+            }
+            return@Column
+        }
+
+        if (errorMessage != null && recordings.isEmpty() && seriesRules.isEmpty()) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = errorMessage,
+                    color = MidnightCyanTokens.TextSecondary,
+                    fontSize = 16.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TvhPillButton(
+                    label = "Retry",
+                    selected = true,
+                    onClick = onRetry
                 )
             }
             return@Column

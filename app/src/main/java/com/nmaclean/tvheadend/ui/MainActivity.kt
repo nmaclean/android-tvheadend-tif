@@ -108,6 +108,7 @@ class MainActivity : ComponentActivity() {
         val scheduledEventIds by DvrRepository.scheduledEventIds.collectAsState()
         val seriesTitles by DvrRepository.seriesTitles.collectAsState()
         val isLoadingDvr by DvrRepository.isLoading.collectAsState()
+        val dvrError by DvrRepository.errorMessage.collectAsState()
         var isLoadingChannels by remember { mutableStateOf(true) }
         var windowStartMs by remember { mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L) }
         var selectedProgramModal by remember { mutableStateOf<Pair<TvhChannel, EpgRepository.ProgramInfo>?>(null) }
@@ -222,6 +223,8 @@ class MainActivity : ComponentActivity() {
                         recordings = recordings,
                         seriesRules = seriesRules,
                         isLoading = isLoadingDvr,
+                        errorMessage = dvrError,
+                        onRetry = { scope.launch { DvrRepository.refresh(this@MainActivity) } },
                         onPlayRecording = { rec ->
                             onPlayRecording(rec) {}
                         },
