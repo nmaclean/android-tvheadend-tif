@@ -113,7 +113,8 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         if (!opened) return C.RESULT_END_OF_INPUT
 
         val stream = client?.inputStream ?: return C.RESULT_END_OF_INPUT
-        val readStartMs = System.currentTimeMillis()
+        val debugEnabled = TvhSettings.isStreamingDebugCached
+        val readStartMs = if (debugEnabled) System.currentTimeMillis() else 0L
         val bytesRead: Int = try {
             stream.read(buffer, offset, length)
         } catch (e: SocketException) {
@@ -133,14 +134,16 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
             -1
         }
 
-        val readDurationMs = System.currentTimeMillis() - readStartMs
-        if (TvhSettings.isStreamingDebugCached && readDurationMs > 200) {
-            if (totalBytesRead < 2048L) {
-                Log.i(TAG, "TVH_STREAM_DEBUG: [TUNER LOCK] Server tuner lock / initial stream arrival wait took ${readDurationMs}ms")
-            } else if (readDurationMs > 3000) {
-                Log.w(TAG, "TVH_STREAM_DEBUG: [READ STALL] Mid-stream TCP socket read stall: took ${readDurationMs}ms to return $bytesRead bytes!")
-            } else {
-                Log.d(TAG, "TVH_STREAM_DEBUG: [LIVE STREAM PACING] Socket read wait: took ${readDurationMs}ms to return $bytesRead bytes")
+        if (debugEnabled) {
+            val readDurationMs = System.currentTimeMillis() - readStartMs
+            if (readDurationMs > 200) {
+                if (totalBytesRead < 2048L) {
+                    Log.i(TAG, "TVH_STREAM_DEBUG: [TUNER LOCK] Server tuner lock / initial stream arrival wait took ${readDurationMs}ms")
+                } else if (readDurationMs > 3000) {
+                    Log.w(TAG, "TVH_STREAM_DEBUG: [READ STALL] Mid-stream TCP socket read stall: took ${readDurationMs}ms to return $bytesRead bytes!")
+                } else {
+                    Log.d(TAG, "TVH_STREAM_DEBUG: [LIVE STREAM PACING] Socket read wait: took ${readDurationMs}ms to return $bytesRead bytes")
+                }
             }
         }
 

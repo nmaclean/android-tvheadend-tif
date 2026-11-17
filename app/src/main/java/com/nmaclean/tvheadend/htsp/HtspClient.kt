@@ -313,7 +313,8 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
             "normts" to 1
         )
 
-        if (ChannelRegistry.getAllChannels().isEmpty()) {
+        val chIdLong = identifier.toLongOrNull()
+        if (chIdLong == null && ChannelRegistry.getAllChannels().isEmpty()) {
             try {
                 val channels = fetchChannels()
                 if (channels.isNotEmpty()) {
@@ -324,7 +325,6 @@ class HtspClient(private val host: String, private val port: Int) : Closeable {
             }
         }
 
-        val chIdLong = identifier.toLongOrNull()
         val resolvedChannel = if (chIdLong != null) {
             ChannelRegistry.getChannelById(chIdLong)
         } else {

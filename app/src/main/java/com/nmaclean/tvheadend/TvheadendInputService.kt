@@ -235,6 +235,12 @@ class TvheadendInputService : TvInputService() {
             }
         }
 
+        private val mediaSourceFactory: ProgressiveMediaSource.Factory by lazy {
+            val dataSourceFactory = HtspDataSource.Factory(baseContext)
+            val extractorsFactory = ExtractorsFactory { arrayOf(HtspExtractor(baseContext)) }
+            ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
+        }
+
         private fun startPlayback(uuid: String) {
             hasReachedReadyState = false
             val host = settings.host
@@ -257,10 +263,7 @@ class TvheadendInputService : TvInputService() {
                 p.clearVideoSurface()
             }
 
-            val dataSourceFactory = HtspDataSource.Factory(baseContext)
-            val extractorsFactory = ExtractorsFactory { arrayOf(HtspExtractor(baseContext)) }
-            val mediaSource = ProgressiveMediaSource.Factory(dataSourceFactory, extractorsFactory)
-                .createMediaSource(MediaItem.fromUri(streamUri))
+            val mediaSource = mediaSourceFactory.createMediaSource(MediaItem.fromUri(streamUri))
 
             p.setMediaSource(mediaSource, /* resetPosition= */ true)
             val targetVol = if (currentVolume > 0.0f) currentVolume else 1.0f
