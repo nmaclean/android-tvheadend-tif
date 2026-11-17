@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -42,7 +41,6 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -162,16 +160,16 @@ fun GuideScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Inline Preview Card (Left: 16:9 banner, Center: Title/time/synopsis, Right: white monochrome picon)
+        // Compact Inline Preview Strip (Picon + Channel + Title + Genre + Time + Synopsis)
         GuideInlinePreviewCard(
             channel = focusedChannel,
             program = focusedProgram,
             modifier = Modifier.fillMaxWidth()
         )
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (filteredChannels.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -367,142 +365,91 @@ private fun GuideInlinePreviewCard(
     program: EpgRepository.ProgramInfo?,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(10.dp)
+    val previewGenre = if (program != null) {
+        TvhUiRepository.classifyEpgGenre(program.title, program.summary, channel?.name ?: "")
+    } else {
+        TvhUiRepository.EpgGenre.GENERAL
+    }
     Row(
         modifier = modifier
-            .height(104.dp)
+            .height(48.dp)
             .clip(shape)
             .background(MidnightCyanTokens.CardBg.copy(alpha = 0.72f))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // Left: 16:9 show banner
-        var bannerFailed by remember(channel?.id, channel?.icon) { mutableStateOf(false) }
-        Box(
-            modifier = Modifier
-                .fillMaxHeight()
-                .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(MidnightCyanTokens.CardBgElevated, MidnightCyanTokens.BgGradientBottom)
-                    )
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            if (!channel?.icon.isNullOrBlank() && !bannerFailed) {
-                AsyncImage(
-                    model = channel!!.icon,
-                    contentDescription = channel.name,
-                    contentScale = ContentScale.Fit,
-                    onError = { bannerFailed = true },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(10.dp)
-                )
-            } else {
-                Text(
-                    text = channel?.name ?: "TV",
-                    color = MidnightCyanTokens.TextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        // Center: Title, time range, genre tag, and episode synopsis
-        val previewGenre = if (program != null) {
-            TvhUiRepository.classifyEpgGenre(program.title, program.summary, channel?.name ?: "")
-        } else {
-            TvhUiRepository.EpgGenre.GENERAL
-        }
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Text(
-                    text = program?.title ?: channel?.name ?: "Select a program",
-                    color = MidnightCyanTokens.TextPrimary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false)
-                )
-                if (previewGenre != TvhUiRepository.EpgGenre.GENERAL) {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(Color(previewGenre.accentHex).copy(alpha = 0.22f))
-                            .padding(horizontal = 8.dp, vertical = 2.dp)
-                    ) {
-                        Text(
-                            text = previewGenre.label,
-                            color = Color(previewGenre.accentHex),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.6.sp
-                        )
-                    }
-                }
-            }
-            if (program != null) {
-                Text(
-                    text = TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs),
-                    color = MidnightCyanTokens.TextSecondary,
-                    fontSize = 13.sp
-                )
-            }
-            Spacer(modifier = Modifier.height(3.dp))
-            Text(
-                text = program?.summary?.takeIf { it.isNotBlank() }
-                    ?: "Press OK to tune to ${channel?.name ?: "this channel"} immediately.",
-                color = MidnightCyanTokens.TextSecondary,
-                fontSize = 13.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
+        var piconFailed by remember(channel?.id, channel?.icon) { mutableStateOf(false) }
+        if (!channel?.icon.isNullOrBlank() && !piconFailed) {
+            AsyncImage(
+                model = channel!!.icon,
+                contentDescription = channel.name,
+                contentScale = ContentScale.Fit,
+                onError = { piconFailed = true },
+                modifier = Modifier
+                    .width(38.dp)
+                    .fillMaxHeight()
             )
         }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        // Right: Broadcaster picon
-        var piconFailed by remember(channel?.id, channel?.icon) { mutableStateOf(false) }
-        Box(
-            modifier = Modifier
-                .width(108.dp)
-                .fillMaxHeight(),
-            contentAlignment = Alignment.Center
-        ) {
-            if (!channel?.icon.isNullOrBlank() && !piconFailed) {
-                AsyncImage(
-                    model = channel!!.icon,
-                    contentDescription = channel.name,
-                    contentScale = ContentScale.Fit,
-                    onError = { piconFailed = true },
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(6.dp)
-                )
-            } else {
+        if (channel != null) {
+            Text(
+                text = if (channel.number > 0) "${channel.number} ${channel.name}" else channel.name,
+                color = MidnightCyanTokens.CyanAccent,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "•",
+                color = MidnightCyanTokens.TextMuted,
+                fontSize = 13.sp
+            )
+        }
+        Text(
+            text = program?.title ?: channel?.name ?: "Select a program",
+            color = MidnightCyanTokens.TextPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (previewGenre != TvhUiRepository.EpgGenre.GENERAL) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(previewGenre.accentHex).copy(alpha = 0.22f))
+                    .padding(horizontal = 7.dp, vertical = 2.dp)
+            ) {
                 Text(
-                    text = channel?.name ?: "",
-                    color = Color.White,
-                    fontSize = 15.sp,
+                    text = previewGenre.label,
+                    color = Color(previewGenre.accentHex),
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    letterSpacing = 0.6.sp
                 )
             }
+        }
+        if (program != null) {
+            Text(
+                text = TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs),
+                color = MidnightCyanTokens.TextSecondary,
+                fontSize = 13.sp,
+                maxLines = 1
+            )
+        }
+        val snippet = program?.summary?.takeIf { it.isNotBlank() }
+            ?: if (channel != null) "Press OK to tune to ${channel.name}" else ""
+        if (snippet.isNotBlank()) {
+            Text(
+                text = "— $snippet",
+                color = MidnightCyanTokens.TextSecondary.copy(alpha = 0.85f),
+                fontSize = 12.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
