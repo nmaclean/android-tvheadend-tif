@@ -119,6 +119,10 @@ class DvrPlayerActivity : ComponentActivity() {
                 override fun onPlayerError(error: PlaybackException) {
                     val causeMsg = error.cause?.message
                     Log.w(TAG, "DVR playback error (${error.message}; cause=$causeMsg)")
+                    if (causeMsg?.contains("does not have a file", ignoreCase = true) == true) {
+                        playbackErrorMessage = causeMsg
+                        return
+                    }
                     if (httpFallbackAttempt == 0) {
                         lastHtspError = causeMsg ?: error.message
                         httpFallbackAttempt = 1

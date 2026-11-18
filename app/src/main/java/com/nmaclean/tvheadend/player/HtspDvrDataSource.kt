@@ -55,16 +55,18 @@ class HtspDvrDataSource(private val context: Context) : BaseDataSource(true) {
         }
 
         val openedFile = htsp.fileOpen("dvr/$dvrId")
+        val firstError = htsp.lastFileOpenError
+        val finalOpenedFile = openedFile
             ?: if (dvrUuid.isNotBlank()) htsp.fileOpen("dvr/$dvrUuid") else null
-        if (openedFile == null) {
-            val reason = htsp.lastFileOpenError ?: "unknown error"
+        if (finalOpenedFile == null) {
+            val reason = firstError ?: htsp.lastFileOpenError ?: "unknown error"
             htsp.disconnect()
             throw IOException("HTSP fileOpen failed for dvr/$dvrId: $reason")
         }
 
         client = htsp
-        fileId = openedFile.first
-        fileSize = openedFile.second
+        fileId = finalOpenedFile.first
+        fileSize = finalOpenedFile.second
         readPosition = dataSpec.position
         opened = true
 

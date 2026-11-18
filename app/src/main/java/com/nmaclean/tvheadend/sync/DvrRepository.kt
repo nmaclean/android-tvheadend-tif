@@ -41,12 +41,13 @@ class DvrStateReducer {
                 val playCount = (msg["playcount"] as? Number)?.toInt() ?: existing?.playCount ?: 0
                 val playPosMs = (msg["playposition"] as? Number)?.toLong()?.times(1000L) ?: existing?.resumePositionMs ?: 0L
                 val errorStr = (msg["error"] as? String)?.trim() ?: existing?.error ?: ""
+                val hasError = errorStr.isNotBlank() && !errorStr.equals("OK", ignoreCase = true)
                 val status = (msg["state"] as? String)?.lowercase()?.let { stateStr ->
                     when (stateStr) {
                         "scheduled" -> TvhRecordingStatus.SCHEDULED
                         "recording" -> TvhRecordingStatus.RECORDING
-                        "missed", "invalid" -> TvhRecordingStatus.MISSED
-                        else -> TvhRecordingStatus.RECORDED
+                        "missed", "invalid", "completederror", "empty" -> TvhRecordingStatus.MISSED
+                        else -> if (hasError) TvhRecordingStatus.MISSED else TvhRecordingStatus.RECORDED
                     }
                 } ?: existing?.status ?: TvhRecordingStatus.RECORDED
                 val durationSec = ((stopMs - startMs).coerceAtLeast(0L)) / 1000L
