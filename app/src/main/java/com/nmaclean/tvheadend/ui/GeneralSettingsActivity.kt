@@ -37,18 +37,16 @@ import androidx.fragment.app.FragmentActivity
 import androidx.media3.common.util.UnstableApi
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import com.nmaclean.tvheadend.BuildConfig
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.TvhSyncManager
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvClockHeader
 import com.nmaclean.tvheadend.ui.theme.TvTheme
 import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
-import com.nmaclean.tvheadend.updater.UpdatePromptDialog
 import kotlin.concurrent.thread
 
 /**
- * Midnight-Cyan Compose General Settings screen (diagnostic logs, EPG sync & app updates).
+ * Midnight-Cyan Compose General Settings screen (diagnostic logs & EPG sync).
  * Server connection settings are managed via Android TV TIF Input Setup.
  */
 @OptIn(UnstableApi::class)
@@ -92,9 +90,6 @@ class GeneralSettingsActivity : FragmentActivity() {
                                 }
                             }
                         }
-                    },
-                    onCheckUpdates = {
-                        UpdatePromptDialog(this).show()
                     }
                 )
             }
@@ -109,8 +104,7 @@ private fun GeneralSettingsScreen(
     isSyncing: Boolean,
     settings: TvhSettings,
     onToggleDebug: () -> Unit,
-    onSyncNow: () -> Unit,
-    onCheckUpdates: () -> Unit
+    onSyncNow: () -> Unit
 ) {
     val debugOn = remember(tick) { settings.isStreamingDebugEnabled }
 
@@ -136,7 +130,7 @@ private fun GeneralSettingsScreen(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Diagnostics, EPG sync & app updates (server configured via TIF Input)",
+                    text = "Diagnostics & EPG sync (server configured via TIF Input)",
                     color = MidnightCyanTokens.TextSecondary,
                     fontSize = 14.sp
                 )
@@ -168,15 +162,6 @@ private fun GeneralSettingsScreen(
                     title = "Sync Channels & EPG Now",
                     summary = if (isSyncing) "Sync in progress..." else "Pull latest channels and EPG schedule from Tvheadend",
                     onClick = onSyncNow
-                )
-            }
-
-            item { Spacer(modifier = Modifier.height(8.dp)); SectionLabel("APP & UPDATES") }
-            item {
-                SettingsRowItem(
-                    title = "Check for Updates",
-                    summary = "Current version: v${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TIME})",
-                    onClick = onCheckUpdates
                 )
             }
         }
