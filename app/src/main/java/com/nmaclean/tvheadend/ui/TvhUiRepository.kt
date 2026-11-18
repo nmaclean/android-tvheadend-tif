@@ -245,6 +245,37 @@ object TvhUiRepository {
         return result.sortedWith(compareBy({ it.number }, { it.name }))
     }
 
+    /**
+     * Derives current and next program info per channel from an already-loaded guide window map
+     * in memory, avoiding N separate ContentResolver queries.
+     */
+    fun deriveCurrentEpgFromWindow(
+        channels: List<TvhChannel>,
+        guideMap: Map<Long, List<EpgRepository.ProgramInfo>>,
+        nowMs: Long = System.currentTimeMillis()
+    ): Map<Long, EpgRepository.ChannelEpg> {
+        if (channels.isEmpty() || guideMap.isEmpty()) return emptyMap()
+        val result = HashMap<Long, EpgRepository.ChannelEpg>(channels.size)
+        for (ch in channels) {
+            val progs = guideMap[ch.id] ?: ch.uuid.toLongOrNull()?.let { guideMap[it] } ?: continue
+            var current: EpgRepository.ProgramInfo? = null
+            var next: EpgRepository.ProgramInfo? = null
+            for (p in progs) {
+                if (nowMs >= p.startTimeMs && nowMs < p.endTimeMs) {
+                    if (current == null) current = p
+                } else if (p.startTimeMs > nowMs) {
+                    if (next == null || p.startTimeMs < next.startTimeMs) {
+                        next = p
+                    }
+                }
+            }
+            if (current != null || next != null) {
+                result[ch.id] = EpgRepository.ChannelEpg(currentProgram = current, nextProgram = next)
+            }
+        }
+        return result
+    }
+
     suspend fun loadCurrentEpgMap(
         context: Context,
         channels: List<TvhChannel>,
@@ -252,19 +283,25 @@ object TvhUiRepository {
     ): Map<Long, EpgRepository.ChannelEpg> = withContext(Dispatchers.IO) {
         if (channels.isEmpty()) return@withContext emptyMap()
         val now = System.currentTimeMillis()
-        if (!forceRefresh && cachedCurrentEpg.isNotEmpty() && (now - cachedCurrentEpgAtMs) < EPG_CACHE_TTL_MS) {
+        if (!forceRefresh &&
+            cachedCurrentEpg.isNotEmpty() &&
+            (now - cachedCurrentEpgAtMs) < EPG_CACHE_TTL_MS &&
+            channels.all { cachedCurrentEpg.containsKey(it.id) || it.uuid.toLongOrNull()?.let(cachedCurrentEpg::containsKey) == true }
+        ) {
             return@withContext cachedCurrentEpg
         }
-        val htspToDb = buildHtspToDbIdMap(context, channels)
-        val pairs = channels.map { ch ->
-            async {
-                val queryId = htspToDb[ch.id] ?: ch.id
-                ch.id to EpgRepository.getCurrentAndNextProgram(context, queryId)
-            }
-        }.awaitAll()
-        val result = pairs.toMap()
-        cachedCurrentEpg = result
-        cachedCurrentEpgAtMs = now
+        val windowMap = loadGuideWindow(
+            context = context,
+            channels = channels,
+            windowStartMs = now - 30 * 60_000L,
+            windowEndMs = now + 4 * 60 * 60_000L,
+            forceRefresh = forceRefresh
+        )
+        val result = deriveCurrentEpgFromWindow(channels, windowMap, now)
+        if (result.isNotEmpty()) {
+            cachedCurrentEpg = result
+            cachedCurrentEpgAtMs = System.currentTimeMillis()
+        }
         result
     }
 

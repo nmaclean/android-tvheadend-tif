@@ -78,4 +78,25 @@ class TvhUiRepositoryTest {
         assertEquals(TvhUiRepository.EpgGenre.DOCUMENTARY, TvhUiRepository.classifyEpgGenre("Grand Designs", null, "Channel 4"))
         assertEquals(TvhUiRepository.EpgGenre.DRAMA, TvhUiRepository.classifyEpgGenre("University Challenge", null, "BBC Two"))
     }
+
+    @Test
+    fun testDeriveCurrentEpgFromWindow() {
+        val ch1 = TvhChannel(1L, "u1", "BBC One", 1)
+        val ch2 = TvhChannel(2L, "u2", "Film4", 14)
+        val now = 1_000_000L
+        val curr = EpgRepository.ProgramInfo(10L, 1L, "Current Show", null, now - 10_000L, now + 10_000L)
+        val next = EpgRepository.ProgramInfo(11L, 1L, "Next Show", null, now + 10_000L, now + 40_000L)
+        val futureOnly = EpgRepository.ProgramInfo(12L, 2L, "Later Film", null, now + 20_000L, now + 80_000L)
+
+        val derived = TvhUiRepository.deriveCurrentEpgFromWindow(
+            channels = listOf(ch1, ch2),
+            guideMap = mapOf(1L to listOf(curr, next), 2L to listOf(futureOnly)),
+            nowMs = now
+        )
+
+        assertEquals(curr, derived[1L]?.currentProgram)
+        assertEquals(next, derived[1L]?.nextProgram)
+        assertEquals(null, derived[2L]?.currentProgram)
+        assertEquals(futureOnly, derived[2L]?.nextProgram)
+    }
 }
