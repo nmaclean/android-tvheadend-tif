@@ -20,7 +20,7 @@ import androidx.leanback.widget.GuidedActionsStylist
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.nmaclean.tvheadend.model.TvhConstants
-import com.nmaclean.tvheadend.model.TvhSettings
+import com.nmaclean.tvheadend.model.TvhTifSettings
 import com.nmaclean.tvheadend.sync.TvhSyncManager
 import com.nmaclean.tvheadend.sync.TvhSyncWorker
 import com.nmaclean.tvheadend.ui.MainActivity
@@ -33,7 +33,7 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = "Tvheadend TIF Setup"
-        val settings = TvhSettings(requireContext())
+        val settings = TvhTifSettings(requireContext())
         val serverSummary = if (settings.host.isNotBlank()) {
             val userPart = if (settings.username.isNotBlank()) " • User: ${settings.username}" else ""
             "\n\nCurrent server: ${settings.host}:${settings.htspPort} (HTTP ${settings.httpPort})$userPart"
@@ -95,7 +95,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     }
 
     private fun loadSettingsIntoFields() {
-        val settings = TvhSettings(requireContext())
+        val settings = TvhTifSettings(requireContext())
         hostValue = settings.host
         htspPortValue = if (settings.htspPort > 0) settings.htspPort else TvhConstants.DEFAULT_HTSP_PORT
         httpPortValue = if (settings.httpPort > 0) settings.httpPort else TvhConstants.DEFAULT_HTTP_PORT
@@ -250,7 +250,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         }
 
         if (action.id == ID_CLEAR) {
-            TvhSettings(requireContext()).clear()
+            TvhTifSettings(requireContext()).clear()
             TvhSyncManager.clearAllChannelsAndPrograms(requireContext())
             Toast.makeText(activity, "Settings & Guide cleared", Toast.LENGTH_SHORT).show()
             parentFragmentManager.beginTransaction()
@@ -291,7 +291,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
             val values = readFormValues()
             Log.d(TAG, "Saving settings - Host: '${values.host}', Port: ${values.htspPort}, HTTP Port: ${values.httpPort}, User: '${values.username}'")
 
-            val settings = TvhSettings(requireContext())
+            val settings = TvhTifSettings(requireContext())
             settings.host = values.host
             settings.htspPort = values.htspPort
             settings.httpPort = values.httpPort
