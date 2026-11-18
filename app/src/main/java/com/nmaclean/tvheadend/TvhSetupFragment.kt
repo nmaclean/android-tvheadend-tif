@@ -33,7 +33,14 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val title = "Tvheadend TIF Setup"
-        val description = "Connect your Android TV to your Tvheadend server to stream live TV channels, program guides (EPG), and channel logos.\n\n\n\nVersion: v${BuildConfig.VERSION_NAME} • Build: ${BuildConfig.BUILD_TIME}"
+        val settings = TvhSettings(requireContext())
+        val serverSummary = if (settings.host.isNotBlank()) {
+            val userPart = if (settings.username.isNotBlank()) " • User: ${settings.username}" else ""
+            "\n\nCurrent server: ${settings.host}:${settings.htspPort} (HTTP ${settings.httpPort})$userPart"
+        } else {
+            "\n\nNo server configured yet."
+        }
+        val description = "Connect your Android TV to your Tvheadend server to stream live TV channels, program guides (EPG), and channel logos.$serverSummary\n\nVersion: v${BuildConfig.VERSION_NAME} • Build: ${BuildConfig.BUILD_TIME}"
         val breadcrumb = "TV Input Setup"
         return GuidanceStylist.Guidance(title, description, breadcrumb, null)
     }
@@ -78,12 +85,40 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loadSettingsIntoFields()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        loadSettingsIntoFields()
+        refreshActionValues()
+    }
+
+    private fun loadSettingsIntoFields() {
         val settings = TvhSettings(requireContext())
         hostValue = settings.host
         htspPortValue = if (settings.htspPort > 0) settings.htspPort else TvhConstants.DEFAULT_HTSP_PORT
         httpPortValue = if (settings.httpPort > 0) settings.httpPort else TvhConstants.DEFAULT_HTTP_PORT
         usernameValue = settings.username
         passwordValue = settings.password
+    }
+
+    private fun refreshActionValues() {
+        val updates = listOf(
+            ID_HOST to Pair(hostValue, TvhSetupInputValidator.formatHostDescription(hostValue)),
+            ID_PORT to Pair(htspPortValue.toString(), TvhSetupInputValidator.formatPortDescription(htspPortValue, TvhConstants.DEFAULT_HTSP_PORT, "HTSP")),
+            ID_HTTP_PORT to Pair(httpPortValue.toString(), TvhSetupInputValidator.formatPortDescription(httpPortValue, TvhConstants.DEFAULT_HTTP_PORT, "HTTP")),
+            ID_USER to Pair(usernameValue, TvhSetupInputValidator.formatUsernameDescription(usernameValue)),
+            ID_PASS to Pair(passwordValue, TvhSetupInputValidator.formatPasswordDescription(passwordValue))
+        )
+        for ((id, pair) in updates) {
+            val idx = findActionPositionById(id)
+            if (idx >= 0) {
+                actions[idx].editTitle = pair.first
+                actions[idx].description = pair.second
+                notifyActionChanged(idx)
+            }
+        }
     }
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
