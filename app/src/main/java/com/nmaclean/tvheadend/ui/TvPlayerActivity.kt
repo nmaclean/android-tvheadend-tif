@@ -29,20 +29,27 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.BackHandler
 import androidx.appcompat.app.AlertDialog
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.common.util.UnstableApi
@@ -53,6 +60,7 @@ import com.nmaclean.tvheadend.TvheadendInputService
 import com.nmaclean.tvheadend.htsp.ChannelRegistry
 import com.nmaclean.tvheadend.htsp.HtspConnectionPool
 import com.nmaclean.tvheadend.model.TvhChannel
+import com.nmaclean.tvheadend.model.TvhRecordingStatus
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.DvrRepository
 import com.nmaclean.tvheadend.sync.EpgRepository
@@ -235,6 +243,33 @@ class TvPlayerActivity : FragmentActivity() {
 
         findViewById<ComposeView>(R.id.compose_osd_overlay)?.setContent {
             TvTheme {
+                val allRecordings = DvrRepository.recordings.collectAsState()
+                val currentChannel = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
+                val currentHtspChId = remember(currentChannel) {
+                    currentChannel?.let { DvrRepository.resolveHtspChannelId(this@TvPlayerActivity, it) } ?: 0L
+                }
+                val activeChannelRecording = remember(allRecordings.value, currentHtspChId, osdCurrentEpgState.value) {
+                    if (currentHtspChId <= 0L) {
+                        null
+                    } else {
+                        allRecordings.value.firstOrNull { rec ->
+                            rec.channelId == currentHtspChId && rec.status == TvhRecordingStatus.RECORDING
+                        } ?: osdCurrentEpgState.value?.currentProgram?.let { prog ->
+                            DvrRepository.findActiveRecording(
+                                eventId = prog.eventId,
+                                channelId = currentHtspChId,
+                                title = prog.title,
+                                startTimeMs = prog.startTimeMs
+                            )
+                        }
+                    }
+                }
+                val isCurrentChannelRecording = activeChannelRecording != null
+
+                LaunchedEffect(Unit) {
+                    DvrRepository.refresh(this@TvPlayerActivity)
+                }
+
                 val anyOverlayActive = trackOverlayVisibleState.value ||
                     guideProgramModalState.value != null ||
                     guideOverlayVisibleState.value ||
@@ -247,6 +282,7 @@ class TvPlayerActivity : FragmentActivity() {
                         visible = osdVisibleState.value && !guideOverlayVisibleState.value && !trackOverlayVisibleState.value,
                         isTuning = isTuningState.value,
                         isPaused = isPausedState.value,
+                        isRecording = isCurrentChannelRecording,
                         interactionTick = osdInteractionTickState.intValue,
                         currentChannel = osdChannelState.value,
                         currentEpg = osdCurrentEpgState.value,
@@ -254,6 +290,10 @@ class TvPlayerActivity : FragmentActivity() {
                         adjacentEpg = osdAdjacentEpgState.value,
                         onTimeout = { osdVisibleState.value = false },
                         onTogglePause = { toggleLivePause() },
+                        onToggleRecord = {
+                            osdInteractionTickState.intValue++
+                            toggleChannelRecording(currentChannel, activeChannelRecording)
+                        },
                         onGuideClick = {
                             osdVisibleState.value = false
                             openEpgGuide()
@@ -267,6 +307,33 @@ class TvPlayerActivity : FragmentActivity() {
                             tuneToSelectedChannel(selectedChannel)
                         }
                     )
+
+                    if (isCurrentChannelRecording && !osdVisibleState.value && !guideOverlayVisibleState.value && !trackOverlayVisibleState.value) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .padding(top = 24.dp, start = 48.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(androidx.compose.ui.graphics.Color(0xCC1E0B10))
+                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(androidx.compose.ui.graphics.Color(0xFFFF1744))
+                            )
+                            androidx.tv.material3.Text(
+                                text = "REC",
+                                color = androidx.compose.ui.graphics.Color(0xFFFF5252),
+                                fontSize = 12.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                    }
 
                     val typedNum = channelNumberEntryState.value
                     if (typedNum.isNotEmpty()) {
@@ -1176,12 +1243,47 @@ class TvPlayerActivity : FragmentActivity() {
                 setLivePaused(false)
                 return true
             }
+            KeyEvent.KEYCODE_MEDIA_RECORD -> {
+                val ch = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
+                val htspChId = ch?.let { DvrRepository.resolveHtspChannelId(this, it) } ?: 0L
+                val existing = DvrRepository.recordings.value.firstOrNull {
+                    it.channelId == htspChId && it.status == TvhRecordingStatus.RECORDING
+                }
+                toggleChannelRecording(ch, existing)
+                return true
+            }
             KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 openEpgGuide()
                 return true
             }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun toggleChannelRecording(
+        channel: TvhChannel?,
+        existingRecording: com.nmaclean.tvheadend.model.TvhRecording?
+    ) {
+        val target = channel ?: return
+        CoroutineScope(Dispatchers.Main).launch {
+            val ok = if (existingRecording != null) {
+                DvrRepository.cancelTimer(this@TvPlayerActivity, existingRecording.id)
+            } else {
+                val nowMs = System.currentTimeMillis()
+                val prog = osdCurrentEpgState.value?.currentProgram ?: EpgRepository.ProgramInfo(
+                    eventId = 0L,
+                    channelId = target.id,
+                    title = target.name,
+                    summary = null,
+                    startTimeMs = nowMs,
+                    endTimeMs = nowMs + 3_600_000L
+                )
+                DvrRepository.scheduleProgram(this@TvPlayerActivity, target, prog)
+            }
+            if (!ok) {
+                Toast.makeText(this@TvPlayerActivity, "DVR action failed", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun toggleLivePause() {

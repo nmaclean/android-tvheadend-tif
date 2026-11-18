@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -66,6 +67,7 @@ fun PlayerOsdOverlay(
     visible: Boolean,
     isTuning: Boolean = false,
     isPaused: Boolean = false,
+    isRecording: Boolean = false,
     interactionTick: Int,
     currentChannel: TvhChannel?,
     currentEpg: EpgRepository.ChannelEpg?,
@@ -73,6 +75,7 @@ fun PlayerOsdOverlay(
     adjacentEpg: Map<Long, EpgRepository.ChannelEpg>,
     onTimeout: () -> Unit,
     onTogglePause: () -> Unit = {},
+    onToggleRecord: () -> Unit = {},
     onGuideClick: () -> Unit,
     onAudioSubtitlesClick: () -> Unit,
     onQuickZapChannel: (TvhChannel) -> Unit,
@@ -137,6 +140,30 @@ fun PlayerOsdOverlay(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
                         )
+                    }
+                    if (isRecording) {
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xCC1E0B10))
+                                .padding(horizontal = 9.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFFF1744))
+                            )
+                            Text(
+                                text = "REC",
+                                color = Color(0xFFFF5252),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
                     }
                     if (isTuning) {
                         Row(
@@ -305,6 +332,11 @@ fun PlayerOsdOverlay(
                             label = if (isPaused) "Resume" else "Pause",
                             selected = isPaused,
                             onClick = onTogglePause
+                        )
+                        TvhPillButton(
+                            label = if (isRecording) "Recording ✓" else "Record",
+                            selected = isRecording,
+                            onClick = onToggleRecord
                         )
                         TvhPillButton(
                             label = "Guide",
