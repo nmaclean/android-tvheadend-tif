@@ -3,6 +3,7 @@ package com.nmaclean.tvheadend
 import android.content.Context
 import android.database.Cursor
 import android.media.MediaCodec
+import android.media.PlaybackParams
 import android.media.tv.TvContentRating
 import android.media.tv.TvContract
 import android.media.tv.TvInputManager
@@ -94,6 +95,10 @@ class TvheadendInputService : TvInputService() {
         private var tuneJob: Job? = null
         private var tuneStartTimeMs = 0L
         private var hasReachedReadyState = false
+        private var timeShiftStartMs = 0L
+        private var isTimeShiftPaused = false
+        private var pausedAtMs = 0L
+        private var totalPausedMs = 0L
 
         init {
             setOverlayViewEnabled(true)
@@ -544,6 +549,10 @@ class TvheadendInputService : TvInputService() {
                     notifyContentAllowed()
                     notifyVideoAvailable()
                 } else {
+                    isTimeShiftPaused = false
+                    pausedAtMs = 0L
+                    totalPausedMs = 0L
+                    timeShiftStartMs = System.currentTimeMillis()
                     currentChannelUuid = streamKey
                     startPlayback(streamKey)
                 }
@@ -637,10 +646,66 @@ class TvheadendInputService : TvInputService() {
 
             if (playbackState == Player.STATE_READY) {
                 hasReachedReadyState = true
+                if (timeShiftStartMs == 0L) {
+                    timeShiftStartMs = System.currentTimeMillis()
+                }
+                notifyTimeShiftStatusChanged(TvInputManager.TIME_SHIFT_STATUS_AVAILABLE)
                 notifyContentAllowed()
                 notifyVideoAvailable()
                 restoreVolumeIfNeeded()
             }
+        }
+
+        override fun onTimeShiftPause() {
+            Log.i(TAG, "onTimeShiftPause called")
+            if (!isTimeShiftPaused) {
+                isTimeShiftPaused = true
+                pausedAtMs = System.currentTimeMillis()
+                player?.pause()
+                HtspConnectionPool.setStreamingSpeedAsync(0)
+            }
+        }
+
+        override fun onTimeShiftResume() {
+            Log.i(TAG, "onTimeShiftResume called")
+            if (isTimeShiftPaused) {
+                if (pausedAtMs > 0L) {
+                    totalPausedMs += (System.currentTimeMillis() - pausedAtMs).coerceAtLeast(0L)
+                }
+                isTimeShiftPaused = false
+                pausedAtMs = 0L
+                HtspConnectionPool.setStreamingSpeedAsync(100)
+                player?.play()
+            }
+        }
+
+        override fun onTimeShiftSeekTo(timeMs: Long) {
+            Log.i(TAG, "onTimeShiftSeekTo called: timeMs=$timeMs")
+            val p = player ?: return
+            if (p.isCurrentMediaItemSeekable) {
+                val targetPos = (timeMs - timeShiftStartMs).coerceAtLeast(0L)
+                p.seekTo(targetPos)
+            }
+        }
+
+        override fun onTimeShiftSetPlaybackParams(params: PlaybackParams) {
+            Log.i(TAG, "onTimeShiftSetPlaybackParams called: speed=${params.speed}")
+            if (params.speed == 0f) {
+                onTimeShiftPause()
+            } else {
+                onTimeShiftResume()
+            }
+        }
+
+        override fun onTimeShiftGetStartPosition(): Long {
+            return if (timeShiftStartMs > 0L) timeShiftStartMs else System.currentTimeMillis()
+        }
+
+        override fun onTimeShiftGetCurrentPosition(): Long {
+            val now = System.currentTimeMillis()
+            if (timeShiftStartMs <= 0L) return now
+            val activePause = if (isTimeShiftPaused && pausedAtMs > 0L) (now - pausedAtMs).coerceAtLeast(0L) else 0L
+            return (now - totalPausedMs - activePause).coerceAtLeast(timeShiftStartMs)
         }
 
         /**

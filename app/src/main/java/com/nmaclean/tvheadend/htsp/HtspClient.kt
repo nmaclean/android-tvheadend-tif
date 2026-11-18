@@ -659,6 +659,28 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         return mapOf("success" to true)
     }
 
+    /**
+     * Sends HTSP `subscriptionSpeed` (`0` = pause timeshift, `100` = normal 1x playback)
+     * without blocking the active streaming reader thread.
+     */
+    fun sendSubscriptionSpeed(speed: Int) {
+        if (!hasActiveSubscription) return
+        try {
+            val seq = sequenceNumber++
+            sendMessage(
+                mapOf(
+                    "method" to "subscriptionSpeed",
+                    "seq" to seq,
+                    "subscriptionId" to 1,
+                    "speed" to speed
+                )
+            )
+            Log.i(TAG, "Sent HTSP subscriptionSpeed(speed=$speed)")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to send subscriptionSpeed($speed): ${e.message}")
+        }
+    }
+
     @Volatile
     var hasActiveSubscription: Boolean = false
         private set

@@ -21,6 +21,13 @@ object HtspConnectionPool {
     private val poolScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var activeClient: HtspClient? = null
 
+    fun setStreamingSpeedAsync(speed: Int) {
+        val client = synchronized(this) { activeClient } ?: return
+        poolScope.launch {
+            client.sendSubscriptionSpeed(speed)
+        }
+    }
+
     @Synchronized
     fun getStreamingClient(
         context: Context,

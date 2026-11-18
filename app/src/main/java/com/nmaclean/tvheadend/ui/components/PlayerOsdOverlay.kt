@@ -65,12 +65,14 @@ import kotlinx.coroutines.delay
 fun PlayerOsdOverlay(
     visible: Boolean,
     isTuning: Boolean = false,
+    isPaused: Boolean = false,
     interactionTick: Int,
     currentChannel: TvhChannel?,
     currentEpg: EpgRepository.ChannelEpg?,
     adjacentChannels: List<TvhChannel>,
     adjacentEpg: Map<Long, EpgRepository.ChannelEpg>,
     onTimeout: () -> Unit,
+    onTogglePause: () -> Unit = {},
     onGuideClick: () -> Unit,
     onAudioSubtitlesClick: () -> Unit,
     onQuickZapChannel: (TvhChannel) -> Unit,
@@ -87,8 +89,8 @@ fun PlayerOsdOverlay(
         }
     }
 
-    LaunchedEffect(visible, interactionTick) {
-        if (visible) {
+    LaunchedEffect(visible, isPaused, interactionTick) {
+        if (visible && !isPaused) {
             delay(5_000L)
             onTimeout()
         }
@@ -125,12 +127,12 @@ fun PlayerOsdOverlay(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(4.dp))
-                            .background(MidnightCyanTokens.LiveBadgeRed)
+                            .background(if (isPaused) Color(0xFFF59E0B) else MidnightCyanTokens.LiveBadgeRed)
                             .padding(horizontal = 9.dp, vertical = 3.dp)
                     ) {
                         Text(
-                            text = "LIVE",
-                            color = Color.White,
+                            text = if (isPaused) "PAUSED" else "LIVE",
+                            color = if (isPaused) Color(0xFF060A12) else Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp
@@ -299,6 +301,11 @@ fun PlayerOsdOverlay(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.focusRestorer()
                     ) {
+                        TvhPillButton(
+                            label = if (isPaused) "Resume" else "Pause",
+                            selected = isPaused,
+                            onClick = onTogglePause
+                        )
                         TvhPillButton(
                             label = "Guide",
                             selected = false,

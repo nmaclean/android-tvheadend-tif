@@ -117,6 +117,7 @@ class TvPlayerActivity : FragmentActivity() {
 
     private val osdVisibleState = mutableStateOf(false)
     private val isTuningState = mutableStateOf(false)
+    private val isPausedState = mutableStateOf(false)
     private val osdInteractionTickState = mutableIntStateOf(0)
     private val channelNumberEntryState = mutableStateOf("")
     private var zapRunnable: Runnable? = null
@@ -245,12 +246,14 @@ class TvPlayerActivity : FragmentActivity() {
                     PlayerOsdOverlay(
                         visible = osdVisibleState.value && !guideOverlayVisibleState.value && !trackOverlayVisibleState.value,
                         isTuning = isTuningState.value,
+                        isPaused = isPausedState.value,
                         interactionTick = osdInteractionTickState.intValue,
                         currentChannel = osdChannelState.value,
                         currentEpg = osdCurrentEpgState.value,
                         adjacentChannels = osdAdjacentChannelsState.value,
                         adjacentEpg = osdAdjacentEpgState.value,
                         onTimeout = { osdVisibleState.value = false },
+                        onTogglePause = { toggleLivePause() },
                         onGuideClick = {
                             osdVisibleState.value = false
                             openEpgGuide()
@@ -640,6 +643,7 @@ class TvPlayerActivity : FragmentActivity() {
 
         currentlyTunedChannelId = channel.id
         currentlyTunedStreamKey = streamKey
+        isPausedState.value = false
 
         Log.i("TvPlayerActivity", "Tuning TIF TvView with inputId=$inputId, channelUri=$channelUri")
         isTuningState.value = true
@@ -1101,6 +1105,17 @@ class TvPlayerActivity : FragmentActivity() {
 
         if (osdVisibleState.value) {
             osdInteractionTickState.intValue++
+            if (keyCode == KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE ||
+                keyCode == KeyEvent.KEYCODE_MEDIA_PAUSE ||
+                keyCode == KeyEvent.KEYCODE_MEDIA_PLAY
+            ) {
+                when (keyCode) {
+                    KeyEvent.KEYCODE_MEDIA_PAUSE -> setLivePaused(true)
+                    KeyEvent.KEYCODE_MEDIA_PLAY -> setLivePaused(false)
+                    else -> toggleLivePause()
+                }
+                return true
+            }
             if (keyCode == KeyEvent.KEYCODE_CHANNEL_UP && channelList.isNotEmpty()) {
                 stepChannel(1)
                 return true
@@ -1149,12 +1164,39 @@ class TvPlayerActivity : FragmentActivity() {
                 showComposeOsdOverlay(channelList.getOrNull(currentChannelIndex))
                 return true
             }
+            KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                toggleLivePause()
+                return true
+            }
+            KeyEvent.KEYCODE_MEDIA_PAUSE -> {
+                setLivePaused(true)
+                return true
+            }
+            KeyEvent.KEYCODE_MEDIA_PLAY -> {
+                setLivePaused(false)
+                return true
+            }
             KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_DPAD_RIGHT -> {
                 openEpgGuide()
                 return true
             }
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    private fun toggleLivePause() {
+        setLivePaused(!isPausedState.value)
+    }
+
+    private fun setLivePaused(paused: Boolean) {
+        isPausedState.value = paused
+        if (paused) {
+            tvView.timeShiftPause()
+            showComposeOsdOverlay(channelList.getOrNull(currentChannelIndex))
+        } else {
+            tvView.timeShiftResume()
+            osdInteractionTickState.intValue++
+        }
     }
 
     private fun stepChannel(delta: Int) {
