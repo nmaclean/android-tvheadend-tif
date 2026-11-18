@@ -106,6 +106,21 @@ class TvheadendInputService : TvInputService() {
                 // Pre-warm ExoPlayer instance so it is ready before onTune fires
                 getOrCreatePlayer()
             }
+            if (settings.host.isNotBlank()) {
+                sessionScope.launch(Dispatchers.IO) {
+                    try {
+                        com.nmaclean.tvheadend.htsp.HtspConnectionPool.getStreamingClient(
+                            baseContext,
+                            settings.host,
+                            settings.htspPort,
+                            settings.username,
+                            settings.password
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "HTSP pre-warm skipped: ${e.message}")
+                    }
+                }
+            }
         }
 
         private fun getOrCreatePlayer(): ExoPlayer {
@@ -253,7 +268,6 @@ class TvheadendInputService : TvInputService() {
 
             // Stop prior playback and flush AudioSink & decoder pipeline before tuning new channel
             p.stop()
-            p.clearMediaItems()
 
             if (this@TvheadendSession.surface?.isValid == true) {
                 Log.i(TAG, "Binding existing valid surface to ExoPlayer.")

@@ -711,7 +711,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             "subscriptionId" to 1
         )
         sendMessage(unsubMsg)
-        val drainedCleanly = drainSocketBuffer(300)
+        val drainedCleanly = drainSocketBuffer(120, seq.toLong())
         if (!drainedCleanly) {
             flushInputStream()
         }
@@ -740,15 +740,15 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         }
     }
 
-    private fun drainSocketBuffer(maxWaitMs: Long): Boolean {
+    private fun drainSocketBuffer(maxWaitMs: Long, expectedSeq: Long): Boolean {
         val sock = socket ?: return false
         val origTimeout = try { sock.soTimeout } catch (_: Exception) { 0 }
         try {
-            sock.soTimeout = 50
+            sock.soTimeout = 80
             val startTime = System.currentTimeMillis()
             while (System.currentTimeMillis() - startTime < maxWaitMs) {
                 val msg = readMessage() ?: return false
-                if (msg["method"] == "subscriptionStop" || (msg["seq"] as? Number)?.toLong() == (sequenceNumber - 1).toLong()) {
+                if (msg["method"] == "subscriptionStop" || (msg["seq"] as? Number)?.toLong() == expectedSeq) {
                     return true
                 }
             }

@@ -1319,7 +1319,7 @@ class TvPlayerActivity : FragmentActivity() {
         zapRunnable?.let { osdHandler.removeCallbacks(it) }
         val runnable = Runnable { playCurrentChannel() }
         zapRunnable = runnable
-        osdHandler.postDelayed(runnable, 150L)
+        osdHandler.postDelayed(runnable, 60L)
     }
 
     private fun handleDigitKey(digit: Int) {
