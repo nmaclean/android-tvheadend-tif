@@ -294,7 +294,7 @@ object TvhUiRepository {
             context = context,
             channels = channels,
             windowStartMs = now - 30 * 60_000L,
-            windowEndMs = now + 4 * 60 * 60_000L,
+            windowEndMs = now + 12 * 60 * 60_000L,
             forceRefresh = forceRefresh
         )
         val result = deriveCurrentEpgFromWindow(channels, windowMap, now)

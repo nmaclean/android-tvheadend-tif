@@ -136,7 +136,7 @@ class MainActivity : ComponentActivity() {
             val loadedChannels = TvhUiRepository.loadChannels(this@MainActivity)
             channels = loadedChannels
             isLoadingChannels = false
-            // Single batch 4-hour EPG query powers both Live TV cards and the Guide timeline
+            // Single batch 12-hour EPG query powers both Live TV cards and the Guide timeline
             if (loadedChannels.isNotEmpty()) {
                 val now = System.currentTimeMillis()
                 val startMs = now - 30 * 60_000L
@@ -145,7 +145,7 @@ class MainActivity : ComponentActivity() {
                     this@MainActivity,
                     loadedChannels,
                     startMs,
-                    startMs + 4 * 60 * 60_000L
+                    startMs + 12 * 60 * 60_000L
                 )
                 guidePrograms = loadedGuide
                 currentEpg = TvhUiRepository.deriveCurrentEpgFromWindow(loadedChannels, loadedGuide, now)
@@ -170,7 +170,7 @@ class MainActivity : ComponentActivity() {
                     this@MainActivity,
                     channels,
                     windowStartMs,
-                    windowStartMs + 4 * 60 * 60_000L
+                    windowStartMs + 12 * 60 * 60_000L
                 )
             }
         }

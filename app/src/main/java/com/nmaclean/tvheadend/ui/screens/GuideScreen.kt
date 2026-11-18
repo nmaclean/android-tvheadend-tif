@@ -79,11 +79,11 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val DP_PER_MINUTE = 3.2f
+private const val DP_PER_MINUTE = 2.6f
 private const val SLOT_MINUTES = 30
-private const val TOTAL_SLOTS = 8 // 4-hour continuous window
-private val CHANNEL_HEADER_WIDTH = 128.dp
-private val ROW_HEIGHT = 58.dp
+private const val TOTAL_SLOTS = 24 // 12-hour continuous window
+private val CHANNEL_HEADER_WIDTH = 116.dp
+private val ROW_HEIGHT = 46.dp
 
 /**
  * Continuous EPG Guide with inline preview card, sticky 30-minute intervals, and vertical cyan NOW line (`epg.png`).
@@ -350,7 +350,7 @@ fun GuideScreen(
         ) {
             LazyColumn(
                 state = lazyListState,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .focusRestorer()
@@ -773,17 +773,17 @@ private fun GuideProgramCell(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
                     if (isLiveNow) {
                         Box(
                             modifier = Modifier
-                                .size(7.dp)
+                                .size(6.dp)
                                 .clip(CircleShape)
                                 .background(MidnightCyanTokens.LiveBadgeRed)
                         )
@@ -791,7 +791,7 @@ private fun GuideProgramCell(
                     if (isRecordingScheduled) {
                         Box(
                             modifier = Modifier
-                                .size(7.dp)
+                                .size(6.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFFFF1744))
                         )
@@ -799,7 +799,7 @@ private fun GuideProgramCell(
                     Text(
                         text = title,
                         color = MidnightCyanTokens.TextPrimary,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (isFocused || isLiveNow) FontWeight.SemiBold else FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -807,20 +807,20 @@ private fun GuideProgramCell(
                     )
                 }
 
-                if (widthDp >= 88.dp && timeRange.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                if (widthDp >= 72.dp && timeRange.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(1.dp))
                     val metaText = buildString {
                         append(timeRange)
-                        if (isFocused && isLiveNow && widthDp >= 200.dp) {
+                        if (isFocused && isLiveNow && widthDp >= 180.dp) {
                             append("  •  INFO / Hold OK: Details")
-                        } else if (genre != TvhUiRepository.EpgGenre.GENERAL && widthDp >= 165.dp) {
+                        } else if (genre != TvhUiRepository.EpgGenre.GENERAL && widthDp >= 145.dp) {
                             append("  •  ${genre.label}")
                         }
                     }
                     Text(
                         text = metaText,
                         color = if (isFocused && isLiveNow) MidnightCyanTokens.CyanAccent else MidnightCyanTokens.TextSecondary,
-                        fontSize = 11.sp,
+                        fontSize = 10.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )

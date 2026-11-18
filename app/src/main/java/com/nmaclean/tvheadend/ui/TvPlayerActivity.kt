@@ -1127,7 +1127,7 @@ class TvPlayerActivity : FragmentActivity() {
                     this@TvPlayerActivity,
                     channels,
                     startMs,
-                    startMs + 4 * 60 * 60_000L
+                    startMs + 12 * 60 * 60_000L
                 )
                 withContext(Dispatchers.Main) {
                     guideChannelsState.value = channels
