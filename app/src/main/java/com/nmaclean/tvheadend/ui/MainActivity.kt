@@ -133,6 +133,17 @@ class MainActivity : ComponentActivity() {
 
         LaunchedEffect(Unit) {
             isLoadingChannels = true
+            val restoredFromBackup = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                if (com.nmaclean.tvheadend.model.SettingsBackupManager.tryAutoImportIfFresh(this@MainActivity)) {
+                    TvhSyncManager.performSync(this@MainActivity)
+                    true
+                } else {
+                    false
+                }
+            }
+            if (restoredFromBackup) {
+                Toast.makeText(this@MainActivity, "Restored Tvheadend settings from backup", Toast.LENGTH_LONG).show()
+            }
             val loadedChannels = TvhUiRepository.loadChannels(this@MainActivity)
             channels = loadedChannels
             isLoadingChannels = false

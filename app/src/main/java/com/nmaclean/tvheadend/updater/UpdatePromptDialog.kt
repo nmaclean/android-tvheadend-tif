@@ -266,12 +266,21 @@ class UpdatePromptDialog(
                         }
                     }
                 }
-                val saved = withContext(Dispatchers.IO) {
-                    ApkInstaller.saveToDownloads(context, apkFile, release.assetName)
+                val (saved, settingsBackedUp) = withContext(Dispatchers.IO) {
+                    val backedUp = com.nmaclean.tvheadend.model.SettingsBackupManager.exportToDownloads(context)
+                    val apkSaved = ApkInstaller.saveToDownloads(context, apkFile, release.assetName)
+                    apkSaved to backedUp
                 }
                 withContext(Dispatchers.Main) {
                     if (!d.isShowing) return@withContext
                     if (saved) {
+                        if (settingsBackedUp) {
+                            android.widget.Toast.makeText(
+                                context,
+                                "Settings backed up to Downloads/${com.nmaclean.tvheadend.model.SettingsBackupManager.BACKUP_FILE_NAME}",
+                                android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
                         d.dismiss()
                         ApkInstaller.launchUninstall(context)
                     } else {
