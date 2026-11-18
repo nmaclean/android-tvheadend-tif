@@ -316,7 +316,14 @@ class UpdatePromptDialog(
                 Log.i(TAG, "APK downloaded to ${apkFile.absolutePath} (${apkFile.length()} bytes)")
                 withContext(Dispatchers.Main) {
                     if (!d.isShowing) return@withContext
-                    if (ApkInstaller.installApk(context, apkFile)) {
+                    messageView.text = "Installing ${release.tagName}..."
+                    progressBar.isIndeterminate = true
+                    progressBar.visibility = View.VISIBLE
+                    val started = withContext(Dispatchers.IO) {
+                        ApkInstaller.installApk(context, apkFile)
+                    }
+                    if (!d.isShowing) return@withContext
+                    if (started) {
                         d.dismiss()
                     } else {
                         showReadyToInstall(release, apkFile)
