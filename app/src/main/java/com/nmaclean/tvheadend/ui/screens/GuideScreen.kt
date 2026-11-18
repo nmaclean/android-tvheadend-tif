@@ -651,6 +651,19 @@ private fun GuideProgramCell(
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
+    var keyDownActive by remember { mutableStateOf(false) }
+    var longPressHandled by remember { mutableStateOf(false) }
+
+    LaunchedEffect(keyDownActive) {
+        if (keyDownActive) {
+            delay(350L)
+            if (keyDownActive && !longPressHandled) {
+                longPressHandled = true
+                onLongClick()
+            }
+        }
+    }
+
     val bgColor = when {
         isFocused -> Color(genre.cardFocusedHex)
         isLiveNow && genre == TvhUiRepository.EpgGenre.GENERAL -> MidnightCyanTokens.CardBgElevated
@@ -683,7 +696,53 @@ private fun GuideProgramCell(
             )
             .onFocusChanged {
                 isFocused = it.isFocused
-                if (it.isFocused) onFocused()
+                if (!it.isFocused) {
+                    keyDownActive = false
+                    longPressHandled = false
+                } else {
+                    onFocused()
+                }
+            }
+            .onPreviewKeyEvent { keyEvent ->
+                val code = keyEvent.nativeKeyEvent.keyCode
+                when {
+                    code == android.view.KeyEvent.KEYCODE_DPAD_CENTER ||
+                        code == android.view.KeyEvent.KEYCODE_ENTER ||
+                        code == android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            if (keyEvent.nativeKeyEvent.repeatCount == 0) {
+                                keyDownActive = true
+                                longPressHandled = false
+                            } else if ((keyEvent.nativeKeyEvent.isLongPress || keyEvent.nativeKeyEvent.repeatCount >= 2) && !longPressHandled) {
+                                longPressHandled = true
+                                onLongClick()
+                            }
+                            true
+                        } else if (keyEvent.type == KeyEventType.KeyUp) {
+                            val wasLong = longPressHandled
+                            keyDownActive = false
+                            longPressHandled = false
+                            if (!wasLong) {
+                                onClick()
+                            }
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    keyEvent.type == KeyEventType.KeyDown && (
+                        code == android.view.KeyEvent.KEYCODE_INFO ||
+                            code == android.view.KeyEvent.KEYCODE_MENU ||
+                            code == android.view.KeyEvent.KEYCODE_MEDIA_RECORD ||
+                            code == android.view.KeyEvent.KEYCODE_PROG_RED ||
+                            code == android.view.KeyEvent.KEYCODE_PROG_YELLOW ||
+                            code == android.view.KeyEvent.KEYCODE_PROG_BLUE
+                        ) -> {
+                        onLongClick()
+                        true
+                    }
+                    else -> false
+                }
             }
             .combinedClickable(
                 onClick = onClick,
@@ -745,7 +804,7 @@ private fun GuideProgramCell(
                     val metaText = buildString {
                         append(timeRange)
                         if (isFocused && isLiveNow && widthDp >= 200.dp) {
-                            append("  •  Hold OK for info")
+                            append("  •  INFO / Hold OK: Details")
                         } else if (genre != TvhUiRepository.EpgGenre.GENERAL && widthDp >= 165.dp) {
                             append("  •  ${genre.label}")
                         }
