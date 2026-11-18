@@ -6,6 +6,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,10 +24,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -80,7 +84,7 @@ private val ROW_HEIGHT = 58.dp
 /**
  * Continuous EPG Guide with inline preview card, sticky 30-minute intervals, and vertical cyan NOW line (`epg.png`).
  */
-@OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun GuideScreen(
     channels: List<TvhChannel>,
@@ -164,13 +168,6 @@ fun GuideScreen(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            if (horizontalScrollState.value > 40) {
-                TvhPillButton(
-                    label = "Now",
-                    selected = false,
-                    onClick = { scope.launch { horizontalScrollState.animateScrollTo(0) } }
-                )
-            }
             TvTopBarWithClock(
                 pills = categories,
                 selectedIndex = selectedCategoryIdx,
@@ -179,6 +176,13 @@ fun GuideScreen(
                 downFocusRequester = gridFocusRequester,
                 modifier = Modifier.weight(1f)
             )
+            if (horizontalScrollState.value > 40) {
+                TvhPillButton(
+                    label = "Now",
+                    selected = false,
+                    onClick = { scope.launch { horizontalScrollState.animateScrollTo(0) } }
+                )
+            }
         }
 
         Spacer(modifier = Modifier.height(14.dp))
@@ -274,15 +278,106 @@ fun GuideScreen(
             }
         }
 
+        val lazyListState = rememberLazyListState()
+        val rowChannelFocusRequesters = remember(filteredChannels) {
+            List(filteredChannels.size) { FocusRequester() }
+        }
+        val cellFocusRequesters = remember(filteredChannels, rowProgramsByChannelId) {
+            filteredChannels.map { ch ->
+                val count = maxOf(1, rowProgramsByChannelId[ch.id].orEmpty().size)
+                List(count) { FocusRequester() }
+            }
+        }
+        var focusedRowIndex by remember { mutableIntStateOf(0) }
+        var focusedIsChannelHeader by remember { mutableStateOf(false) }
+        var isVerticalNav by remember { mutableStateOf(false) }
+        var cursorTimeMs by remember(alignedStartMs, windowEndMs) {
+            mutableLongStateOf(System.currentTimeMillis().coerceIn(alignedStartMs, windowEndMs))
+        }
+
+        val defaultBringIntoViewSpec = LocalBringIntoViewSpec.current
+        val horizontalStabilitySpec = remember(defaultBringIntoViewSpec) {
+            object : BringIntoViewSpec {
+                override fun calculateScrollDistance(offset: Float, size: Float, containerSize: Float): Float {
+                    return if (isVerticalNav) 0f else defaultBringIntoViewSpec.calculateScrollDistance(offset, size, containerSize)
+                }
+            }
+        }
+
+        fun findTargetProgIndex(rowIdx: Int): Int {
+            val progs = rowProgramsByChannelId[filteredChannels.getOrNull(rowIdx)?.id].orEmpty()
+            if (progs.isEmpty()) return 0
+            val exact = progs.indexOfFirst { (p, _) -> cursorTimeMs in p.startTimeMs..p.endTimeMs }
+            if (exact >= 0) return exact
+            return progs.indices.minByOrNull { idx ->
+                val p = progs[idx].first
+                val clampedStart = maxOf(p.startTimeMs, alignedStartMs)
+                val clampedEnd = minOf(p.endTimeMs, windowEndMs)
+                val mid = (clampedStart + clampedEnd) / 2L
+                kotlin.math.abs(mid - cursorTimeMs)
+            } ?: 0
+        }
+
+        fun focusRowAtCurrentColumn(targetRow: Int) {
+            if (targetRow !in filteredChannels.indices) return
+            isVerticalNav = true
+            val visibleIndices = lazyListState.layoutInfo.visibleItemsInfo.map { it.index }
+            val needScroll = targetRow !in visibleIndices
+            scope.launch {
+                if (needScroll) {
+                    lazyListState.scrollToItem(targetRow)
+                }
+                val requester = if (focusedIsChannelHeader) {
+                    rowChannelFocusRequesters[targetRow]
+                } else {
+                    val progIdx = findTargetProgIndex(targetRow)
+                    cellFocusRequesters[targetRow][progIdx]
+                }
+                try {
+                    requester.requestFocus()
+                } catch (_: Exception) {}
+            }
+        }
+
         // Schedule Timeline Grid with overlaid vertical NOW line
         Box(
             modifier = Modifier.fillMaxSize()
         ) {
             LazyColumn(
+                state = lazyListState,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .focusRestorer()
+                    .onPreviewKeyEvent { keyEvent ->
+                        if (keyEvent.type == KeyEventType.KeyDown) {
+                            when (keyEvent.nativeKeyEvent.keyCode) {
+                                android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                    if (focusedRowIndex + 1 < filteredChannels.size) {
+                                        focusRowAtCurrentColumn(focusedRowIndex + 1)
+                                    }
+                                    true
+                                }
+                                android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                                    if (focusedRowIndex > 0) {
+                                        focusRowAtCurrentColumn(focusedRowIndex - 1)
+                                    } else {
+                                        isVerticalNav = false
+                                        try {
+                                            pillsFocusRequester.requestFocus()
+                                        } catch (_: Exception) {}
+                                    }
+                                    true
+                                }
+                                android.view.KeyEvent.KEYCODE_DPAD_LEFT,
+                                android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                                    isVerticalNav = false
+                                    false
+                                }
+                                else -> false
+                            }
+                        } else false
+                    }
             ) {
                 itemsIndexed(filteredChannels, key = { _, ch -> ch.id }) { rowIndex, channel ->
                     val rowPrograms = rowProgramsByChannelId[channel.id].orEmpty()
@@ -296,97 +391,107 @@ fun GuideScreen(
                         // Row Header: Channel Number + Picon (clickable to tune directly)
                         ChannelIdentityTile(
                             channel = channel,
-                            onFocused = {},
+                            onFocused = {
+                                focusedRowIndex = rowIndex
+                                focusedIsChannelHeader = true
+                            },
                             onClick = { onTuneChannel(channel) },
                             modifier = Modifier
                                 .width(CHANNEL_HEADER_WIDTH)
                                 .fillMaxHeight()
                                 .padding(end = 10.dp)
-                                .then(
-                                    if (rowIndex == 0) {
-                                        Modifier.focusProperties { up = pillsFocusRequester }
-                                    } else {
-                                        Modifier
-                                    }
-                                )
+                                .focusRequester(rowChannelFocusRequesters[rowIndex])
                         )
 
                         // Timeline Program Cells
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .horizontalScroll(horizontalScrollState)
-                        ) {
+                        CompositionLocalProvider(LocalBringIntoViewSpec provides horizontalStabilitySpec) {
                             Box(
                                 modifier = Modifier
-                                    .width(timelineTotalWidthDp)
+                                    .weight(1f)
                                     .fillMaxHeight()
+                                    .horizontalScroll(horizontalScrollState)
                             ) {
-                                val baseFocusMod = if (rowIndex == 0) {
-                                    Modifier.focusProperties { up = pillsFocusRequester }
-                                } else {
-                                    Modifier
-                                }
-                                if (rowPrograms.isEmpty()) {
-                                    val firstCellMod = if (rowIndex == 0) {
-                                        baseFocusMod.focusRequester(gridFocusRequester)
-                                    } else {
-                                        baseFocusMod
-                                    }
-                                    GuideProgramCell(
-                                        title = "${channel.name} — Live Broadcast",
-                                        timeRange = "Live TV • Continuous Broadcast",
-                                        genre = TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name),
-                                        isLiveNow = true,
-                                        progressFraction = 0f,
-                                        widthDp = timelineTotalWidthDp,
-                                        onClick = { onTuneChannel(channel) },
-                                        onLongClick = { onTuneChannel(channel) },
-                                        modifier = firstCellMod.fillMaxHeight()
-                                    )
-                                } else {
-                                    rowPrograms.forEachIndexed { progIdx, (prog, genre) ->
-                                        val clampedStartMs = maxOf(prog.startTimeMs, alignedStartMs)
-                                        val clampedEndMs = minOf(prog.endTimeMs, windowEndMs)
-                                        val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
-                                        val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 4f
-                                        val widthDp = maxOf(36f, rawWidthDp).dp
-                                        val isLiveNow = nowMs in prog.startTimeMs..prog.endTimeMs
-                                        val progressFraction = if (isLiveNow && prog.endTimeMs > prog.startTimeMs) {
-                                            ((nowMs - prog.startTimeMs).toFloat() / (prog.endTimeMs - prog.startTimeMs).toFloat()).coerceIn(0f, 1f)
+                                Box(
+                                    modifier = Modifier
+                                        .width(timelineTotalWidthDp)
+                                        .fillMaxHeight()
+                                ) {
+                                    if (rowPrograms.isEmpty()) {
+                                        val firstCellMod = if (rowIndex == 0) {
+                                            Modifier
+                                                .focusRequester(gridFocusRequester)
+                                                .focusRequester(cellFocusRequesters[rowIndex][0])
                                         } else {
-                                            0f
-                                        }
-                                        val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in scheduledEventIds) ||
-                                            prog.title.trim().lowercase() in seriesTitles
-                                        val cellMod = if (rowIndex == 0 && progIdx == 0) {
-                                            baseFocusMod.focusRequester(gridFocusRequester)
-                                        } else {
-                                            baseFocusMod
+                                            Modifier.focusRequester(cellFocusRequesters[rowIndex][0])
                                         }
                                         GuideProgramCell(
-                                            title = prog.title,
-                                            timeRange = TvhUiRepository.formatTimeRange(prog.startTimeMs, prog.endTimeMs),
-                                            genre = genre,
-                                            isLiveNow = isLiveNow,
-                                            progressFraction = progressFraction,
-                                            isRecordingScheduled = isRecordingScheduled,
-                                            widthDp = widthDp,
-                                            onClick = {
-                                                if (isLiveNow) {
-                                                    onTuneChannel(channel)
-                                                } else {
-                                                    onScheduleProgram(channel, prog)
-                                                }
+                                            title = "${channel.name} — Live Broadcast",
+                                            timeRange = "Live TV • Continuous Broadcast",
+                                            genre = TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name),
+                                            isLiveNow = true,
+                                            progressFraction = 0f,
+                                            widthDp = timelineTotalWidthDp,
+                                            onFocused = {
+                                                focusedRowIndex = rowIndex
+                                                focusedIsChannelHeader = false
                                             },
-                                            onLongClick = {
-                                                onScheduleProgram(channel, prog)
-                                            },
-                                            modifier = cellMod
-                                                .offset(x = startOffsetDp)
-                                                .fillMaxHeight()
+                                            onClick = { onTuneChannel(channel) },
+                                            onLongClick = { onTuneChannel(channel) },
+                                            modifier = firstCellMod.fillMaxHeight()
                                         )
+                                    } else {
+                                        rowPrograms.forEachIndexed { progIdx, (prog, genre) ->
+                                            val clampedStartMs = maxOf(prog.startTimeMs, alignedStartMs)
+                                            val clampedEndMs = minOf(prog.endTimeMs, windowEndMs)
+                                            val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
+                                            val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 4f
+                                            val widthDp = maxOf(36f, rawWidthDp).dp
+                                            val isLiveNow = nowMs in prog.startTimeMs..prog.endTimeMs
+                                            val progressFraction = if (isLiveNow && prog.endTimeMs > prog.startTimeMs) {
+                                                ((nowMs - prog.startTimeMs).toFloat() / (prog.endTimeMs - prog.startTimeMs).toFloat()).coerceIn(0f, 1f)
+                                            } else {
+                                                0f
+                                            }
+                                            val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in scheduledEventIds) ||
+                                                prog.title.trim().lowercase() in seriesTitles
+                                            val cellMod = if (rowIndex == 0 && progIdx == 0) {
+                                                Modifier
+                                                    .focusRequester(gridFocusRequester)
+                                                    .focusRequester(cellFocusRequesters[rowIndex][progIdx])
+                                            } else {
+                                                Modifier.focusRequester(cellFocusRequesters[rowIndex][progIdx])
+                                            }
+                                            GuideProgramCell(
+                                                title = prog.title,
+                                                timeRange = TvhUiRepository.formatTimeRange(prog.startTimeMs, prog.endTimeMs),
+                                                genre = genre,
+                                                isLiveNow = isLiveNow,
+                                                progressFraction = progressFraction,
+                                                isRecordingScheduled = isRecordingScheduled,
+                                                widthDp = widthDp,
+                                                onFocused = {
+                                                    focusedRowIndex = rowIndex
+                                                    focusedIsChannelHeader = false
+                                                    if (!isVerticalNav) {
+                                                        cursorTimeMs = ((clampedStartMs + clampedEndMs) / 2L)
+                                                            .coerceIn(alignedStartMs, windowEndMs)
+                                                    }
+                                                },
+                                                onClick = {
+                                                    if (isLiveNow) {
+                                                        onTuneChannel(channel)
+                                                    } else {
+                                                        onScheduleProgram(channel, prog)
+                                                    }
+                                                },
+                                                onLongClick = {
+                                                    onScheduleProgram(channel, prog)
+                                                },
+                                                modifier = cellMod
+                                                    .offset(x = startOffsetDp)
+                                                    .fillMaxHeight()
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -540,6 +645,7 @@ private fun GuideProgramCell(
     progressFraction: Float = 0f,
     isRecordingScheduled: Boolean = false,
     widthDp: androidx.compose.ui.unit.Dp,
+    onFocused: () -> Unit = {},
     onClick: () -> Unit,
     onLongClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -575,7 +681,10 @@ private fun GuideProgramCell(
                     )
                 }
             )
-            .onFocusChanged { isFocused = it.isFocused }
+            .onFocusChanged {
+                isFocused = it.isFocused
+                if (it.isFocused) onFocused()
+            }
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
