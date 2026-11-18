@@ -1,7 +1,10 @@
 package com.nmaclean.tvheadend.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -68,11 +71,11 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val DP_PER_MINUTE = 3.0f
+private const val DP_PER_MINUTE = 3.2f
 private const val SLOT_MINUTES = 30
 private const val TOTAL_SLOTS = 8 // 4-hour continuous window
-private val CHANNEL_HEADER_WIDTH = 96.dp
-private val ROW_HEIGHT = 48.dp
+private val CHANNEL_HEADER_WIDTH = 128.dp
+private val ROW_HEIGHT = 58.dp
 
 /**
  * Continuous EPG Guide with inline preview card, sticky 30-minute intervals, and vertical cyan NOW line (`epg.png`).
@@ -111,13 +114,12 @@ fun GuideScreen(
     val windowEndMs = alignedStartMs + (TOTAL_SLOTS * SLOT_MINUTES * 60_000L)
     val timelineTotalWidthDp = (TOTAL_SLOTS * SLOT_MINUTES * DP_PER_MINUTE).dp
 
-    var focusedChannel by remember(filteredChannels) { mutableStateOf(filteredChannels.firstOrNull()) }
-    var focusedProgram by remember(filteredChannels, guidePrograms, currentEpg) {
-        val firstCh = filteredChannels.firstOrNull()
-        val firstProg = firstCh?.let { ch ->
-            guidePrograms[ch.id]?.firstOrNull() ?: currentEpg[ch.id]?.currentProgram
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            nowMs = System.currentTimeMillis()
+            delay(30_000L)
         }
-        mutableStateOf(firstProg)
     }
 
     val horizontalScrollState = rememberScrollState()
@@ -179,16 +181,7 @@ fun GuideScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Compact Inline Preview Strip (Picon + Channel + Title + Genre + Time + Synopsis)
-        GuideInlinePreviewCard(
-            channel = focusedChannel,
-            program = focusedProgram,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(14.dp))
 
         if (filteredChannels.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -203,10 +196,25 @@ fun GuideScreen(
 
         // Sticky Time Header Row
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 6.dp),
+            verticalAlignment = Alignment.Bottom
         ) {
-            Spacer(modifier = Modifier.width(CHANNEL_HEADER_WIDTH))
+            Box(
+                modifier = Modifier
+                    .width(CHANNEL_HEADER_WIDTH)
+                    .padding(end = 8.dp, bottom = 4.dp),
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Text(
+                    text = "CHANNELS (${filteredChannels.size})",
+                    color = MidnightCyanTokens.TextMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.7.sp
+                )
+            }
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -215,28 +223,44 @@ fun GuideScreen(
                 Row(modifier = Modifier.width(timelineTotalWidthDp)) {
                     for (slot in 0 until TOTAL_SLOTS) {
                         val slotMs = alignedStartMs + slot * SLOT_MINUTES * 60_000L
-                        Box(
+                        Row(
                             modifier = Modifier
                                 .width((SLOT_MINUTES * DP_PER_MINUTE).dp)
-                                .padding(bottom = 6.dp)
+                                .padding(bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(1.dp)
+                                    .height(12.dp)
+                                    .background(MidnightCyanTokens.DividerSubtle)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = slotFormat.format(Date(slotMs)),
                                 color = MidnightCyanTokens.TextSecondary,
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
                 }
 
-                // "NOW" label aligned with the vertical cyan line (isolated 30s tick)
+                // "NOW" pill aligned with the vertical cyan line (isolated 30s tick)
                 GuideNowLabel(
                     alignedStartMs = alignedStartMs,
                     windowEndMs = windowEndMs
                 )
             }
         }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MidnightCyanTokens.DividerSubtle)
+        )
+        Spacer(modifier = Modifier.height(6.dp))
 
         val rowProgramsByChannelId = remember(filteredChannels, guidePrograms, currentEpg, alignedStartMs, windowEndMs) {
             filteredChannels.associate { ch ->
@@ -272,16 +296,12 @@ fun GuideScreen(
                         // Row Header: Channel Number + Picon (clickable to tune directly)
                         ChannelIdentityTile(
                             channel = channel,
-                            onFocused = {
-                                focusedChannel = channel
-                                focusedProgram = rowPrograms.firstOrNull()?.first
-                                    ?: currentEpg[channel.id]?.currentProgram
-                            },
+                            onFocused = {},
                             onClick = { onTuneChannel(channel) },
                             modifier = Modifier
                                 .width(CHANNEL_HEADER_WIDTH)
                                 .fillMaxHeight()
-                                .padding(end = 8.dp)
+                                .padding(end = 10.dp)
                                 .then(
                                     if (rowIndex == 0) {
                                         Modifier.focusProperties { up = pillsFocusRequester }
@@ -316,13 +336,13 @@ fun GuideScreen(
                                     }
                                     GuideProgramCell(
                                         title = "${channel.name} — Live Broadcast",
+                                        timeRange = "Live TV",
                                         genre = TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name),
+                                        isLiveNow = true,
+                                        progressFraction = 0f,
                                         widthDp = (120 * DP_PER_MINUTE).dp,
-                                        onFocused = {
-                                            focusedChannel = channel
-                                            focusedProgram = null
-                                        },
                                         onClick = { onTuneChannel(channel) },
+                                        onLongClick = { onTuneChannel(channel) },
                                         modifier = firstCellMod.fillMaxHeight()
                                     )
                                 } else {
@@ -330,8 +350,14 @@ fun GuideScreen(
                                         val clampedStartMs = maxOf(prog.startTimeMs, alignedStartMs)
                                         val clampedEndMs = minOf(prog.endTimeMs, windowEndMs)
                                         val startOffsetDp = (((clampedStartMs - alignedStartMs).coerceAtLeast(0L)) / 60_000f * DP_PER_MINUTE).dp
-                                        val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 3f
-                                        val widthDp = maxOf(32f, rawWidthDp).dp
+                                        val rawWidthDp = (((clampedEndMs - clampedStartMs).coerceAtLeast(60_000L)) / 60_000f * DP_PER_MINUTE) - 4f
+                                        val widthDp = maxOf(36f, rawWidthDp).dp
+                                        val isLiveNow = nowMs in prog.startTimeMs..prog.endTimeMs
+                                        val progressFraction = if (isLiveNow && prog.endTimeMs > prog.startTimeMs) {
+                                            ((nowMs - prog.startTimeMs).toFloat() / (prog.endTimeMs - prog.startTimeMs).toFloat()).coerceIn(0f, 1f)
+                                        } else {
+                                            0f
+                                        }
                                         val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in scheduledEventIds) ||
                                             prog.title.trim().lowercase() in seriesTitles
                                         val cellMod = if (rowIndex == 0 && progIdx == 0) {
@@ -341,14 +367,20 @@ fun GuideScreen(
                                         }
                                         GuideProgramCell(
                                             title = prog.title,
+                                            timeRange = TvhUiRepository.formatTimeRange(prog.startTimeMs, prog.endTimeMs),
                                             genre = genre,
+                                            isLiveNow = isLiveNow,
+                                            progressFraction = progressFraction,
                                             isRecordingScheduled = isRecordingScheduled,
                                             widthDp = widthDp,
-                                            onFocused = {
-                                                focusedChannel = channel
-                                                focusedProgram = prog
-                                            },
                                             onClick = {
+                                                if (isLiveNow) {
+                                                    onTuneChannel(channel)
+                                                } else {
+                                                    onScheduleProgram(channel, prog)
+                                                }
+                                            },
+                                            onLongClick = {
                                                 onScheduleProgram(channel, prog)
                                             },
                                             modifier = cellMod
@@ -393,15 +425,21 @@ private fun rememberNowOffsetDp(alignedStartMs: Long, windowEndMs: Long): androi
 @Composable
 private fun GuideNowLabel(alignedStartMs: Long, windowEndMs: Long) {
     val nowOffsetDp = rememberNowOffsetDp(alignedStartMs, windowEndMs)
-    Text(
-        text = "NOW",
-        color = MidnightCyanTokens.CyanAccent,
-        fontSize = 11.sp,
-        fontWeight = FontWeight.Bold,
+    Box(
         modifier = Modifier
-            .offset(x = (nowOffsetDp - 14.dp).coerceAtLeast(0.dp))
-            .padding(bottom = 4.dp)
-    )
+            .offset(x = (nowOffsetDp - 18.dp).coerceAtLeast(0.dp))
+            .clip(RoundedCornerShape(4.dp))
+            .background(MidnightCyanTokens.CyanAccent.copy(alpha = 0.18f))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    ) {
+        Text(
+            text = "NOW",
+            color = MidnightCyanTokens.CyanAccent,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.6.sp
+        )
+    }
 }
 
 @Composable
@@ -431,102 +469,6 @@ private fun GuideNowLineOverlay(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun GuideInlinePreviewCard(
-    channel: TvhChannel?,
-    program: EpgRepository.ProgramInfo?,
-    modifier: Modifier = Modifier
-) {
-    val shape = RoundedCornerShape(10.dp)
-    val previewGenre = if (program != null) {
-        TvhUiRepository.classifyEpgGenre(program.title, program.summary, channel?.name ?: "")
-    } else {
-        TvhUiRepository.EpgGenre.GENERAL
-    }
-    Row(
-        modifier = modifier
-            .height(48.dp)
-            .clip(shape)
-            .background(MidnightCyanTokens.CardBg.copy(alpha = 0.72f))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        var piconFailed by remember(channel?.id, channel?.icon) { mutableStateOf(false) }
-        if (!channel?.icon.isNullOrBlank() && !piconFailed) {
-            AsyncImage(
-                model = channel!!.icon,
-                contentDescription = channel.name,
-                contentScale = ContentScale.Fit,
-                onError = { piconFailed = true },
-                modifier = Modifier
-                    .width(38.dp)
-                    .fillMaxHeight()
-            )
-        }
-        if (channel != null) {
-            Text(
-                text = if (channel.number > 0) "${channel.number} ${channel.name}" else channel.name,
-                color = MidnightCyanTokens.CyanAccent,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = "•",
-                color = MidnightCyanTokens.TextMuted,
-                fontSize = 13.sp
-            )
-        }
-        Text(
-            text = program?.title ?: channel?.name ?: "Select a program",
-            color = MidnightCyanTokens.TextPrimary,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
-        if (previewGenre != TvhUiRepository.EpgGenre.GENERAL) {
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(previewGenre.accentHex).copy(alpha = 0.22f))
-                    .padding(horizontal = 7.dp, vertical = 2.dp)
-            ) {
-                Text(
-                    text = previewGenre.label,
-                    color = Color(previewGenre.accentHex),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.6.sp
-                )
-            }
-        }
-        if (program != null) {
-            Text(
-                text = TvhUiRepository.formatTimeRange(program.startTimeMs, program.endTimeMs),
-                color = MidnightCyanTokens.TextSecondary,
-                fontSize = 13.sp,
-                maxLines = 1
-            )
-        }
-        val snippet = program?.summary?.takeIf { it.isNotBlank() }
-            ?: if (channel != null) "Press OK to tune to ${channel.name}" else ""
-        if (snippet.isNotBlank()) {
-            Text(
-                text = "— $snippet",
-                color = MidnightCyanTokens.TextSecondary.copy(alpha = 0.85f),
-                fontSize = 12.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
 private fun ChannelIdentityTile(
     channel: TvhChannel,
     onFocused: () -> Unit = {},
@@ -538,23 +480,29 @@ private fun ChannelIdentityTile(
 
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
-            .focusCyanBorder(isFocused = isFocused, cornerRadius = 8.dp)
+            .then(
+                if (isFocused) {
+                    Modifier.focusCyanBorder(isFocused = true, cornerRadius = 10.dp)
+                } else {
+                    Modifier.border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                }
+            )
             .onFocusChanged {
                 isFocused = it.isFocused
                 if (it.isFocused) onFocused()
             }
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
             text = channel.number.toString(),
-            color = MidnightCyanTokens.TextSecondary,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.SemiBold
+            color = if (isFocused) MidnightCyanTokens.CyanAccent else MidnightCyanTokens.TextSecondary,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold
         )
         var logoFailed by remember(channel.id, channel.icon) { mutableStateOf(false) }
         if (channel.icon.isNotBlank() && !logoFailed) {
@@ -572,8 +520,8 @@ private fun ChannelIdentityTile(
             Text(
                 text = channel.name,
                 color = MidnightCyanTokens.TextPrimary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
@@ -582,67 +530,143 @@ private fun ChannelIdentityTile(
     }
 }
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 private fun GuideProgramCell(
     title: String,
+    timeRange: String,
     genre: TvhUiRepository.EpgGenre = TvhUiRepository.EpgGenre.GENERAL,
+    isLiveNow: Boolean = false,
+    progressFraction: Float = 0f,
     isRecordingScheduled: Boolean = false,
     widthDp: androidx.compose.ui.unit.Dp,
-    onFocused: () -> Unit,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
-    val bgColor = if (isFocused) Color(genre.cardFocusedHex) else Color(genre.cardBgHex)
-    val accentColor = Color(genre.accentHex)
+    val bgColor = when {
+        isFocused -> Color(genre.cardFocusedHex)
+        isLiveNow && genre == TvhUiRepository.EpgGenre.GENERAL -> MidnightCyanTokens.CardBgElevated
+        else -> Color(genre.cardBgHex)
+    }
+    val accentColor = if (genre != TvhUiRepository.EpgGenre.GENERAL) {
+        Color(genre.accentHex)
+    } else if (isLiveNow) {
+        MidnightCyanTokens.CyanAccent
+    } else {
+        Color.Transparent
+    }
+    val cellShape = RoundedCornerShape(9.dp)
 
-    Row(
+    Box(
         modifier = modifier
             .width(widthDp)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(cellShape)
             .background(bgColor)
-            .focusCyanBorder(isFocused = isFocused, cornerRadius = 8.dp)
-            .onFocusChanged {
-                isFocused = it.isFocused
-                if (it.isFocused) onFocused()
-            }
-            .clickable(onClick = onClick),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (genre != TvhUiRepository.EpgGenre.GENERAL) {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(accentColor)
+            .then(
+                if (isFocused) {
+                    Modifier.focusCyanBorder(isFocused = true, cornerRadius = 9.dp)
+                } else {
+                    Modifier.border(
+                        1.dp,
+                        if (isLiveNow) MidnightCyanTokens.CyanAccent.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
+                        cellShape
+                    )
+                }
             )
-        }
+            .onFocusChanged { isFocused = it.isFocused }
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+    ) {
         Row(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isRecordingScheduled) {
+            if (accentColor != Color.Transparent) {
                 Box(
                     modifier = Modifier
-                        .size(7.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFFF1744))
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(accentColor)
                 )
             }
-            Text(
-                text = title,
-                color = MidnightCyanTokens.TextPrimary,
-                fontSize = 12.sp,
-                fontWeight = if (isFocused) FontWeight.SemiBold else FontWeight.Medium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (isLiveNow) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(MidnightCyanTokens.LiveBadgeRed)
+                        )
+                    }
+                    if (isRecordingScheduled) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFF1744))
+                        )
+                    }
+                    Text(
+                        text = title,
+                        color = MidnightCyanTokens.TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = if (isFocused || isLiveNow) FontWeight.SemiBold else FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                if (widthDp >= 88.dp && timeRange.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    val metaText = buildString {
+                        append(timeRange)
+                        if (isFocused && isLiveNow && widthDp >= 200.dp) {
+                            append("  •  Hold OK for info")
+                        } else if (genre != TvhUiRepository.EpgGenre.GENERAL && widthDp >= 165.dp) {
+                            append("  •  ${genre.label}")
+                        }
+                    }
+                    Text(
+                        text = metaText,
+                        color = if (isFocused && isLiveNow) MidnightCyanTokens.CyanAccent else MidnightCyanTokens.TextSecondary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+
+        if (isLiveNow && progressFraction > 0f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(Color.White.copy(alpha = 0.14f))
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(progressFraction)
+                        .height(3.dp)
+                        .background(MidnightCyanTokens.CyanAccent)
+                )
+            }
         }
     }
 }

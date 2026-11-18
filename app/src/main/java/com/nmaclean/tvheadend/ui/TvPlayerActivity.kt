@@ -317,15 +317,7 @@ class TvPlayerActivity : FragmentActivity() {
                                     tuneToSelectedChannel(selectedChannel)
                                 },
                                 onScheduleProgram = { ch, prog ->
-                                    val now = System.currentTimeMillis()
-                                    if (now in prog.startTimeMs..prog.endTimeMs) {
-                                        epgChannelSelected = true
-                                        guideProgramModalState.value = null
-                                        guideOverlayVisibleState.value = false
-                                        tuneToSelectedChannel(ch)
-                                    } else {
-                                        guideProgramModalState.value = ch to prog
-                                    }
+                                    guideProgramModalState.value = ch to prog
                                 },
                                 gridFocusRequester = gridFocusRequester
                             )
