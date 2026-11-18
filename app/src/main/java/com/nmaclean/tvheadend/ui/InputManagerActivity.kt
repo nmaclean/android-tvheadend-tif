@@ -29,6 +29,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SettingsBackupRestore
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -68,12 +69,40 @@ import com.nmaclean.tvheadend.ui.theme.TvClockHeader
 import com.nmaclean.tvheadend.ui.theme.TvTheme
 import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
 import com.nmaclean.tvheadend.updater.UpdatePromptDialog
+import kotlinx.coroutines.launch
 
 /**
  * Settings Hub activity presenting Midnight-Cyan Compose cards for General Settings, Scanning & Inputs, Setup, and Updates.
  */
 @OptIn(UnstableApi::class)
 class InputManagerActivity : FragmentActivity() {
+    private val restoreBackupLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+            val ok = com.nmaclean.tvheadend.model.SettingsBackupManager.importFromUri(this@InputManagerActivity, uri)
+            if (ok) {
+                com.nmaclean.tvheadend.sync.TvhSyncManager.performSync(this@InputManagerActivity)
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@InputManagerActivity,
+                        "Restored Tvheadend settings from backup",
+                        android.widget.Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    android.widget.Toast.makeText(
+                        this@InputManagerActivity,
+                        "Could not read settings backup file",
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -87,6 +116,9 @@ class InputManagerActivity : FragmentActivity() {
                     },
                     onCheckUpdates = {
                         UpdatePromptDialog(this).show()
+                    },
+                    onRestoreBackup = {
+                        restoreBackupLauncher.launch(arrayOf("application/json", "*/*"))
                     }
                 )
             }
@@ -106,7 +138,8 @@ private data class SettingsHubOption(
 private fun SettingsHubScreen(
     onOpenGeneralSettings: () -> Unit,
     onOpenScanningInputs: () -> Unit,
-    onCheckUpdates: () -> Unit
+    onCheckUpdates: () -> Unit,
+    onRestoreBackup: () -> Unit
 ) {
     val options = remember {
         listOf(
@@ -127,6 +160,12 @@ private fun SettingsHubScreen(
                 subtitle = "Installed: v${BuildConfig.VERSION_NAME} (${BuildConfig.BUILD_TIME})",
                 icon = Icons.Outlined.SystemUpdate,
                 onClick = onCheckUpdates
+            ),
+            SettingsHubOption(
+                title = "Restore Backup",
+                subtitle = "Import ${com.nmaclean.tvheadend.model.SettingsBackupManager.BACKUP_FILE_NAME} from Downloads",
+                icon = Icons.Outlined.SettingsBackupRestore,
+                onClick = onRestoreBackup
             )
         )
     }

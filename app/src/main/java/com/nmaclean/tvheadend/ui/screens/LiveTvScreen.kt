@@ -31,6 +31,7 @@ import com.nmaclean.tvheadend.ui.TvhUiRepository
 import com.nmaclean.tvheadend.ui.components.TvhMediaCard
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvTopBarWithClock
+import com.nmaclean.tvheadend.ui.theme.TvhPillButton
 
 /**
  * 3-column Live TV browser page matching the Midnight-Cyan reference layout (`tvheadned.png`).
@@ -42,6 +43,8 @@ fun LiveTvScreen(
     currentEpg: Map<Long, EpgRepository.ChannelEpg>,
     isLoading: Boolean,
     onChannelClick: (TvhChannel) -> Unit,
+    needsSetup: Boolean = false,
+    onRestoreBackup: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val categories = TvhUiRepository.CHANNEL_CATEGORIES
@@ -81,11 +84,23 @@ fun LiveTvScreen(
             }
             filteredChannels.isEmpty() -> {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        text = "No channels in $selectedCategory. Check Settings or run a channel scan.",
-                        color = MidnightCyanTokens.TextSecondary,
-                        fontSize = 16.sp
-                    )
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Text(
+                            text = "No channels in $selectedCategory. Check Settings or run a channel scan.",
+                            color = MidnightCyanTokens.TextSecondary,
+                            fontSize = 16.sp
+                        )
+                        if (needsSetup && onRestoreBackup != null) {
+                            TvhPillButton(
+                                label = "Restore Backup",
+                                selected = false,
+                                onClick = onRestoreBackup
+                            )
+                        }
+                    }
                 }
             }
             else -> {
