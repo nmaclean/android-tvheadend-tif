@@ -584,6 +584,10 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 if (isDebug && (!isAudio || audioPktCount < 3 || audioPktCount % 250 == 0)) {
                     Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=$payloadLength")
                 }
+            } else if (trackType == C.TRACK_TYPE_VIDEO && hasSeenKeyframe[streamIndex] != true) {
+                // Drop orphan pre-keyframe P/B-frames sent by faststart=1 so MediaCodec starts cleanly on an I-frame
+                droppedPreRollCount++
+                return
             }
 
         val defaultStepUs = if (trackType == C.TRACK_TYPE_VIDEO) 40000L else 21333L
