@@ -52,10 +52,12 @@ class Mp2Decoder {
         val layer = (headerData ushr 17) and 3   // 2 = Layer II
         if (layer != 2) return null              // Only Layer II supported
 
+        val protectionBit = (headerData ushr 16) and 1 // 0 = 16-bit CRC follows 4-byte header
         val bitrateIndex = (headerData ushr 12) and 15
         val samplingRateIndex = (headerData ushr 10) and 3
         val padding = (headerData ushr 9) and 1
         val mode = (headerData ushr 6) and 3     // 0=Stereo, 1=Joint Stereo, 2=Dual, 3=Mono
+        val modeExtension = (headerData ushr 4) and 3
         val channels = if (mode == 3) 1 else 2
 
         val sampleRate = when (samplingRateIndex) {
@@ -63,18 +65,19 @@ class Mp2Decoder {
             1 -> 48000
             2 -> 32000
             else -> return null
-        } * (if (version == 3) 1 else 2)
+        } / (if (version == 3) 1 else 2)
 
         val bitrate = if (version == 3) BITRATE_V1_L2[bitrateIndex] else BITRATE_V2_L2[bitrateIndex]
         if (bitrate == 0) return null
 
-        val frameSize = 144 * bitrate / sampleRate + padding
+        val frameSize = 144 * (bitrate * 1000) / sampleRate + padding
         if (length < frameSize) return null
 
-        bitReader.reset(input, offset + 4)
+        bitReader.reset(input, offset + if (protectionBit == 0) 6 else 4)
 
         // Read bit allocation table for 32 subbands
         val sblimit = if (sampleRate == 48000) 27 else 30
+        val jsBound = if (mode == 1) (modeExtension + 1) * 4 else sblimit
         bitAlloc[0].fill(0)
         bitAlloc[1].fill(0)
         steps[0].fill(0)
@@ -91,7 +94,7 @@ class Mp2Decoder {
             bitAlloc[0][sb] = allocIndex
             steps[0][sb] = allocTable[sb].steps[allocIndex]
             if (channels == 2) {
-                if (mode == 1 && sb >= allocTable[sb].jsbound) {
+                if (mode == 1 && sb >= jsBound) {
                     bitAlloc[1][sb] = allocIndex
                     steps[1][sb] = steps[0][sb]
                 } else {
@@ -151,7 +154,9 @@ class Mp2Decoder {
             for (s in 0 until 3) {
                 if (s == 0) {
                     for (sb in 0 until sblimit) {
-                        for (ch in 0 until channels) {
+                        val isJointSubband = (channels == 2 && mode == 1 && sb >= jsBound)
+                        val channelLimit = if (isJointSubband) 1 else channels
+                        for (ch in 0 until channelLimit) {
                             if (bitAlloc[ch][sb] != 0) {
                                 val step = steps[ch][sb]
                                 when (step) {
@@ -181,6 +186,11 @@ class Mp2Decoder {
                                     }
                                 }
                             }
+                        }
+                        if (isJointSubband && bitAlloc[0][sb] != 0) {
+                            groupedSamples[1][sb][0] = groupedSamples[0][sb][0]
+                            groupedSamples[1][sb][1] = groupedSamples[0][sb][1]
+                            groupedSamples[1][sb][2] = groupedSamples[0][sb][2]
                         }
                     }
                 }

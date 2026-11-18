@@ -284,10 +284,16 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 trackSampleRates[index] = sampleRate
             }
 
-            if (channelCount > 0) builder.setChannelCount(channelCount)
-
             if (isMp2Stream[index] == true) {
+                // Mp2Decoder always outputs 16-bit stereo PCM (even for mono MP2 tracks)
+                builder.setChannelCount(2)
+                if (sampleRate <= 0) {
+                    builder.setSampleRate(48000)
+                    trackSampleRates[index] = 48000
+                }
                 builder.setPcmEncoding(C.ENCODING_PCM_16BIT)
+            } else if (channelCount > 0) {
+                builder.setChannelCount(channelCount)
             }
 
             Log.d(TAG, "Audio stream index=$index: rawRate=$rawRate -> sampleRate=$sampleRate Hz, channels=$channelCount, isMp2=${isMp2Stream[index]}")
