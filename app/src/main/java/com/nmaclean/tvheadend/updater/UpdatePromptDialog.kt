@@ -6,8 +6,10 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.util.Log
+import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -85,6 +87,7 @@ class UpdatePromptDialog(
 
         dialog = alertDialog
         alertDialog.show()
+        styleDialogWindow(alertDialog)
 
         alertDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { applyTvFocusStyle(it) }
         alertDialog.getButton(AlertDialog.BUTTON_NEUTRAL)?.let { applyTvFocusStyle(it) }
@@ -202,7 +205,7 @@ class UpdatePromptDialog(
                     if (tags.isEmpty()) rel.tagName else "${rel.tagName} (${tags.joinToString(", ")})"
                 }.toTypedArray()
 
-                AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                val selectorDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                     .setTitle("Select App Version")
                     .setItems(labels) { _, which ->
                         showAvailable(releases[which])
@@ -210,7 +213,10 @@ class UpdatePromptDialog(
                     .setNegativeButton("Back") { _, _ ->
                         startUpdateCheck()
                     }
-                    .show()
+                    .create()
+                selectorDialog.show()
+                styleDialogWindow(selectorDialog)
+                selectorDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { applyTvFocusStyle(it) }
             }.onFailure { err ->
                 showError(err.message ?: "Failed to load release list")
             }
@@ -218,7 +224,7 @@ class UpdatePromptDialog(
     }
 
     private fun confirmDowngrade(release: GitHubReleaseInfo) {
-        AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+        val downgradeDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("Uninstall Newer Version & Downgrade?")
             .setMessage(
                 "Android requires uninstalling the newer version (v${BuildConfig.VERSION_NAME}) before installing ${release.tagName}.\n\n" +
@@ -229,7 +235,11 @@ class UpdatePromptDialog(
                 startDownloadToDownloadsAndUninstall(release)
             }
             .setNegativeButton("Cancel", null)
-            .show()
+            .create()
+        downgradeDialog.show()
+        styleDialogWindow(downgradeDialog)
+        downgradeDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { applyTvFocusStyle(it) }
+        downgradeDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { applyTvFocusStyle(it) }
     }
 
     private fun startDownloadToDownloadsAndUninstall(release: GitHubReleaseInfo) {
@@ -339,20 +349,39 @@ class UpdatePromptDialog(
         }
     }
 
+    private fun styleDialogWindow(alertDialog: AlertDialog) {
+        val density = context.resources.displayMetrics.density
+        val widthPx = minOf(
+            (context.resources.displayMetrics.widthPixels * 0.68f).toInt(),
+            (680f * density).toInt()
+        )
+        alertDialog.window?.apply {
+            setBackgroundDrawable(
+                GradientDrawable().apply {
+                    setColor(Color.parseColor("#0B1221"))
+                    cornerRadius = 16f * density
+                    setStroke((1.5f * density).toInt(), Color.parseColor("#1E293B"))
+                }
+            )
+            setLayout(widthPx, WindowManager.LayoutParams.WRAP_CONTENT)
+            setGravity(Gravity.CENTER)
+        }
+    }
+
     private fun applyTvFocusStyle(button: Button) {
         val density = context.resources.displayMetrics.density
-        val radius = 8f * density
-        val padH = (16 * density).toInt()
-        val padV = (8 * density).toInt()
+        val radius = 24f * density
+        val padH = (18 * density).toInt()
+        val padV = (9 * density).toInt()
 
         val focusedBg = GradientDrawable().apply {
             cornerRadius = radius
-            setColor(Color.parseColor("#2A62FF"))
-            setStroke((2 * density).toInt(), Color.WHITE)
+            setColor(Color.parseColor("#1D2D49"))
+            setStroke((2 * density).toInt(), Color.parseColor("#00E5FF"))
         }
         val defaultBg = GradientDrawable().apply {
             cornerRadius = radius
-            setColor(Color.parseColor("#263244"))
+            setColor(Color.parseColor("#162238"))
         }
         val states = StateListDrawable().apply {
             addState(intArrayOf(android.R.attr.state_focused), focusedBg)
@@ -360,7 +389,7 @@ class UpdatePromptDialog(
             addState(intArrayOf(), defaultBg)
         }
         button.background = states
-        button.setTextColor(Color.WHITE)
+        button.setTextColor(Color.parseColor("#F3F6FC"))
         button.setPadding(padH, padV, padH, padV)
     }
 
