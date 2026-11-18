@@ -336,11 +336,11 @@ fun GuideScreen(
                                     }
                                     GuideProgramCell(
                                         title = "${channel.name} — Live Broadcast",
-                                        timeRange = "Live TV",
+                                        timeRange = "Live TV • Continuous Broadcast",
                                         genre = TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name),
                                         isLiveNow = true,
                                         progressFraction = 0f,
-                                        widthDp = (120 * DP_PER_MINUTE).dp,
+                                        widthDp = timelineTotalWidthDp,
                                         onClick = { onTuneChannel(channel) },
                                         onLongClick = { onTuneChannel(channel) },
                                         modifier = firstCellMod.fillMaxHeight()
