@@ -19,7 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -34,8 +35,8 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -82,6 +83,8 @@ fun PlayerOsdOverlay(
     modifier: Modifier = Modifier
 ) {
     val guideFocusRequester = remember { FocusRequester() }
+    val firstQuickZapFocusRequester = remember { FocusRequester() }
+    val quickZapListState = rememberLazyListState()
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -323,31 +326,38 @@ fun PlayerOsdOverlay(
                     Spacer(modifier = Modifier.width(24.dp))
 
                     // Center-Right: Pill Controls
+                    val pillDownModifier = Modifier.focusProperties {
+                        if (adjacentChannels.isNotEmpty() && quickZapListState.firstVisibleItemIndex == 0) {
+                            down = firstQuickZapFocusRequester
+                        }
+                    }
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.focusRestorer()
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         TvhPillButton(
                             label = if (isPaused) "Resume" else "Pause",
                             selected = isPaused,
-                            onClick = onTogglePause
+                            onClick = onTogglePause,
+                            modifier = pillDownModifier
                         )
                         TvhPillButton(
                             label = if (isRecording) "Recording ✓" else "Record",
                             selected = isRecording,
-                            onClick = onToggleRecord
+                            onClick = onToggleRecord,
+                            modifier = pillDownModifier
                         )
                         TvhPillButton(
                             label = "Guide",
                             selected = false,
                             onClick = onGuideClick,
-                            modifier = Modifier.focusRequester(guideFocusRequester)
+                            modifier = pillDownModifier.focusRequester(guideFocusRequester)
                         )
                         TvhPillButton(
                             label = "Audio & Subtitles",
                             selected = false,
-                            onClick = onAudioSubtitlesClick
+                            onClick = onAudioSubtitlesClick,
+                            modifier = pillDownModifier
                         )
                     }
                 }
@@ -367,18 +377,23 @@ fun PlayerOsdOverlay(
                             modifier = Modifier.padding(end = 14.dp)
                         )
                         LazyRow(
+                            state = quickZapListState,
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier
-                                .weight(1f)
-                                .focusRestorer()
+                            modifier = Modifier.weight(1f)
                         ) {
-                            items(adjacentChannels, key = { it.id }) { ch ->
+                            itemsIndexed(adjacentChannels, key = { _, ch -> ch.id }) { index, ch ->
                                 val epg = adjacentEpg[ch.id]?.currentProgram
                                 QuickZapCard(
                                     channel = ch,
                                     programTitle = epg?.title ?: ch.name,
                                     progressPercent = epg?.progressPercent ?: 0,
-                                    onClick = { onQuickZapChannel(ch) }
+                                    onClick = { onQuickZapChannel(ch) },
+                                    modifier = Modifier
+                                        .then(
+                                            if (index == 0) Modifier.focusRequester(firstQuickZapFocusRequester)
+                                            else Modifier
+                                        )
+                                        .focusProperties { up = guideFocusRequester }
                                 )
                             }
                         }
@@ -395,12 +410,13 @@ private fun QuickZapCard(
     channel: TvhChannel,
     programTitle: String,
     progressPercent: Int,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .width(210.dp)
             .height(54.dp)
             .clip(RoundedCornerShape(10.dp))

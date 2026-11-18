@@ -767,7 +767,7 @@ class TvPlayerActivity : FragmentActivity() {
                     EpgRepository.getCurrentAndNextProgram(this@TvPlayerActivity, target.id)
                 } else null
                 val currentSnapshot = channelList.toList().ifEmpty { listSnapshot }
-                val adjacent = currentSnapshot.filter { it.id != target?.id }.take(12)
+                val adjacent = currentSnapshot.filter { it.id != target?.id }
                 val adjacentMap = TvhUiRepository.loadCurrentEpgMap(this@TvPlayerActivity, adjacent)
                 withContext(Dispatchers.Main) {
                     osdCurrentEpgState.value = currentEpg
