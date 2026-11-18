@@ -42,6 +42,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -245,9 +246,18 @@ class TvPlayerActivity : FragmentActivity() {
             TvTheme {
                 val allRecordings = DvrRepository.recordings.collectAsState()
                 val currentChannel = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
-                val currentHtspChId = remember(currentChannel) {
-                    currentChannel?.let { DvrRepository.resolveHtspChannelId(this@TvPlayerActivity, it) } ?: 0L
-                }
+                val currentHtspChId = produceState(
+                    initialValue = currentChannel?.uuid?.toLongOrNull() ?: 0L,
+                    key1 = currentChannel?.id,
+                    key2 = currentChannel?.uuid
+                ) {
+                    val ch = currentChannel
+                    if (ch != null && value <= 0L) {
+                        value = withContext(Dispatchers.IO) {
+                            DvrRepository.resolveHtspChannelId(this@TvPlayerActivity, ch)
+                        }
+                    }
+                }.value
                 val activeChannelRecording = remember(allRecordings.value, currentHtspChId, osdCurrentEpgState.value) {
                     if (currentHtspChId <= 0L) {
                         null

@@ -1,6 +1,7 @@
 package com.nmaclean.tvheadend.ui.screens
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -56,8 +58,10 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
@@ -127,6 +131,7 @@ fun GuideScreen(
     }
 
     val horizontalScrollState = rememberScrollState()
+    val showNowButton by remember { derivedStateOf { horizontalScrollState.value > 40 } }
     val slotFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
     val pillsFocusRequester = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
@@ -176,7 +181,7 @@ fun GuideScreen(
                 downFocusRequester = gridFocusRequester,
                 modifier = Modifier.weight(1f)
             )
-            if (horizontalScrollState.value > 40) {
+            if (showNowButton) {
                 TvhPillButton(
                     label = "Now",
                     selected = false,
@@ -500,11 +505,11 @@ fun GuideScreen(
                 }
             }
 
-            // Overlaid vertical NOW tracker line across all rows (isolated 30s tick)
+            // Overlaid vertical NOW tracker line across all rows (isolated 30s tick, layout-phase scroll offset)
             GuideNowLineOverlay(
                 alignedStartMs = alignedStartMs,
                 windowEndMs = windowEndMs,
-                horizontalScrollValue = horizontalScrollState.value
+                scrollState = horizontalScrollState
             )
         }
     }
@@ -551,25 +556,28 @@ private fun GuideNowLabel(alignedStartMs: Long, windowEndMs: Long) {
 private fun GuideNowLineOverlay(
     alignedStartMs: Long,
     windowEndMs: Long,
-    horizontalScrollValue: Int
+    scrollState: ScrollState
 ) {
     val nowOffsetDp = rememberNowOffsetDp(alignedStartMs, windowEndMs)
-    val scrollOffsetDp = (horizontalScrollValue / androidx.compose.ui.platform.LocalDensity.current.density).dp
-    val visibleNowX = CHANNEL_HEADER_WIDTH + nowOffsetDp - scrollOffsetDp
-    if (visibleNowX >= CHANNEL_HEADER_WIDTH) {
-        Box(
-            modifier = Modifier
-                .offset(x = visibleNowX)
-                .width(2.dp)
-                .fillMaxHeight()
-                .shadow(
-                    elevation = 8.dp,
-                    ambientColor = MidnightCyanTokens.CyanAccent,
-                    spotColor = MidnightCyanTokens.CyanAccent
-                )
-                .background(MidnightCyanTokens.CyanAccent)
-        )
-    }
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val headerPx = with(density) { CHANNEL_HEADER_WIDTH.toPx() }
+    val nowOffsetPx = with(density) { nowOffsetDp.toPx() }
+
+    Box(
+        modifier = Modifier
+            .offset {
+                val x = (headerPx + nowOffsetPx - scrollState.value).roundToInt()
+                IntOffset(x = x, y = 0)
+            }
+            .width(2.dp)
+            .fillMaxHeight()
+            .shadow(
+                elevation = 8.dp,
+                ambientColor = MidnightCyanTokens.CyanAccent,
+                spotColor = MidnightCyanTokens.CyanAccent
+            )
+            .background(MidnightCyanTokens.CyanAccent)
+    )
 }
 
 @OptIn(ExperimentalTvMaterial3Api::class)

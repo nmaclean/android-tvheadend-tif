@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -261,7 +262,17 @@ class MainActivity : ComponentActivity() {
                     val (ch, prog) = modalPair
                     val now = System.currentTimeMillis()
                     val isLiveNow = now in prog.startTimeMs..prog.endTimeMs
-                    val htspChId = DvrRepository.resolveHtspChannelId(this@MainActivity, ch)
+                    val htspChId = produceState(
+                        initialValue = ch.uuid.toLongOrNull() ?: 0L,
+                        key1 = ch.id,
+                        key2 = ch.uuid
+                    ) {
+                        if (value <= 0L) {
+                            value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                                DvrRepository.resolveHtspChannelId(this@MainActivity, ch)
+                            }
+                        }
+                    }.value
                     val existing = DvrRepository.findActiveRecording(
                         eventId = prog.eventId,
                         channelId = htspChId,

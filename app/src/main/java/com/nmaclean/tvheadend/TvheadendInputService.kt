@@ -306,7 +306,7 @@ class TvheadendInputService : TvInputService() {
             if (this.surface != null) {
                 player?.let { p ->
                     p.setVideoSurface(this.surface)
-                    if (p.playbackState == Player.STATE_READY || p.playbackState == Player.STATE_BUFFERING) {
+                    if ((p.playbackState == Player.STATE_READY || p.playbackState == Player.STATE_BUFFERING) && !isTimeShiftPaused) {
                         p.play()
                     }
                 } ?: run {
