@@ -13,7 +13,6 @@ import androidx.security.crypto.MasterKeys
 class TvhTifSettings(context: Context) {
     companion object {
         private const val TAG = "TvhTifSettings"
-        private const val LEGACY_PREFS_NAME = "tvh_settings"
         private const val TIF_PREFS_NAME = "tvh_tif_settings"
         private const val SECURE_PREFS_NAME = "tvh_secure_settings"
 
@@ -51,78 +50,8 @@ class TvhTifSettings(context: Context) {
         }
     }
 
-    private val legacyPrefs: SharedPreferences = context.getSharedPreferences(LEGACY_PREFS_NAME, Context.MODE_PRIVATE)
     private val tifPrefs: SharedPreferences = context.getSharedPreferences(TIF_PREFS_NAME, Context.MODE_PRIVATE)
     private val securePrefs: SharedPreferences = getOrCreateEncryptedPrefs(context) ?: tifPrefs
-
-    init {
-        migrateFromLegacyIfNeeded()
-    }
-
-    private fun migrateFromLegacyIfNeeded() {
-        val tifEditor = tifPrefs.edit()
-        val legacyEditor = legacyPrefs.edit()
-        var tifChanged = false
-        var legacyChanged = false
-
-        if (legacyPrefs.contains(KEY_HOST)) {
-            if (!tifPrefs.contains(KEY_HOST)) {
-                tifEditor.putString(KEY_HOST, legacyPrefs.getString(KEY_HOST, "") ?: "")
-                tifChanged = true
-            }
-            legacyEditor.remove(KEY_HOST)
-            legacyChanged = true
-        }
-        if (legacyPrefs.contains(KEY_HTSP_PORT)) {
-            if (!tifPrefs.contains(KEY_HTSP_PORT)) {
-                tifEditor.putInt(KEY_HTSP_PORT, legacyPrefs.getInt(KEY_HTSP_PORT, TvhConstants.DEFAULT_HTSP_PORT))
-                tifChanged = true
-            }
-            legacyEditor.remove(KEY_HTSP_PORT)
-            legacyChanged = true
-        }
-        if (legacyPrefs.contains(KEY_HTTP_PORT)) {
-            if (!tifPrefs.contains(KEY_HTTP_PORT)) {
-                tifEditor.putInt(KEY_HTTP_PORT, legacyPrefs.getInt(KEY_HTTP_PORT, TvhConstants.DEFAULT_HTTP_PORT))
-                tifChanged = true
-            }
-            legacyEditor.remove(KEY_HTTP_PORT)
-            legacyChanged = true
-        }
-        if (legacyPrefs.contains(KEY_CLEANUP_DONE)) {
-            if (!tifPrefs.contains(KEY_CLEANUP_DONE)) {
-                tifEditor.putBoolean(KEY_CLEANUP_DONE, legacyPrefs.getBoolean(KEY_CLEANUP_DONE, false))
-                tifChanged = true
-            }
-            legacyEditor.remove(KEY_CLEANUP_DONE)
-            legacyChanged = true
-        }
-
-        if (securePrefs !== legacyPrefs) {
-            val secureEditor = securePrefs.edit()
-            var secureChanged = false
-            if (legacyPrefs.contains(KEY_USER)) {
-                if (!securePrefs.contains(KEY_USER)) {
-                    secureEditor.putString(KEY_USER, legacyPrefs.getString(KEY_USER, "") ?: "")
-                    secureChanged = true
-                }
-                legacyEditor.remove(KEY_USER)
-                legacyChanged = true
-            }
-            if (legacyPrefs.contains(KEY_PASS)) {
-                if (!securePrefs.contains(KEY_PASS)) {
-                    secureEditor.putString(KEY_PASS, legacyPrefs.getString(KEY_PASS, "") ?: "")
-                    secureChanged = true
-                }
-                legacyEditor.remove(KEY_PASS)
-                legacyChanged = true
-            }
-            if (secureChanged) secureEditor.apply()
-        }
-
-        if (tifChanged) tifEditor.apply()
-        if (legacyChanged) legacyEditor.apply()
-    }
 
     var host: String
         get() = tifPrefs.getString(KEY_HOST, "") ?: ""
