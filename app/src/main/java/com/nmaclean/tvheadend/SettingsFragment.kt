@@ -39,29 +39,16 @@ class SettingsFragment : PreferenceFragmentCompat() {
             setOnPreferenceChangeListener { _, newValue ->
                 val enabled = newValue as Boolean
                 updateSummary(enabled)
-                Toast.makeText(
-                    context,
-                    "Streaming Debug Mode: ${if (enabled) "ON" else "OFF"}",
-                    Toast.LENGTH_SHORT
-                ).show()
                 true
             }
         }
 
         findPreference<Preference>("sync_channels")?.setOnPreferenceClickListener {
             val context = context ?: return@setOnPreferenceClickListener false
-            Toast.makeText(context, "Syncing channels & EPG...", Toast.LENGTH_SHORT).show()
-
             thread {
                 val result = TvhSyncManager.performSync(context)
                 activity?.runOnUiThread {
-                    if (result.success) {
-                        Toast.makeText(
-                            context,
-                            "Sync complete! ${result.channelCount} channels imported.",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    } else {
+                    if (!result.success) {
                         Toast.makeText(
                             context,
                             "Sync failed: ${result.error}",

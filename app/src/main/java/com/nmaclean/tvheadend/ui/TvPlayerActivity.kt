@@ -361,25 +361,17 @@ class TvPlayerActivity : FragmentActivity() {
                                             } else {
                                                 DvrRepository.scheduleProgram(this@TvPlayerActivity, ch, prog)
                                             }
-                                            Toast.makeText(
-                                                this@TvPlayerActivity,
-                                                when {
-                                                    currentExisting != null && ok -> "Cancelled '${prog.title}'"
-                                                    currentExisting == null && ok -> "Scheduled '${prog.title}'"
-                                                    else -> "DVR action failed"
-                                                },
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            if (!ok) {
+                                                Toast.makeText(this@TvPlayerActivity, "DVR action failed", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     },
                                     onScheduleSeries = {
                                         CoroutineScope(Dispatchers.Main).launch {
                                             val ok = DvrRepository.scheduleSeries(this@TvPlayerActivity, prog.title, htspChId)
-                                            Toast.makeText(
-                                                this@TvPlayerActivity,
-                                                if (ok) "Added series rule for '${prog.title}'" else "Could not add series rule",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
+                                            if (!ok) {
+                                                Toast.makeText(this@TvPlayerActivity, "Could not add series rule", Toast.LENGTH_SHORT).show()
+                                            }
                                         }
                                     },
                                     onDismiss = { guideProgramModalState.value = null }
@@ -1012,22 +1004,18 @@ class TvPlayerActivity : FragmentActivity() {
             .setPositiveButton("Record Once") { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
                     val ok = com.nmaclean.tvheadend.sync.DvrRepository.scheduleProgram(this@TvPlayerActivity, channel, program)
-                    Toast.makeText(
-                        this@TvPlayerActivity,
-                        if (ok) "Scheduled '${program.title}'" else "Could not schedule recording",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    if (!ok) {
+                        Toast.makeText(this@TvPlayerActivity, "Could not schedule recording", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .setNeutralButton("Record Series") { _, _ ->
                 CoroutineScope(Dispatchers.Main).launch {
                     val htspChId = com.nmaclean.tvheadend.sync.DvrRepository.resolveHtspChannelId(this@TvPlayerActivity, channel)
                     val ok = com.nmaclean.tvheadend.sync.DvrRepository.scheduleSeries(this@TvPlayerActivity, program.title, htspChId)
-                    Toast.makeText(
-                        this@TvPlayerActivity,
-                        if (ok) "Added series rule for '${program.title}'" else "Could not add series rule",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    if (!ok) {
+                        Toast.makeText(this@TvPlayerActivity, "Could not add series rule", Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
             .setNegativeButton("Tune Live") { _, _ ->

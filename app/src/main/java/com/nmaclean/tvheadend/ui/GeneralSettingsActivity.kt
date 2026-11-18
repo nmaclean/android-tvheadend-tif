@@ -74,26 +74,21 @@ class GeneralSettingsActivity : FragmentActivity() {
                         val next = !settings.isStreamingDebugEnabled
                         settings.isStreamingDebugEnabled = next
                         refreshTick.intValue++
-                        Toast.makeText(
-                            this,
-                            "Streaming Debug Mode: ${if (next) "ON" else "OFF"}",
-                            Toast.LENGTH_SHORT
-                        ).show()
                     },
                     onSyncNow = {
                         if (!isSyncing.value) {
                             isSyncing.value = true
-                            Toast.makeText(this, "Syncing channels & EPG...", Toast.LENGTH_SHORT).show()
                             thread {
                                 val result = TvhSyncManager.performSync(this)
                                 runOnUiThread {
                                     isSyncing.value = false
-                                    Toast.makeText(
-                                        this,
-                                        if (result.success) "Sync complete! ${result.channelCount} channels imported."
-                                        else "Sync failed: ${result.error}",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                                    if (!result.success) {
+                                        Toast.makeText(
+                                            this,
+                                            "Sync failed: ${result.error}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
                                 }
                             }
                         }

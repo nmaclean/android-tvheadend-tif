@@ -293,25 +293,17 @@ class MainActivity : ComponentActivity() {
                                 } else {
                                     DvrRepository.scheduleProgram(this@MainActivity, ch, prog)
                                 }
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    when {
-                                        currentExisting != null && ok -> "Cancelled '${prog.title}'"
-                                        currentExisting == null && ok -> "Scheduled '${prog.title}'"
-                                        else -> "DVR action failed"
-                                    },
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                if (!ok) {
+                                    Toast.makeText(this@MainActivity, "DVR action failed", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         onScheduleSeries = {
                             scope.launch {
                                 val ok = DvrRepository.scheduleSeries(this@MainActivity, prog.title, htspChId)
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    if (ok) "Added series rule for '${prog.title}'" else "Could not add series rule",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                if (!ok) {
+                                    Toast.makeText(this@MainActivity, "Could not add series rule", Toast.LENGTH_SHORT).show()
+                                }
                             }
                         },
                         onDismiss = { selectedProgramModal = null }
@@ -370,11 +362,9 @@ class MainActivity : ComponentActivity() {
                                     selectedRecordingModal = null
                                     scope.launch {
                                         val ok = DvrRepository.deleteRecording(this@MainActivity, recModal.id)
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            if (ok) "Deleted '${recModal.title}'" else "Failed to delete recording",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        if (!ok) {
+                                            Toast.makeText(this@MainActivity, "Failed to delete recording", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             )
@@ -418,11 +408,9 @@ class MainActivity : ComponentActivity() {
                                     selectedCancelModal = null
                                     scope.launch {
                                         val ok = DvrRepository.cancelTimer(this@MainActivity, cancelModal.id)
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            if (ok) "Cancelled '${cancelModal.title}'" else "Failed to cancel timer",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        if (!ok) {
+                                            Toast.makeText(this@MainActivity, "Failed to cancel timer", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             ),
@@ -450,11 +438,9 @@ class MainActivity : ComponentActivity() {
                                     selectedSeriesModal = null
                                     scope.launch {
                                         val ok = DvrRepository.toggleSeriesRule(this@MainActivity, seriesModal)
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            if (ok) "Updated '${seriesModal.title}'" else "Failed to update rule",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        if (!ok) {
+                                            Toast.makeText(this@MainActivity, "Failed to update rule", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             ),
@@ -464,11 +450,9 @@ class MainActivity : ComponentActivity() {
                                     selectedSeriesModal = null
                                     scope.launch {
                                         val ok = DvrRepository.deleteSeriesRule(this@MainActivity, seriesModal.id)
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            if (ok) "Removed rule '${seriesModal.title}'" else "Failed to remove rule",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                        if (!ok) {
+                                            Toast.makeText(this@MainActivity, "Failed to remove rule", Toast.LENGTH_SHORT).show()
+                                        }
                                     }
                                 }
                             ),
