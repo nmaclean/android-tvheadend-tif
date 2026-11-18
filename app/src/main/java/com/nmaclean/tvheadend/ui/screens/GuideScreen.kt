@@ -190,7 +190,7 @@ fun GuideScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         if (filteredChannels.isEmpty()) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -224,11 +224,19 @@ fun GuideScreen(
                     letterSpacing = 0.7.sp
                 )
             }
-            Box(
+            Column(
                 modifier = Modifier
                     .weight(1f)
                     .horizontalScroll(horizontalScrollState)
             ) {
+                // "NOW" pill sits above the time slot labels so it never overlaps them
+                Box(modifier = Modifier.width(timelineTotalWidthDp)) {
+                    GuideNowLabel(
+                        alignedStartMs = alignedStartMs,
+                        windowEndMs = windowEndMs
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Row(modifier = Modifier.width(timelineTotalWidthDp)) {
                     for (slot in 0 until TOTAL_SLOTS) {
                         val slotMs = alignedStartMs + slot * SLOT_MINUTES * 60_000L
@@ -254,12 +262,6 @@ fun GuideScreen(
                         }
                     }
                 }
-
-                // "NOW" pill aligned with the vertical cyan line (isolated 30s tick)
-                GuideNowLabel(
-                    alignedStartMs = alignedStartMs,
-                    windowEndMs = windowEndMs
-                )
             }
         }
 
