@@ -16,3 +16,7 @@
 - Break large features into logical milestones. After each milestone: 
   1. Run `./gradlew assembleDebug testDebugUnitTest` and fix any compiler or test errors before continuing.
   2. Stage only modified project files (`git add <files>`) and commit locally using Conventional Commits (e.g., `feat(tif): add EPG channel sync retry`).
+
+## 4. Versioning & Release Rules
+- **Monotonic Version Numbers Only:** Always bump release tags and `versionCode` strictly forward (e.g. `v1.2.x` -> `v1.3.0`), even after squashing history. Never lower or reset version numbers below what is already installed on devices.
+- **No Self-Uninstall / Downgrade Flows:** Android blocks in-place downgrades (`INSTALL_FAILED_VERSION_DOWNGRADE`) and uninstalling clears local app data. Keep all app updates as single-step, in-place upgrades without downgrade/uninstall/settings-backup workarounds.

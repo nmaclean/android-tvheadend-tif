@@ -145,11 +145,10 @@ class UpdatePromptDialog(
         progressBar.visibility = View.GONE
         val notes = release.releaseNotes.ifBlank { "No release notes provided." }
         val isSame = release.versionName.equals(BuildConfig.VERSION_NAME, ignoreCase = true)
-        val isDowngrade = !isSame && SemVerComparator.isNewer(BuildConfig.VERSION_NAME, release.tagName)
-        val header = when {
-            isSame -> "Selected version: ${release.tagName} (currently installed)"
-            isDowngrade -> "Older version: ${release.tagName} (installed v${BuildConfig.VERSION_NAME})"
-            else -> "Release ${release.tagName} (installed v${BuildConfig.VERSION_NAME})"
+        val header = if (isSame) {
+            "Selected version: ${release.tagName} (currently installed)"
+        } else {
+            "Release ${release.tagName} (installed v${BuildConfig.VERSION_NAME})"
         }
         messageView.text = "$header\n\n$notes"
 
@@ -160,19 +159,11 @@ class UpdatePromptDialog(
             setOnClickListener { openVersionSelector() }
         }
         d.getButton(AlertDialog.BUTTON_POSITIVE)?.apply {
-            text = when {
-                isSame -> "Reinstall"
-                isDowngrade -> "Downgrade..."
-                else -> "Download & Install"
-            }
+            text = if (isSame) "Reinstall" else "Download & Install"
             visibility = View.VISIBLE
             setOnClickListener {
-                Log.i(TAG, "Install action clicked for ${release.tagName} (isDowngrade=$isDowngrade)")
-                if (isDowngrade) {
-                    confirmDowngrade(release)
-                } else {
-                    startDownloadAndInstall(release)
-                }
+                Log.i(TAG, "Install action clicked for ${release.tagName}")
+                startDownloadAndInstall(release)
             }
             requestFocus()
         }
@@ -192,9 +183,13 @@ class UpdatePromptDialog(
             val res = updateManager.fetchReleases()
             if (!d.isShowing) return@launch
             progressBar.visibility = View.GONE
-            res.onSuccess { releases ->
+            res.onSuccess { allReleases ->
+                val releases = allReleases.filter { rel ->
+                    rel.versionName.equals(BuildConfig.VERSION_NAME, ignoreCase = true) ||
+                        SemVerComparator.isNewer(rel.tagName, BuildConfig.VERSION_NAME)
+                }
                 if (releases.isEmpty()) {
-                    showError("No installable APK releases found.")
+                    showError("No newer or matching APK releases found.")
                     return@onSuccess
                 }
                 val labels = releases.mapIndexed { idx, rel ->
@@ -219,79 +214,6 @@ class UpdatePromptDialog(
                 selectorDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { applyTvFocusStyle(it) }
             }.onFailure { err ->
                 showError(err.message ?: "Failed to load release list")
-            }
-        }
-    }
-
-    private fun confirmDowngrade(release: GitHubReleaseInfo) {
-        val downgradeDialog = AlertDialog.Builder(context, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Uninstall Newer Version & Downgrade?")
-            .setMessage(
-                "Android requires uninstalling the newer version (v${BuildConfig.VERSION_NAME}) before installing ${release.tagName}.\n\n" +
-                    "Note: Android's uninstaller clears local app settings (only ADB can preserve data). " +
-                    "We will save ${release.assetName} to your Downloads folder first, then open Uninstall so you can install it from Downloads afterwards."
-            )
-            .setPositiveButton("Download & Uninstall") { _, _ ->
-                startDownloadToDownloadsAndUninstall(release)
-            }
-            .setNegativeButton("Cancel", null)
-            .create()
-        downgradeDialog.show()
-        styleDialogWindow(downgradeDialog)
-        downgradeDialog.getButton(AlertDialog.BUTTON_POSITIVE)?.let { applyTvFocusStyle(it) }
-        downgradeDialog.getButton(AlertDialog.BUTTON_NEGATIVE)?.let { applyTvFocusStyle(it) }
-    }
-
-    private fun startDownloadToDownloadsAndUninstall(release: GitHubReleaseInfo) {
-        val d = dialog ?: return
-        if (!d.isShowing) return
-        progressBar.visibility = View.VISIBLE
-        progressBar.isIndeterminate = true
-        progressBar.progress = 0
-        messageView.text = "Saving ${release.assetName} to Downloads..."
-        d.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
-        d.getButton(AlertDialog.BUTTON_NEUTRAL)?.visibility = View.GONE
-
-        activeJob = scope.launch {
-            try {
-                val apkFile = updateManager.downloadApk(context, release.apkDownloadUrl) { done, total ->
-                    if (total > 0L) {
-                        val pct = ((done * 100L) / total).toInt().coerceIn(0, 100)
-                        scope.launch(Dispatchers.Main) {
-                            if (d.isShowing) {
-                                progressBar.isIndeterminate = false
-                                progressBar.progress = pct
-                                messageView.text = "Saving ${release.assetName} to Downloads: $pct%"
-                            }
-                        }
-                    }
-                }
-                val (saved, settingsBackedUp) = withContext(Dispatchers.IO) {
-                    val backedUp = com.nmaclean.tvheadend.model.SettingsBackupManager.exportToDownloads(context)
-                    val apkSaved = ApkInstaller.saveToDownloads(context, apkFile, release.assetName)
-                    apkSaved to backedUp
-                }
-                withContext(Dispatchers.Main) {
-                    if (!d.isShowing) return@withContext
-                    if (saved) {
-                        if (settingsBackedUp) {
-                            android.widget.Toast.makeText(
-                                context,
-                                "Settings backed up to Downloads/${com.nmaclean.tvheadend.model.SettingsBackupManager.BACKUP_FILE_NAME}",
-                                android.widget.Toast.LENGTH_LONG
-                            ).show()
-                        }
-                        d.dismiss()
-                        ApkInstaller.launchUninstall(context)
-                    } else {
-                        showError("Could not save APK to Downloads.")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Downgrade download failed", e)
-                withContext(Dispatchers.Main) {
-                    showError(e.message ?: "Download failed")
-                }
             }
         }
     }

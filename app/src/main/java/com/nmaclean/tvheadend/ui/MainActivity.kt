@@ -59,29 +59,6 @@ class MainActivity : ComponentActivity() {
 
     private val shortcutNavTick = mutableIntStateOf(0)
     private val shortcutDestination = mutableStateOf<TvhNavDestination?>(null)
-    private val restoreRefreshTick = mutableIntStateOf(0)
-    private val needsSetupState = mutableStateOf(false)
-
-    private val restoreBackupLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri == null) return@registerForActivityResult
-        kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
-            val ok = com.nmaclean.tvheadend.model.SettingsBackupManager.importFromUri(this@MainActivity, uri)
-            if (ok) {
-                TvhSyncManager.performSync(this@MainActivity)
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    needsSetupState.value = false
-                    restoreRefreshTick.intValue++
-                    Toast.makeText(this@MainActivity, "Restored Tvheadend settings from backup", Toast.LENGTH_LONG).show()
-                }
-            } else {
-                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Could not read settings backup file", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 
     private val dvrPlayerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -154,20 +131,8 @@ class MainActivity : ComponentActivity() {
         var focusGuideTick by remember { mutableIntStateOf(0) }
         val scope = rememberCoroutineScope()
 
-        LaunchedEffect(restoreRefreshTick.intValue) {
+        LaunchedEffect(Unit) {
             isLoadingChannels = true
-            val restoredFromBackup = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                if (com.nmaclean.tvheadend.model.SettingsBackupManager.tryAutoImportIfFresh(this@MainActivity)) {
-                    TvhSyncManager.performSync(this@MainActivity)
-                    true
-                } else {
-                    false
-                }
-            }
-            if (restoredFromBackup) {
-                Toast.makeText(this@MainActivity, "Restored Tvheadend settings from backup", Toast.LENGTH_LONG).show()
-            }
-            needsSetupState.value = TvhSettings(this@MainActivity).host.isBlank()
             val loadedChannels = TvhUiRepository.loadChannels(this@MainActivity)
             channels = loadedChannels
             isLoadingChannels = false
@@ -248,8 +213,6 @@ class MainActivity : ComponentActivity() {
                         channels = channels,
                         currentEpg = currentEpg,
                         isLoading = isLoadingChannels,
-                        needsSetup = needsSetupState.value,
-                        onRestoreBackup = { restoreBackupLauncher.launch(arrayOf("application/json", "*/*")) },
                         onChannelClick = onTuneChannel
                     )
                     TvhNavDestination.GUIDE -> {
