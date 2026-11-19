@@ -243,8 +243,14 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         if (trackType == C.TRACK_TYPE_VIDEO) {
             val width = (msg["width"] as? Number)?.toInt() ?: 0
             val height = (msg["height"] as? Number)?.toInt() ?: 0
+            val durationUs = (msg["duration"] as? Number)?.toLong() ?: 0L
 
             builder.setMaxInputSize(2 * 1024 * 1024)
+
+            if (durationUs in 8_000L..100_000L) {
+                val fps = 1_000_000f / durationUs.toFloat()
+                builder.setFrameRate(fps)
+            }
 
             if (width in 1..4096 && height in 1..2160) {
                 builder.setWidth(width)
@@ -591,7 +597,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                     if (isDebug) {
                         Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=$payloadLength")
                     }
-                } else if (hasSeenKeyframe[streamIndex] != true && droppedPreRollCount < 75) {
+                } else if (hasSeenKeyframe[streamIndex] != true && droppedPreRollCount < 120) {
                     // Drop orphan pre-keyframe P/B-frames sent by faststart=1 so MediaCodec starts cleanly on an I-frame
                     droppedPreRollCount++
                     return
@@ -601,9 +607,8 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 val anyVideoKeyframeSeen = trackTypes.any { (id, type) ->
                     type == C.TRACK_TYPE_VIDEO && hasSeenKeyframe[id] == true
                 }
-                if (hasVideoTrack && !anyVideoKeyframeSeen && droppedPreRollCount < 75) {
-                    // Hold back pre-keyframe audio so audio doesn't start ahead of the first video keyframe
-                    droppedPreRollCount++
+                if (hasVideoTrack && !anyVideoKeyframeSeen && droppedPreRollCount < 120) {
+                    // Hold back pre-keyframe audio without consuming the video keyframe wait budget
                     return
                 }
                 hasSeenKeyframe[streamIndex] = true

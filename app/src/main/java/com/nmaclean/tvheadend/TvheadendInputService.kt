@@ -198,7 +198,6 @@ class TvheadendInputService : TvInputService() {
             }.apply {
                 setEnableDecoderFallback(true)
                 setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-                forceDisableMediaCodecAsynchronousQueueing()
             }
 
             val loadControl = DefaultLoadControl.Builder()

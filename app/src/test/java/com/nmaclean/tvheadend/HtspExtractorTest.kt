@@ -637,4 +637,30 @@ class HtspExtractorTest {
         // Pre-keyframe audio was held back so the first video keyframe anchors masterFirstPts at 0us
         verify(videoTrackOutput).sampleMetadata(eq(0L), eq(1), eq(videoPayload.size), eq(0), anyOrNull())
     }
+
+    @Test
+    fun `sets video Format frameRate from HTSP stream duration microseconds`() {
+        val extractor = HtspExtractor()
+        val output = mock<ExtractorOutput>()
+        val videoTrackOutput = mock<TrackOutput>()
+        whenever(output.track(1, androidx.media3.common.C.TRACK_TYPE_VIDEO)).thenReturn(videoTrackOutput)
+        extractor.init(output)
+
+        val streamAdd = mapOf<String, Any>(
+            "method" to "streamAdd",
+            "index" to 1L,
+            "type" to "video",
+            "handler" to "H264",
+            "width" to 1920L,
+            "height" to 1080L,
+            "duration" to 20_000L // 50 fps DVB-T2
+        )
+        val input = mock<ExtractorInput>()
+        setupMockInput(input, Htsmsg.encode(streamAdd))
+        extractor.read(input, PositionHolder())
+
+        val formatCaptor = argumentCaptor<Format>()
+        verify(videoTrackOutput).format(formatCaptor.capture())
+        assertEquals(50.0f, formatCaptor.firstValue.frameRate, 0.01f)
+    }
 }
