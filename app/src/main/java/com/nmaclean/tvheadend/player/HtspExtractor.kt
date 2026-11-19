@@ -585,15 +585,33 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 isKeyframe = containsKeyframe(buffer, payloadOffset, payloadLength, mimeType)
             }
 
-            if (isKeyframe) {
+            if (trackType == C.TRACK_TYPE_VIDEO) {
+                if (isKeyframe) {
+                    hasSeenKeyframe[streamIndex] = true
+                    if (isDebug) {
+                        Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=$payloadLength")
+                    }
+                } else if (hasSeenKeyframe[streamIndex] != true && droppedPreRollCount < 75) {
+                    // Drop orphan pre-keyframe P/B-frames sent by faststart=1 so MediaCodec starts cleanly on an I-frame
+                    droppedPreRollCount++
+                    return
+                }
+            } else if (isAudio) {
+                val hasVideoTrack = trackTypes.values.any { it == C.TRACK_TYPE_VIDEO }
+                val anyVideoKeyframeSeen = trackTypes.any { (id, type) ->
+                    type == C.TRACK_TYPE_VIDEO && hasSeenKeyframe[id] == true
+                }
+                if (hasVideoTrack && !anyVideoKeyframeSeen && droppedPreRollCount < 75) {
+                    // Hold back pre-keyframe audio so audio doesn't start ahead of the first video keyframe
+                    droppedPreRollCount++
+                    return
+                }
                 hasSeenKeyframe[streamIndex] = true
-                if (isDebug && (!isAudio || audioPktCount < 3 || audioPktCount % 250 == 0)) {
+                if (isDebug && (audioPktCount < 3 || audioPktCount % 250 == 0)) {
                     Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=$payloadLength")
                 }
-            } else if (trackType == C.TRACK_TYPE_VIDEO && hasSeenKeyframe[streamIndex] != true && droppedPreRollCount < 75) {
-                // Drop orphan pre-keyframe P/B-frames sent by faststart=1 so MediaCodec starts cleanly on an I-frame
-                droppedPreRollCount++
-                return
+            } else if (isKeyframe) {
+                hasSeenKeyframe[streamIndex] = true
             }
 
         val defaultStepUs = if (trackType == C.TRACK_TYPE_VIDEO) 40000L else 21333L

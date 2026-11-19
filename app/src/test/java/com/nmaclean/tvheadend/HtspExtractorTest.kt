@@ -634,6 +634,7 @@ class HtspExtractorTest {
         setupMockInput(inputVideo, Htsmsg.encode(videoPkt))
         extractor.read(inputVideo, PositionHolder())
 
-        verify(videoTrackOutput).sampleMetadata(eq(40_000L), eq(1), eq(videoPayload.size), eq(0), anyOrNull())
+        // Pre-keyframe audio was held back so the first video keyframe anchors masterFirstPts at 0us
+        verify(videoTrackOutput).sampleMetadata(eq(0L), eq(1), eq(videoPayload.size), eq(0), anyOrNull())
     }
 }
