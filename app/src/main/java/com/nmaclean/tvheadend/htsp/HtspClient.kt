@@ -613,7 +613,7 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             "seq" to seq,
             "subscriptionId" to 1,
             "weight" to 100,
-            "faststart" to 1,
+            "faststart" to 0,
             "timeshift" to 1,
             "normts" to 1
         )
