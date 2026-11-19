@@ -441,7 +441,7 @@ class HtspExtractorTest {
         assertEquals(120_000L, videoTimeCaptor.firstValue)
 
         // Packet 2: Audio Frame arrives second with smaller PTS (DTS=9_160_000, PTS=9_160_000)
-        // Ensure masterOffset is NOT mutated mid-stream!
+        // Stale pre-video audio (< firstVideoSampleTimeUs 120_000) is trimmed and must NOT mutate masterOffset!
         val pkt2 = mapOf<String, Any>(
             "method" to "muxpkt",
             "stream" to 2L,
@@ -453,10 +453,23 @@ class HtspExtractorTest {
         setupMockInput(inputPkt2, Htsmsg.encode(pkt2))
         extractor.read(inputPkt2, PositionHolder())
 
+        verify(audioTrackOutput, never()).sampleMetadata(any(), any(), any(), any(), anyOrNull())
+
+        // In-sync audio packet at PTS=9_600_000 (sampleTimeUs=0 == masterFirstPts) is emitted
+        val pkt2Sync = mapOf<String, Any>(
+            "method" to "muxpkt",
+            "stream" to 2L,
+            "dts" to 9_600_000L,
+            "pts" to 9_600_000L,
+            "payload" to audioPayload
+        )
+        val inputPkt2Sync = mock<ExtractorInput>()
+        setupMockInput(inputPkt2Sync, Htsmsg.encode(pkt2Sync))
+        extractor.read(inputPkt2Sync, PositionHolder())
+
         val audioTimeCaptor = argumentCaptor<Long>()
         verify(audioTrackOutput).sampleMetadata(audioTimeCaptor.capture(), any(), any(), any(), anyOrNull())
-        // Audio Frame 1 sampleTimeUs = 9_160_000 - 9_600_000 = -440_000 us (-440ms pre-roll)
-        assertEquals(-440_000L, audioTimeCaptor.firstValue)
+        assertEquals(0L, audioTimeCaptor.firstValue)
 
         // Packet 3: Video Frame 2 arrives (DTS=9_640_000, PTS=9_760_000)
         // Verify Video Frame 2 sampleTimeUs = 9_760_000 - 9_600_000 = 160_000 us (160ms) (NO 400ms mid-stream jump!)
