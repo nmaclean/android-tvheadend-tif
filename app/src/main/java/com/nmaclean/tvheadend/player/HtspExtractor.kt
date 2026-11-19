@@ -60,7 +60,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
     private var audioPktCount = 0
     private var droppedPreRollCount = 0
     private var droppedAudioPreRollCount = 0
-    private var firstVideoSampleTimeUs: Long = C.TIME_UNSET
+    private var minVideoSampleTimeUs: Long = C.TIME_UNSET
     private var lastVideoSampleTimeUs: Long = C.TIME_UNSET
     private var lastAudioSampleTimeUs: Long = C.TIME_UNSET
     private var waitingForSubscriptionStart = true
@@ -430,7 +430,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         masterOffset = 0L
         droppedPreRollCount = 0
         droppedAudioPreRollCount = 0
-        firstVideoSampleTimeUs = C.TIME_UNSET
+        minVideoSampleTimeUs = C.TIME_UNSET
         lastRawTimeUsMap.clear()
         lastSampleTimeUsMap.clear()
         hasSeenKeyframe.clear()
@@ -665,10 +665,10 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             else -> 0L
         }
 
-        // Hold back stale pre-keyframe audio packets (PTS < masterFirstPts, i.e. < 0 us) so AudioTrack's
-        // MediaClock does not start hundreds of milliseconds ahead of the first video frame.
-        if (isAudio && audioPktCount == 0 && masterFirstPts != C.TIME_UNSET &&
-            calculatedSampleTime < 0L && droppedAudioPreRollCount < 60
+        // Hold back pre-video audio packets (PTS < minVideoSampleTimeUs) so AudioTrack's MediaClock
+        // starts in sync with the earliest rendered video frame instead of hundreds of ms earlier.
+        if (isAudio && audioPktCount == 0 && minVideoSampleTimeUs != C.TIME_UNSET &&
+            calculatedSampleTime < minVideoSampleTimeUs && droppedAudioPreRollCount < 60
         ) {
             droppedAudioPreRollCount++
             return
@@ -704,8 +704,10 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         } else {
             videoPktCount++
             lastVideoSampleTimeUs = sampleTimeUs
+            if (minVideoSampleTimeUs == C.TIME_UNSET || sampleTimeUs < minVideoSampleTimeUs) {
+                minVideoSampleTimeUs = sampleTimeUs
+            }
             if (videoPktCount == 1) {
-                firstVideoSampleTimeUs = sampleTimeUs
                 Log.i(TAG, "First video sample output: pts=$ptsUs us -> sampleTimeUs=$sampleTimeUs us")
             }
         }
@@ -1095,7 +1097,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         audioPktCount = 0
         droppedPreRollCount = 0
         droppedAudioPreRollCount = 0
-        firstVideoSampleTimeUs = C.TIME_UNSET
+        minVideoSampleTimeUs = C.TIME_UNSET
         lastVideoSampleTimeUs = C.TIME_UNSET
         lastAudioSampleTimeUs = C.TIME_UNSET
         lastRawTimeUsMap.clear()
@@ -1116,7 +1118,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         audioPktCount = 0
         droppedPreRollCount = 0
         droppedAudioPreRollCount = 0
-        firstVideoSampleTimeUs = C.TIME_UNSET
+        minVideoSampleTimeUs = C.TIME_UNSET
         lastVideoSampleTimeUs = C.TIME_UNSET
         lastAudioSampleTimeUs = C.TIME_UNSET
         lastRawTimeUsMap.clear()
