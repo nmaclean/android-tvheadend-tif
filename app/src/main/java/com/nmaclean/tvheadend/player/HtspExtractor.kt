@@ -665,11 +665,9 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             else -> 0L
         }
 
-        // Hold back pre-video audio packets (PTS < minVideoSampleTimeUs) so AudioTrack's MediaClock
-        // starts in sync with the earliest rendered video frame instead of hundreds of ms earlier.
-        if (isAudio && audioPktCount == 0 && minVideoSampleTimeUs != C.TIME_UNSET &&
-            calculatedSampleTime < minVideoSampleTimeUs && droppedAudioPreRollCount < 60
-        ) {
+        // Hold back pre-video audio packets (calculatedSampleTime < 0) so AudioTrack's MediaClock
+        // starts in sync with the earliest rendered video frame instead of hundreds of ms in the past.
+        if (isAudio && masterFirstPtsIsVideo && calculatedSampleTime < 0L) {
             droppedAudioPreRollCount++
             return
         }
@@ -788,7 +786,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 sampleCount++
             }
             if (sampleCount > 0) {
-                val lastCalculated = sampleTimeUs + ((sampleCount - 1) * lastFrameDurationUs)
+                val lastCalculated = sampleTimeUs + (sampleCount * lastFrameDurationUs)
                 lastSampleTimeUsMap[streamIndex] = if (lastSample != null) maxOf(lastCalculated, lastSample) else lastCalculated
             }
             return

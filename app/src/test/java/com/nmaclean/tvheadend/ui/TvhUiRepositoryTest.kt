@@ -77,6 +77,8 @@ class TvhUiRepositoryTest {
         assertEquals(TvhUiRepository.EpgGenre.KIDS, TvhUiRepository.classifyEpgGenre("Bluey", null, "CBeebies"))
         assertEquals(TvhUiRepository.EpgGenre.DOCUMENTARY, TvhUiRepository.classifyEpgGenre("Grand Designs", null, "Channel 4"))
         assertEquals(TvhUiRepository.EpgGenre.DRAMA, TvhUiRepository.classifyEpgGenre("University Challenge", null, "BBC Two"))
+        assertEquals(TvhUiRepository.EpgGenre.SPORT, TvhUiRepository.classifyEpgGenre("Live Match", null, "Sports TV", "Sports"))
+        assertEquals(TvhUiRepository.EpgGenre.NEWS, TvhUiRepository.classifyEpgGenre("Daily Bulletin", null, "News TV", "News / Current Affairs"))
     }
 
     @Test

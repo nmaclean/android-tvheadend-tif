@@ -27,10 +27,17 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LiveTv
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.tv.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -38,11 +45,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
+import com.nmaclean.tvheadend.SetupActivity
+import kotlinx.coroutines.launch
 import androidx.media3.common.util.UnstableApi
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
@@ -65,9 +76,15 @@ class ScanningInputsActivity : FragmentActivity() {
     )
 
     private val inputItemsState = mutableStateOf<List<InputItem>>(emptyList())
+    private lateinit var tifChannelObserver: com.nmaclean.tvheadend.sync.TifChannelObserver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        tifChannelObserver = com.nmaclean.tvheadend.sync.TifChannelObserver(contentResolver, "ScanningInputsActivity") {
+            loadInputs()
+        }
+        tifChannelObserver.register()
+
         setContent {
             TvTheme {
                 ScanningInputsScreen(
@@ -76,6 +93,8 @@ class ScanningInputsActivity : FragmentActivity() {
                         val setupIntent = item.inputInfo.createSetupIntent()
                         if (setupIntent != null) {
                             startActivity(setupIntent)
+                        } else if (item.inputInfo.id.contains("IptvTvInputService")) {
+                            startActivity(Intent(this, com.nmaclean.tvheadend.ui.settings.IptvSetupWizardActivity::class.java))
                         } else {
                             val intent = Intent(this, ChannelGridActivity::class.java).apply {
                                 putExtra("input_id", item.inputInfo.id)
@@ -93,6 +112,13 @@ class ScanningInputsActivity : FragmentActivity() {
         loadInputs()
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        if (::tifChannelObserver.isInitialized) {
+            tifChannelObserver.unregister()
+        }
+    }
+
     private fun loadInputs() {
         inputItemsState.value = TvhUiRepository.loadTvInputs(this).map {
             InputItem(it.inputInfo, it.label, it.channelCount)
@@ -105,6 +131,44 @@ class ScanningInputsActivity : FragmentActivity() {
         items: List<InputItem>,
         onInputClick: (InputItem) -> Unit
     ) {
+        var showClearAllDialog by remember { mutableStateOf(false) }
+        val scope = rememberCoroutineScope()
+        val context = LocalContext.current
+
+        if (showClearAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearAllDialog = false },
+                title = { Text("Clear All TIF Channels & EPG?", color = MidnightCyanTokens.TextPrimary) },
+                text = { Text("This will delete registered TV Input Framework (TIF) channels and EPG programs across all inputs (Tvheadend and IPTV). Your saved server credentials, preferences, and allowlists will be preserved.", color = MidnightCyanTokens.TextSecondary) },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showClearAllDialog = false
+                            scope.launch {
+                                val scanManager = com.nmaclean.tvheadend.iptv.scan.SourceScanManager(context)
+                                val res = scanManager.clearAllTifInputs()
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Cleared ${res.clearedChannels} TIF channels, ${res.clearedPrograms} EPG programs, and ${res.clearedLogos} logos",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                loadInputs()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679))
+                    ) {
+                        Text("Confirm Clear All", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    androidx.compose.material3.OutlinedButton(onClick = { showClearAllDialog = false }) {
+                        Text("Cancel", color = MidnightCyanTokens.TextPrimary)
+                    }
+                },
+                containerColor = MidnightCyanTokens.CardBgElevated
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -132,7 +196,24 @@ class ScanningInputsActivity : FragmentActivity() {
                         fontSize = 14.sp
                     )
                 }
-                TvClockHeader()
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    var isClearBtnFocused by remember { mutableStateOf(false) }
+                    Button(
+                        onClick = { showClearAllDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679)),
+                        modifier = Modifier
+                            .onFocusChanged { isClearBtnFocused = it.isFocused }
+                            .focusCyanBorder(isClearBtnFocused)
+                    ) {
+                        Text("Clear All TIF Inputs", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+
+                    TvClockHeader()
+                }
             }
 
             Spacer(modifier = Modifier.height(28.dp))

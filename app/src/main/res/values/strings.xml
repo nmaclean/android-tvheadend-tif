@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">TV</string>
+    <string name="iptv_input_label">IPTV Streams</string>
 </resources>

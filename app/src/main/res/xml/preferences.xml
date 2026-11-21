@@ -18,6 +18,24 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="Source Scanning &amp; Inputs">
+
+        <Preference
+            android:key="scan_tvheadend"
+            android:title="Scan Tvheadend"
+            android:summary="Run channel &amp; EPG sync for Tvheadend HTSP source" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="Clear Data &amp; Maintenance">
+
+        <Preference
+            android:key="clear_tvheadend"
+            android:title="Clear Tvheadend Channels, EPG &amp; Logos"
+            android:summary="Remove registered Tvheadend channels, EPG programs, and logos from TV Input Framework" />
+
+    </PreferenceCategory>
+
     <PreferenceCategory android:title="App Updates">
 
         <Preference

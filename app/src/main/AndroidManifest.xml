@@ -72,6 +72,20 @@
             android:theme="@style/Theme.Tvheadend" />
 
         <activity
+            android:name=".ui.settings.M3uCurationActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Tvheadend" />
+
+        <activity
+            android:name=".ui.settings.IptvSetupWizardActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Tvheadend">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".ui.ScanningInputsActivity"
             android:exported="false"
             android:theme="@style/Theme.Tvheadend" />
@@ -102,6 +116,22 @@
             <meta-data
                 android:name="android.media.tv.input"
                 android:resource="@xml/tv_input" />
+        </service>
+
+        <service
+            android:name=".iptv.tif.IptvTvInputService"
+            android:label="@string/iptv_input_label"
+            android:icon="@drawable/ic_tv_input"
+            android:logo="@drawable/tv_banner"
+            android:banner="@drawable/tv_banner"
+            android:permission="android.permission.BIND_TV_INPUT"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.tv.TvInputService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.media.tv.input"
+                android:resource="@xml/iptv_tv_input" />
         </service>
 
         <service

@@ -46,6 +46,8 @@ import com.nmaclean.tvheadend.player.HtspDataSource
 import com.nmaclean.tvheadend.player.HtspExtractor
 import com.nmaclean.tvheadend.telemetry.TuneStage
 import com.nmaclean.tvheadend.telemetry.TuneTelemetryTracker
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import kotlinx.serialization.json.Json
 import java.nio.charset.StandardCharsets
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -99,6 +101,7 @@ class TvheadendInputService : TvInputService() {
         private var isTimeShiftPaused = false
         private var pausedAtMs = 0L
         private var totalPausedMs = 0L
+        private val afrHelper = com.nmaclean.tvheadend.player.afr.TifAfrSessionHelper(baseContext)
 
         init {
             setOverlayViewEnabled(true)
@@ -226,6 +229,7 @@ class TvheadendInputService : TvInputService() {
                     setTrackSelectionParameters(trackSelectionParameters)
                     setAudioAttributes(audioAttributes, true)
                     addListener(this@TvheadendSession)
+                    afrHelper.attachToPlayer(this)
                     addAnalyticsListener(EventLogger("ExoPlayerEventLogger"))
                 }
             player = exoPlayer
@@ -315,6 +319,7 @@ class TvheadendInputService : TvInputService() {
             }
             Log.i(TAG, "=== onSetSurface called with surface: $surface, isValid=$isValid ===")
             this.surface = if (isValid) surface else null
+            afrHelper.onSetSurface(this.surface, null)
 
             if (this.surface != null) {
                 player?.let { p ->
@@ -445,30 +450,15 @@ class TvheadendInputService : TvInputService() {
                             TvContract.Channels.COLUMN_DISPLAY_NAME,
                             TvContract.Channels.COLUMN_DISPLAY_NUMBER,
                             TvContract.Channels.COLUMN_SERVICE_ID,
+                            TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID,
                             TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA
                         ),
                         null, null, null
                     )
 
                     if (cursor == null || !cursor.moveToFirst()) {
-                        Log.w(TAG, "Cursor query failed or empty for URI: $uri. Attempting robust fallback via ChannelRegistry...")
+                        Log.w(TAG, "Cursor query failed or empty for URI: $uri.")
                         cursor?.close()
-                        if (ChannelRegistry.getAllChannels().isEmpty()) {
-                            populateChannelRegistryFromServer()
-                        }
-                        val lastSegment = uri.lastPathSegment?.toLongOrNull()
-                        if (lastSegment != null) {
-                            val byId = ChannelRegistry.getChannelById(lastSegment)
-                            if (byId != null) return@withContext byId.uuid.ifEmpty { byId.id.toString() }
-                            val byNum = ChannelRegistry.getChannelByNumber(lastSegment.toInt())
-                            if (byNum != null) return@withContext byNum.uuid.ifEmpty { byNum.id.toString() }
-                        }
-                        val allChannels = ChannelRegistry.getAllChannels()
-                        if (allChannels.isNotEmpty()) {
-                            val firstCh = allChannels.first()
-                            Log.w(TAG, "Channel not found for URI $uri; falling back to first available channel: ${firstCh.name}")
-                            return@withContext firstCh.uuid.ifEmpty { firstCh.id.toString() }
-                        }
                         return@withContext ""
                     }
 
@@ -476,7 +466,15 @@ class TvheadendInputService : TvInputService() {
                     val nameCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_DISPLAY_NAME)
                     val numCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_DISPLAY_NUMBER)
                     val serviceCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_SERVICE_ID)
+                    val providerIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
                     val dataCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA)
+
+                    val providerId = if (providerIdCol >= 0) cursor.getString(providerIdCol) else ""
+                    if (providerId.startsWith("iptv:")) {
+                        Log.w(TAG, "TvheadendInputService received tune request for IPTV channel URI: $uri. Ignoring.")
+                        cursor.close()
+                        return@withContext ""
+                    }
 
                     val channelId = if (idCol >= 0) cursor.getLong(idCol) else 0L
                     val name = if (nameCol >= 0) cursor.getString(nameCol) else ""
@@ -517,30 +515,6 @@ class TvheadendInputService : TvInputService() {
                             Log.i(TAG, "Fallback match for channel '$name' (#$number) -> Resolved HTSP Channel ID: $key")
                         } else if (serviceId > 0) {
                             key = serviceId.toString()
-                        } else {
-                            val allChannels = ChannelRegistry.getAllChannels()
-                            if (allChannels.isNotEmpty()) {
-                                val firstCh = allChannels.first()
-                                key = firstCh.uuid.ifEmpty { firstCh.id.toString() }
-                                Log.w(TAG, "Could not resolve channel key for URI $uri; falling back to first channel: ${firstCh.name}")
-                            }
-                        }
-                    }
-
-                    if (key.isEmpty() && ChannelRegistry.getAllChannels().isEmpty()) {
-                        populateChannelRegistryFromServer()
-                        val numInt = number.toIntOrNull()
-                        val matchedByNum = if (numInt != null) ChannelRegistry.getChannelByNumber(numInt) else null
-                        val matchedByName = if (matchedByNum == null && name.isNotEmpty()) ChannelRegistry.getChannelByName(name) else null
-                        val matchedChannel = matchedByNum ?: matchedByName
-                        if (matchedChannel != null) {
-                            key = matchedChannel.uuid.ifEmpty { matchedChannel.id.toString() }
-                        } else {
-                            val allChannels = ChannelRegistry.getAllChannels()
-                            if (allChannels.isNotEmpty()) {
-                                val firstCh = allChannels.first()
-                                key = firstCh.uuid.ifEmpty { firstCh.id.toString() }
-                            }
                         }
                     }
 
@@ -554,8 +528,8 @@ class TvheadendInputService : TvInputService() {
                     key
                 }
 
-                if (streamKey.isEmpty()) {
-                    Log.e(TAG, "ERROR: Channel UUID / StreamKey is empty! Cannot tune.")
+                if (streamKey.isEmpty() || streamKey.startsWith("{") || streamKey.contains("streamUrl") || streamKey.startsWith("iptv:")) {
+                    Log.e(TAG, "ERROR: Channel UUID / StreamKey is invalid or non-HTSP ($streamKey)! Cannot tune.")
                     notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN)
                 } else if (player != null && currentChannelUuid == streamKey) {
                     Log.i(TAG, "Channel StreamKey $streamKey resolved and already playing; skipping reload.")
@@ -596,6 +570,7 @@ class TvheadendInputService : TvInputService() {
             }
             player = null
             try {
+                afrHelper.release(this.surface, null)
                 p.clearVideoSurface()
                 p.removeListener(this)
                 p.pause()

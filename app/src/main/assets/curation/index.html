@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IPTV LAN Curation & EPG Console</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --surface-variant: #252525;
+            --primary-color: #03dac6;
+            --primary-variant: #018786;
+            --text-color: #ffffff;
+            --text-secondary: #b0b0b0;
+            --border-color: #333333;
+            --danger-color: #cf6679;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 24px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+        }
+        h1 { margin: 0; font-size: 1.6rem; color: var(--primary-color); font-weight: 700; letter-spacing: 0.5px; }
+        h2 { font-size: 1.1rem; color: var(--text-color); margin-top: 0; margin-bottom: 12px; font-weight: 600; }
+        .card {
+            background-color: var(--surface-color);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .controls {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        input[type="file"], input[type="text"], input[type="number"], select {
+            background-color: #2c2c2c;
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            padding: 10px 14px;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        input[type="file"]:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus {
+            border-color: var(--primary-color);
+        }
+        button {
+            background-color: var(--primary-color);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        button.secondary { background-color: var(--surface-variant); color: var(--text-color); border: 1px solid var(--border-color); }
+        button.secondary:hover { background-color: #333; }
+        button.danger { background-color: var(--danger-color); color: #fff; }
+        .banner {
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            background-color: var(--surface-variant);
+            border-left: 4px solid var(--primary-color);
+            font-size: 0.95rem;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .form-group label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 8px;
+            font-size: 0.95rem;
+            color: var(--text-color);
+            cursor: pointer;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 12px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.92rem;
+        }
+        th { background-color: var(--surface-variant); color: var(--primary-color); font-weight: 600; }
+        tr:hover { background-color: rgba(3, 218, 198, 0.04); }
+        .stats {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        .actions-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>IPTV LAN Curation & EPG Console</h1>
+        <div id="server-status" class="stats">Loading status...</div>
+    </header>
+
+    <div class="card">
+        <h2>1. Upload M3U Playlist & Run Scan</h2>
+        <div class="controls">
+            <input type="file" id="m3u-file-input" accept=".m3u,.m3u8">
+            <button id="upload-btn">Upload & Parse</button>
+            <button id="scan-btn" class="secondary">Scan IPTV Channels</button>
+        </div>
+        <div id="parse-banner" class="banner" style="display: none; margin-top: 15px;"></div>
+        <div id="scan-banner" class="banner" style="display: none; margin-top: 10px; border-left-color: #03dac6;"></div>
+    </div>
+
+    <div class="card">
+        <h2>2. EPG & Logo Configuration</h2>
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="epg-url">Primary XMLTV EPG URL / Path</label>
+                <input type="text" id="epg-url" placeholder="https://.../epg.xml">
+            </div>
+            <div class="form-group">
+                <label for="epg-fallback-url">Fallback XMLTV EPG URL / Path</label>
+                <input type="text" id="epg-fallback-url" placeholder="Optional fallback URL">
+            </div>
+            <div class="form-group">
+                <label for="lookahead-hours">EPG Lookahead Hours</label>
+                <input type="number" id="lookahead-hours" value="48">
+            </div>
+            <div class="form-group">
+                <label for="offset-minutes">Time Offset (Minutes)</label>
+                <input type="number" id="offset-minutes" value="0">
+            </div>
+        </div>
+        <div class="controls" style="margin-bottom: 16px;">
+            <label class="checkbox-group"><input type="checkbox" id="epg-enabled"> Enable EPG Sync</label>
+            <label class="checkbox-group"><input type="checkbox" id="match-by-name"> Fallback Channel-Name Matching</label>
+            <label class="checkbox-group"><input type="checkbox" id="logos-enabled"> Enable Channel Logos</label>
+            <label class="checkbox-group"><input type="checkbox" id="use-epg-icon"> Use EPG-Icon Fallback for Logos</label>
+        </div>
+        <div class="controls" style="margin-bottom: 16px; align-items: center;">
+            <input type="file" id="xmltv-file-input" accept=".xml,.xmltv,.gz">
+            <button id="upload-xmltv-btn" class="secondary">Upload XMLTV File</button>
+            <span id="xmltv-upload-status" class="stats"></span>
+        </div>
+        <button id="save-epg-btn">Save EPG Settings</button>
+    </div>
+
+    <div class="card">
+        <h2>3. Filter & Curate Channels</h2>
+        <div class="actions-bar">
+            <div class="controls">
+                <input type="text" id="search-input" placeholder="Search channels..." style="width: 260px;">
+                <select id="group-select">
+                    <option value="">All Groups</option>
+                </select>
+                <button class="secondary" id="select-filtered-btn">Select Filtered</button>
+                <button class="secondary" id="deselect-filtered-btn">Deselect Filtered</button>
+            </div>
+            <div>
+                <button id="save-allowlist-btn">Save Allowlist (<span id="selected-count">0</span>)</button>
+            </div>
+        </div>
+        <div class="stats" id="table-stats">Showing 0 channels</div>
+        <div style="max-height: 520px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 40px;"><input type="checkbox" id="select-all-checkbox"></th>
+                        <th style="width: 60px;">#</th>
+                        <th style="width: 50px;">Logo</th>
+                        <th>Channel Name</th>
+                        <th>Group</th>
+                        <th>TVG ID</th>
+                        <th>Stream URL</th>
+                    </tr>
+                </thead>
+                <tbody id="channels-tbody">
+                    <tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No playlist loaded. Upload an M3U file above.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let candidates = [];
+        let allowlistedIds = new Set();
+        let selectedIds = new Set();
+        let groups = [];
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+                document.getElementById('server-status').innerText =
+                    `Candidates: ${data.candidateCount} | Saved Allowlist: ${data.allowlistCount} | Logos: ${data.logoCount || 0} | EPG Programs: ${data.epgProgramCount || 0}`;
+            } catch (e) {
+                document.getElementById('server-status').innerText = 'Server offline or unreachable';
+            }
+        }
+
+        async function fetchAllowlist() {
+            try {
+                const res = await fetch('/api/allowlist');
+                const data = await res.json();
+                allowlistedIds = new Set(data.channels.map(c => c.id));
+                if (selectedIds.size === 0 && allowlistedIds.size > 0) {
+                    selectedIds = new Set(allowlistedIds);
+                }
+                updateSelectedCount();
+            } catch (e) {
+                console.error('Failed to fetch allowlist', e);
+            }
+        }
+
+        async function fetchEpgSettings() {
+            try {
+                const res = await fetch('/api/epg-settings');
+                const data = await res.json();
+                document.getElementById('epg-enabled').checked = data.isEpgEnabled;
+                document.getElementById('epg-url').value = data.epgUrl || '';
+                document.getElementById('epg-fallback-url').value = data.epgFallbackUrl || '';
+                document.getElementById('lookahead-hours').value = data.lookaheadHours || 48;
+                document.getElementById('offset-minutes').value = data.offsetMinutes || 0;
+                document.getElementById('match-by-name').checked = data.matchByName;
+                document.getElementById('logos-enabled').checked = data.isLogosEnabled;
+                document.getElementById('use-epg-icon').checked = data.useEpgIcon;
+            } catch (e) {
+                console.error('Failed to fetch EPG settings', e);
+            }
+        }
+
+        async function loadChannels() {
+            try {
+                const res = await fetch('/api/channels?limit=10000');
+                const data = await res.json();
+                candidates = data.channels || [];
+                groups = data.groups || [];
+
+                populateGroups();
+                renderTable();
+
+                const banner = document.getElementById('parse-banner');
+                banner.style.display = 'block';
+                banner.innerHTML = `Successfully parsed <strong>${candidates.length}</strong> channels. Skipped malformed entries: <strong>${data.skippedCount || 0}</strong>.`;
+            } catch (e) {
+                alert('Failed to load channels: ' + e.message);
+            }
+        }
+
+        function populateGroups() {
+            const select = document.getElementById('group-select');
+            const current = select.value;
+            select.innerHTML = '<option value="">All Groups</option>';
+            groups.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.innerText = g;
+                if (g === current) opt.selected = true;
+                select.appendChild(opt);
+            });
+        }
+
+        function getFilteredCandidates() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const groupFilter = document.getElementById('group-select').value;
+            return candidates.filter(c => {
+                const matchesQuery = c.name.toLowerCase().includes(query) || c.streamUrl.toLowerCase().includes(query);
+                const matchesGroup = !groupFilter || c.group === groupFilter;
+                return matchesQuery && matchesGroup;
+            });
+        }
+
+        function renderTable() {
+            const tbody = document.getElementById('channels-tbody');
+            const filtered = getFilteredCandidates();
+            document.getElementById('table-stats').innerText = `Showing ${filtered.length} of ${candidates.length} channels`;
+
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-secondary);">No channels match filter.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(c => {
+                const isChecked = selectedIds.has(c.suggestedId);
+                const logoHtml = c.logoUrl ? `<img src="${escapeHtml(c.logoUrl)}" style="height:24px; max-width:36px; object-fit:contain; vertical-align:middle; border-radius:3px;" onerror="this.style.display='none'">` : '<span style="color:var(--text-secondary); font-size:0.8rem;">-</span>';
+                html += `<tr>
+                    <td><input type="checkbox" class="row-checkbox" data-id="${c.suggestedId}" ${isChecked ? 'checked' : ''}></td>
+                    <td>${c.index}</td>
+                    <td>${logoHtml}</td>
+                    <td><strong>${escapeHtml(c.name)}</strong></td>
+                    <td>${escapeHtml(c.group)}</td>
+                    <td>${escapeHtml(c.tvgId || '')}</td>
+                    <td style="word-break: break-all; color: var(--text-secondary);">${escapeHtml(c.streamUrl)}</td>
+                </tr>`;
+            });
+            tbody.innerHTML = html;
+
+            tbody.querySelectorAll('.row-checkbox').forEach(cb => {
+                cb.addEventListener('change', (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    if (e.target.checked) {
+                        selectedIds.add(id);
+                    } else {
+                        selectedIds.delete(id);
+                    }
+                    updateSelectedCount();
+                });
+            });
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selected-count').innerText = selectedIds.size;
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        document.getElementById('upload-xmltv-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('xmltv-file-input');
+            if (fileInput.files.length === 0) {
+                alert('Please select an XMLTV file first.');
+                return;
+            }
+            const file = fileInput.files[0];
+            const statusDiv = document.getElementById('xmltv-upload-status');
+            statusDiv.innerText = 'Uploading XMLTV file...';
+
+            try {
+                const res = await fetch('/api/upload-epg', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: file
+                });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText || 'XMLTV upload failed');
+                }
+                const data = await res.json();
+                statusDiv.innerText = `Uploaded! Parsed ${data.programCount} EPG programs across ${data.channelCount} channels.`;
+                await fetchStatus();
+                alert('XMLTV EPG file uploaded and processed successfully!');
+            } catch (e) {
+                statusDiv.innerText = 'Upload error: ' + e.message;
+                alert('Error uploading XMLTV file: ' + e.message);
+            }
+        });
+
+        document.getElementById('upload-btn').addEventListener('click', async () => {
+            const fileInput = document.getElementById('m3u-file-input');
+            if (fileInput.files.length === 0) {
+                alert('Please select an M3U file first.');
+                return;
+            }
+            const file = fileInput.files[0];
+
+            try {
+                const res = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: file
+                });
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText || 'Upload failed with status ' + res.status);
+                }
+                const uploadData = await res.json();
+                await loadChannels();
+                await fetchStatus();
+                await fetchEpgSettings();
+
+                const banner = document.getElementById('parse-banner');
+                let infoText = `Successfully parsed <strong>${candidates.length}</strong> channels. Logos detected: <strong>${uploadData.logoCount || 0}</strong>. EPG programs loaded: <strong>${uploadData.epgProgramCount || 0}</strong>.`;
+                if (uploadData.defaultEpgUrl) {
+                    infoText += `<br>XMLTV EPG URL defaulted from playlist: <code>${escapeHtml(uploadData.defaultEpgUrl)}</code>`;
+                }
+                banner.innerHTML = infoText;
+
+                alert('M3U playlist uploaded and parsed successfully!');
+            } catch (e) {
+                alert('Error uploading playlist: ' + e.message);
+            }
+        });
+
+        document.getElementById('scan-btn').addEventListener('click', async () => {
+            const scanBanner = document.getElementById('scan-banner');
+            scanBanner.style.display = 'block';
+            scanBanner.innerText = 'Scanning IPTV channels, logos & EPG... Please wait.';
+            try {
+                const res = await fetch('/api/scan', { method: 'POST' });
+                const data = await res.json();
+                scanBanner.innerText = data.summary || 'Scan completed.';
+                await fetchStatus();
+                await fetchAllowlist();
+            } catch (e) {
+                scanBanner.innerText = 'Scan error: ' + e.message;
+            }
+        });
+
+        document.getElementById('save-epg-btn').addEventListener('click', async () => {
+            const payload = {
+                isEpgEnabled: document.getElementById('epg-enabled').checked,
+                epgUrl: document.getElementById('epg-url').value,
+                epgFallbackUrl: document.getElementById('epg-fallback-url').value,
+                lookaheadHours: parseInt(document.getElementById('lookahead-hours').value) || 48,
+                offsetMinutes: parseInt(document.getElementById('offset-minutes').value) || 0,
+                matchByName: document.getElementById('match-by-name').checked,
+                isLogosEnabled: document.getElementById('logos-enabled').checked,
+                useEpgIcon: document.getElementById('use-epg-icon').checked
+            };
+
+            try {
+                const res = await fetch('/api/epg-settings', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) throw new Error('Failed to save EPG settings');
+                alert('EPG and logo settings saved successfully!');
+            } catch (e) {
+                alert('Error saving EPG settings: ' + e.message);
+            }
+        });
+
+        document.getElementById('search-input').addEventListener('input', renderTable);
+        document.getElementById('group-select').addEventListener('change', renderTable);
+
+        document.getElementById('select-filtered-btn').addEventListener('click', () => {
+            getFilteredCandidates().forEach(c => selectedIds.add(c.suggestedId));
+            renderTable();
+            updateSelectedCount();
+        });
+
+        document.getElementById('deselect-filtered-btn').addEventListener('click', () => {
+            getFilteredCandidates().forEach(c => selectedIds.delete(c.suggestedId));
+            renderTable();
+            updateSelectedCount();
+        });
+
+        document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
+            const filtered = getFilteredCandidates();
+            if (e.target.checked) {
+                filtered.forEach(c => selectedIds.add(c.suggestedId));
+            } else {
+                filtered.forEach(c => selectedIds.delete(c.suggestedId));
+            }
+            renderTable();
+            updateSelectedCount();
+        });
+
+        document.getElementById('save-allowlist-btn').addEventListener('click', async () => {
+            if (selectedIds.size === 0) {
+                if (!confirm('You are about to save an EMPTY allowlist (0 channels). Do you want to proceed?')) {
+                    return;
+                }
+            }
+
+            const channelsToSave = candidates
+                .filter(c => selectedIds.has(c.suggestedId))
+                .map(c => ({
+                    id: c.suggestedId,
+                    name: c.name,
+                    group: c.group,
+                    logoUrl: c.logoUrl,
+                    tvgId: c.tvgId,
+                    streamUrl: c.streamUrl,
+                    headers: c.headers
+                }));
+
+            try {
+                const res = await fetch('/api/allowlist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ channels: channelsToSave, confirmEmpty: selectedIds.size === 0 })
+                });
+                if (!res.ok) {
+                    const err = await res.text();
+                    throw new Error(err || 'Save failed');
+                }
+                const result = await res.json();
+                alert(`Successfully saved ${result.channels.length} channels to allowlist!`);
+                await fetchStatus();
+                await fetchAllowlist();
+            } catch (e) {
+                alert('Error saving allowlist: ' + e.message);
+            }
+        });
+
+        fetchStatus();
+        fetchAllowlist();
+        fetchEpgSettings();
+        loadChannels();
+    </script>
+</body>
+</html>
