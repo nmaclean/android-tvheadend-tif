@@ -168,59 +168,6 @@ object EpgRepository {
     fun getAllProgramsInWindow(context: Context, startWindowMs: Long, endWindowMs: Long): Map<Long, List<ProgramInfo>> {
         val map = ConcurrentHashMap<Long, MutableList<ProgramInfo>>()
 
-        // Fast path: single windowed query across TvContract.Programs.CONTENT_URI
-        val projection = arrayOf(
-            TvContract.Programs._ID,
-            TvContract.Programs.COLUMN_CHANNEL_ID,
-            TvContract.Programs.COLUMN_TITLE,
-            TvContract.Programs.COLUMN_SHORT_DESCRIPTION,
-            TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS,
-            TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS,
-            TvContract.Programs.COLUMN_EVENT_ID,
-            TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA
-        )
-        val selection = "${TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS} >= ? AND ${TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS} <= ?"
-        val selectionArgs = arrayOf(startWindowMs.toString(), endWindowMs.toString())
-        val sortOrder = "${TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS} ASC"
-
-        try {
-            context.contentResolver.query(
-                TvContract.Programs.CONTENT_URI,
-                projection,
-                selection,
-                selectionArgs,
-                sortOrder
-            )?.use { cursor ->
-                val idCol = cursor.getColumnIndex(TvContract.Programs._ID)
-                val chCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_CHANNEL_ID)
-                val titleCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_TITLE)
-                val descCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_SHORT_DESCRIPTION)
-                val startCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS)
-                val endCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS)
-                val eventIdCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_EVENT_ID)
-                val dataCol = cursor.getColumnIndex(TvContract.Programs.COLUMN_INTERNAL_PROVIDER_DATA)
-
-                while (cursor.moveToNext()) {
-                    val eventId = extractEventId(cursor, eventIdCol, dataCol)
-                    val chId = if (chCol >= 0) cursor.getLong(chCol) else continue
-                    val title = if (titleCol >= 0) cursor.getString(titleCol) ?: "No Title" else "No Title"
-                    val desc = if (descCol >= 0) cursor.getString(descCol) else null
-                    val start = if (startCol >= 0) cursor.getLong(startCol) else 0L
-                    val end = if (endCol >= 0) cursor.getLong(endCol) else 0L
-                    if (chId > 0L) {
-                        map.getOrPut(chId) { mutableListOf() }
-                            .add(ProgramInfo(eventId, chId, title, desc, start, end))
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "Bulk Programs.CONTENT_URI query unavailable, falling back to per-channel queries: ${e.message}")
-        }
-
-        if (map.isNotEmpty()) {
-            return map
-        }
-
         val channelIds = mutableListOf<Long>()
         try {
             context.contentResolver.query(

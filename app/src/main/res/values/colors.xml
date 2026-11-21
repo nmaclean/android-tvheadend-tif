@@ -35,4 +35,33 @@
     <color name="epg_key_green">#43A047</color>
     <color name="epg_key_yellow">#FDD835</color>
     <color name="epg_key_blue">#1E88E5</color>
+
+    <!-- Theme-Aligned Soft EPG Genre Colors -->
+    <color name="epg_genre_sport_bg">#0F2624</color>
+    <color name="epg_genre_sport_focus">#173835</color>
+    <color name="epg_genre_sport_accent">#34D399</color>
+
+    <color name="epg_genre_news_bg">#241520</color>
+    <color name="epg_genre_news_focus">#331F2E</color>
+    <color name="epg_genre_news_accent">#F87171</color>
+
+    <color name="epg_genre_movies_bg">#1C162E</color>
+    <color name="epg_genre_movies_focus">#292042</color>
+    <color name="epg_genre_movies_accent">#C084FC</color>
+
+    <color name="epg_genre_kids_bg">#241C12</color>
+    <color name="epg_genre_kids_focus">#33281A</color>
+    <color name="epg_genre_kids_accent">#FBBF24</color>
+
+    <color name="epg_genre_entertainment_bg">#141E36</color>
+    <color name="epg_genre_entertainment_focus">#1E2B4D</color>
+    <color name="epg_genre_entertainment_accent">#60A5FA</color>
+
+    <color name="epg_genre_factual_bg">#112330</color>
+    <color name="epg_genre_factual_focus">#1A3345</color>
+    <color name="epg_genre_factual_accent">#38BDF8</color>
+
+    <color name="epg_genre_general_bg">#141C2B</color>
+    <color name="epg_genre_general_focus">#1D283E</color>
+    <color name="epg_genre_general_accent">#00E5FF</color>
 </resources>

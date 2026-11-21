@@ -782,14 +782,6 @@ private fun GuideProgramCell(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    if (isLiveNow) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(MidnightCyanTokens.LiveBadgeRed)
-                        )
-                    }
                     if (isRecordingScheduled) {
                         Box(
                             modifier = Modifier

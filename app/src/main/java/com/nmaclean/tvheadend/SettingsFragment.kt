@@ -10,6 +10,8 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceGroup
 import androidx.preference.SwitchPreferenceCompat
+import com.nmaclean.tvheadend.iptv.scan.ScanSource
+import com.nmaclean.tvheadend.iptv.scan.SourceScanManager
 import com.nmaclean.tvheadend.sync.TvhSyncManager
 import com.nmaclean.tvheadend.updater.UpdatePromptDialog
 import kotlin.concurrent.thread
@@ -57,6 +59,47 @@ class SettingsFragment : PreferenceFragmentCompat() {
                     }
                 }
             }
+            true
+        }
+
+        val scanManager = SourceScanManager(requireContext())
+
+        findPreference<Preference>("scan_tvheadend")?.setOnPreferenceClickListener {
+            val ctx = context ?: return@setOnPreferenceClickListener false
+            Toast.makeText(ctx, "Scanning Tvheadend source...", Toast.LENGTH_SHORT).show()
+            thread {
+                kotlinx.coroutines.runBlocking {
+                    scanManager.startScan(ScanSource.TVHEADEND)
+                }
+                activity?.runOnUiThread {
+                    Toast.makeText(ctx, "Tvheadend scan completed!", Toast.LENGTH_SHORT).show()
+                }
+            }
+            true
+        }
+
+        findPreference<Preference>("clear_tvheadend")?.setOnPreferenceClickListener {
+            val ctx = context ?: return@setOnPreferenceClickListener false
+            androidx.appcompat.app.AlertDialog.Builder(ctx)
+                .setTitle("Clear Tvheadend Data?")
+                .setMessage("Are you sure you want to clear registered Tvheadend channels, EPG programs, and cached logos? Server connection settings will be preserved.")
+                .setPositiveButton("Clear") { _, _ ->
+                    Toast.makeText(ctx, "Clearing Tvheadend channels, EPG & logos...", Toast.LENGTH_SHORT).show()
+                    thread {
+                        val stats = kotlinx.coroutines.runBlocking {
+                            scanManager.clearTvInputData(com.nmaclean.tvheadend.iptv.scan.ClearTarget.TVHEADEND)
+                        }
+                        activity?.runOnUiThread {
+                            Toast.makeText(
+                                ctx,
+                                "Cleared ${stats.clearedChannels} TVH channels, ${stats.clearedPrograms} EPG programs, and ${stats.clearedLogos} logos.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
             true
         }
 

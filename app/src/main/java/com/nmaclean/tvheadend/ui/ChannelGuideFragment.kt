@@ -27,6 +27,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+import com.nmaclean.tvheadend.sync.TifChannelObserver
+
 /**
  * Leanback Channel Grid fragment displaying channels and live EPG in a 4-column TV grid.
  */
@@ -68,7 +70,7 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
                         putExtra("channel_id", ch.id.toString())
                         putExtra("channel_name", ch.name)
                         putExtra("channel_number", ch.number)
-                        putExtra("input_id", ch.icon)
+                        putExtra("input_id", ch.inputId)
                     }
                     startActivity(intent)
                 }
@@ -77,7 +79,7 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
                         putExtra("channel_id", item.id.toString())
                         putExtra("channel_name", item.name)
                         putExtra("channel_number", item.number)
-                        putExtra("input_id", item.icon)
+                        putExtra("input_id", item.inputId)
                     }
                     startActivity(intent)
                 }
@@ -88,21 +90,32 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
         }
     }
 
+    private var tifChannelObserver: TifChannelObserver? = null
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val observer = TifChannelObserver(requireContext().contentResolver, "ChannelGuideFragment") {
+            loadChannels()
+        }
+        observer.register()
+        tifChannelObserver = observer
         loadChannels()
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        tifChannelObserver?.unregister()
+        tifChannelObserver = null
     }
 
     override fun onResume() {
         super.onResume()
-        if (mAdapter.size() == 0) {
-            loadChannels()
-        }
+        loadChannels()
     }
 
     private fun loadChannels() {
         val cached = ChannelRegistry.getAllChannels()
-        if (cached.isNotEmpty()) {
+        if (cached.isNotEmpty() && mAdapter.size() == 0) {
             val cardItems = cached.map { ch -> ChannelCardData(ch, "Loading program...", null) }
             mAdapter.clear()
             cardItems.forEach { mAdapter.add(it) }
@@ -154,7 +167,7 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
             }
 
             val uniqueChannels = channelList.distinctBy {
-                if (it.uuid.isNotEmpty()) it.uuid else if (it.number > 0) "num_${it.number}" else "name_${it.name}"
+                if (it.id > 0L) "id_${it.id}" else if (it.uuid.isNotEmpty()) it.uuid else "name_${it.name}"
             }.sortedWith(compareBy({ it.number }, { it.name }))
 
             // Blazingly fast single bulk query for all current EPG programs
