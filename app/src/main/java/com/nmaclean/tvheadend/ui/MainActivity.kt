@@ -4,6 +4,8 @@ import android.content.Intent
 import android.media.tv.TvContract
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
+import android.util.Log
 import android.view.KeyEvent
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.media3.common.util.UnstableApi
 import com.nmaclean.tvheadend.htsp.HtspConnectionPool
 import com.nmaclean.tvheadend.model.TvhChannel
@@ -47,9 +51,12 @@ import com.nmaclean.tvheadend.ui.screens.GuideScreen
 import com.nmaclean.tvheadend.ui.screens.LiveTvScreen
 import com.nmaclean.tvheadend.ui.screens.RecordingsScreen
 import com.nmaclean.tvheadend.ui.screens.SearchScreen
+import com.nmaclean.tvheadend.telemetry.PerfTrace
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.TvTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Main Android TV Launcher Activity hosting the Midnight-Navy & Electric-Cyan Jetpack Compose for TV shell.
@@ -69,16 +76,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val t0 = SystemClock.elapsedRealtime()
         super.onCreate(savedInstanceState)
-
-        val settings = TvhSettings(this)
-        if (!settings.isFirstInstallCleanupDone) {
-            settings.isFirstInstallCleanupDone = true
-            TvhSyncManager.clearAllChannelsAndPrograms(this)
-        }
-
-        TvhSyncWorker.schedulePeriodicSync(this)
-        HtspConnectionPool.preconnectAsync(this)
 
         setContent {
             TvTheme {
@@ -100,6 +99,19 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+
+        kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            val settings = TvhSettings(this@MainActivity)
+            if (!settings.isFirstInstallCleanupDone) {
+                settings.isFirstInstallCleanupDone = true
+                TvhSyncManager.clearAllChannelsAndPrograms(this@MainActivity)
+            }
+            kotlinx.coroutines.delay(2_500L)
+            TvhSyncWorker.schedulePeriodicSync(this@MainActivity)
+            HtspConnectionPool.preconnectAsync(this@MainActivity)
+        }
+
+        Log.d("PERF_TRACE", "MainActivity.onCreate finished in ${SystemClock.elapsedRealtime() - t0}ms")
     }
 
     @Composable
@@ -111,16 +123,18 @@ class MainActivity : ComponentActivity() {
         onCancelScheduled: (TvhRecording, () -> Unit) -> Unit,
         onDeleteSeriesRule: (TvhSeriesRule, () -> Unit) -> Unit
     ) {
+        val compStart = SystemClock.elapsedRealtime()
+        SideEffect {
+            val compDurationMs = SystemClock.elapsedRealtime() - compStart
+            if (compDurationMs > 16L) {
+                Log.d("PERF_TRACE", "MainScreen composition phase took ${compDurationMs}ms")
+            }
+        }
         var selectedDestination by remember { mutableStateOf(TvhNavDestination.LIVE_TV) }
         var channels by remember { mutableStateOf<List<TvhChannel>>(emptyList()) }
         var currentEpg by remember { mutableStateOf<Map<Long, EpgRepository.ChannelEpg>>(emptyMap()) }
-        var guidePrograms by remember { mutableStateOf<Map<Long, List<EpgRepository.ProgramInfo>>>(emptyMap()) }
-        val recordings by DvrRepository.recordings.collectAsState()
-        val seriesRules by DvrRepository.seriesRules.collectAsState()
-        val scheduledEventIds by DvrRepository.scheduledEventIds.collectAsState()
-        val seriesTitles by DvrRepository.seriesTitles.collectAsState()
-        val isLoadingDvr by DvrRepository.isLoading.collectAsState()
-        val dvrError by DvrRepository.errorMessage.collectAsState()
+
+        Log.d("PERF_TRACE", "TvhLauncherShell state inputs: dest=$selectedDestination, ch=${channels.size}, epg=${currentEpg.size}")
         var isLoadingChannels by remember { mutableStateOf(true) }
         var windowStartMs by remember { mutableLongStateOf(System.currentTimeMillis() - 30 * 60_000L) }
         var selectedProgramModal by remember { mutableStateOf<Pair<TvhChannel, EpgRepository.ProgramInfo>?>(null) }
@@ -133,23 +147,20 @@ class MainActivity : ComponentActivity() {
 
         LaunchedEffect(Unit) {
             isLoadingChannels = true
-            val loadedChannels = TvhUiRepository.loadChannels(this@MainActivity)
-            channels = loadedChannels
-            isLoadingChannels = false
-            // Single batch 12-hour EPG query powers both Live TV cards and the Guide timeline
-            if (loadedChannels.isNotEmpty()) {
-                val now = System.currentTimeMillis()
-                val startMs = now - 30 * 60_000L
-                windowStartMs = startMs
-                val loadedGuide = TvhUiRepository.loadGuideWindow(
-                    this@MainActivity,
-                    loadedChannels,
-                    startMs,
-                    startMs + 12 * 60 * 60_000L
-                )
-                guidePrograms = loadedGuide
-                currentEpg = TvhUiRepository.deriveCurrentEpgFromWindow(loadedChannels, loadedGuide, now)
+            val (loadedChannels, loadedEpg) = withContext(Dispatchers.IO) {
+                val chs = PerfTrace.section("MainActivity", "loadChannels") {
+                    TvhUiRepository.loadChannels(this@MainActivity)
+                }
+                val epg = if (chs.isNotEmpty()) {
+                    PerfTrace.section("MainActivity", "loadCurrentEpgMap") {
+                        TvhUiRepository.loadCurrentEpgMap(this@MainActivity, chs)
+                    }
+                } else emptyMap()
+                chs to epg
             }
+            channels = loadedChannels
+            currentEpg = loadedEpg
+            isLoadingChannels = false
         }
 
         LaunchedEffect(shortcutNavTick.intValue) {
@@ -166,12 +177,17 @@ class MainActivity : ComponentActivity() {
             if (selectedDestination == TvhNavDestination.GUIDE && channels.isNotEmpty()) {
                 val now = System.currentTimeMillis()
                 windowStartMs = now - 30 * 60_000L
-                guidePrograms = TvhUiRepository.loadGuideWindow(
-                    this@MainActivity,
-                    channels,
-                    windowStartMs,
-                    windowStartMs + 12 * 60 * 60_000L
-                )
+                val loadedGuide = withContext(Dispatchers.IO) {
+                    PerfTrace.section("MainActivity", "loadGuideWindow") {
+                        TvhUiRepository.loadGuideWindow(
+                            this@MainActivity,
+                            channels,
+                            windowStartMs,
+                            windowStartMs + 12 * 60 * 60_000L
+                        )
+                    }
+                }
+                EpgRepository.updateGuidePrograms(loadedGuide)
             }
         }
 
@@ -184,7 +200,10 @@ class MainActivity : ComponentActivity() {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MidnightCyanTokens.BackgroundBrush)
+                .background(MidnightCyanTokens.BackgroundSolid)
+                .onGloballyPositioned {
+                    Log.d("PERF_TRACE", "Root layout positioned at ${SystemClock.elapsedRealtime()}")
+                }
         ) {
             TvhNavigationRail(
                 selectedDestination = selectedDestination,
@@ -205,7 +224,6 @@ class MainActivity : ComponentActivity() {
                     TvhNavDestination.SEARCH -> SearchScreen(
                         channels = channels,
                         currentEpg = currentEpg,
-                        recordings = recordings,
                         onChannelClick = onTuneChannel,
                         onRecordingClick = { rec -> selectedRecordingModal = rec }
                     )
@@ -227,22 +245,15 @@ class MainActivity : ComponentActivity() {
                         GuideScreen(
                             channels = channels,
                             currentEpg = currentEpg,
-                            guidePrograms = guidePrograms,
                             windowStartMs = windowStartMs,
-                            scheduledEventIds = scheduledEventIds,
-                            seriesTitles = seriesTitles,
                             onTuneChannel = onTuneChannel,
                             onScheduleProgram = { ch, prog ->
-                                selectedProgramModal = ch to prog
+                                selectedProgramModal = Pair(ch, prog)
                             },
                             gridFocusRequester = guideGridFocusRequester
                         )
                     }
                     TvhNavDestination.RECORDINGS -> RecordingsScreen(
-                        recordings = recordings,
-                        seriesRules = seriesRules,
-                        isLoading = isLoadingDvr,
-                        errorMessage = dvrError,
                         onRetry = { scope.launch { DvrRepository.refresh(this@MainActivity, force = true) } },
                         onPlayRecording = { rec ->
                             selectedRecordingModal = rec
@@ -281,8 +292,9 @@ class MainActivity : ComponentActivity() {
                         title = prog.title,
                         startTimeMs = prog.startTimeMs
                     )
-                    val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in scheduledEventIds)
-                    val hasSeries = prog.title.trim().lowercase() in seriesTitles
+                    val dvrState by DvrRepository.dvrState.collectAsState()
+                    val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in dvrState.scheduledEventIds)
+                    val hasSeries = prog.title.trim().lowercase() in dvrState.seriesTitles
                     ProgramDetailsModal(
                         channel = ch,
                         program = prog,

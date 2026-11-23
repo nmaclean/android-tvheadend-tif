@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.BringIntoViewSpec
 import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.horizontalScroll
@@ -32,29 +31,31 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +67,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import coil.compose.AsyncImage
 import com.nmaclean.tvheadend.model.TvhChannel
+import com.nmaclean.tvheadend.sync.DvrRepository
 import com.nmaclean.tvheadend.sync.EpgRepository
 import com.nmaclean.tvheadend.ui.TvhUiRepository
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
@@ -85,16 +87,85 @@ private const val TOTAL_SLOTS = 24 // 12-hour continuous window
 private val CHANNEL_HEADER_WIDTH = 116.dp
 private val ROW_HEIGHT = 46.dp
 
+private fun fillEpgGaps(
+    rawPrograms: List<EpgRepository.ProgramInfo>,
+    channel: TvhChannel,
+    windowStartMs: Long,
+    windowEndMs: Long
+): List<Pair<EpgRepository.ProgramInfo, TvhUiRepository.EpgGenre>> {
+    val sorted = rawPrograms
+        .filter { it.endTimeMs > windowStartMs && it.startTimeMs < windowEndMs }
+        .sortedBy { it.startTimeMs }
+
+    if (sorted.isEmpty()) {
+        val dummy = EpgRepository.ProgramInfo(
+            eventId = -channel.id,
+            channelId = channel.id,
+            title = "${channel.name} — Live Broadcast",
+            summary = "Continuous Broadcast",
+            startTimeMs = windowStartMs,
+            endTimeMs = windowEndMs
+        )
+        return listOf(dummy to TvhUiRepository.classifyEpgGenre(channel.name, null, channel.name))
+    }
+
+    val result = mutableListOf<Pair<EpgRepository.ProgramInfo, TvhUiRepository.EpgGenre>>()
+    var currentTime = windowStartMs
+
+    for (prog in sorted) {
+        if (prog.startTimeMs > currentTime) {
+            val gapEnd = minOf(prog.startTimeMs, windowEndMs)
+            if (gapEnd > currentTime) {
+                val gapProg = EpgRepository.ProgramInfo(
+                    eventId = -currentTime,
+                    channelId = channel.id,
+                    title = "No Program Information",
+                    summary = null,
+                    startTimeMs = currentTime,
+                    endTimeMs = gapEnd
+                )
+                result.add(gapProg to TvhUiRepository.EpgGenre.GENERAL)
+                currentTime = gapEnd
+            }
+        }
+
+        if (currentTime >= windowEndMs) break
+
+        val progStart = maxOf(prog.startTimeMs, windowStartMs)
+        val progEnd = minOf(prog.endTimeMs, windowEndMs)
+        if (progEnd > progStart) {
+            val clampedProg = prog.copy(startTimeMs = progStart, endTimeMs = progEnd)
+            val genre = TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, channel.name)
+            result.add(clampedProg to genre)
+            currentTime = maxOf(currentTime, progEnd)
+        }
+    }
+
+    if (currentTime < windowEndMs) {
+        val tailProg = EpgRepository.ProgramInfo(
+            eventId = -currentTime,
+            channelId = channel.id,
+            title = "No Program Information",
+            summary = null,
+            startTimeMs = currentTime,
+            endTimeMs = windowEndMs
+        )
+        result.add(tailProg to TvhUiRepository.EpgGenre.GENERAL)
+    }
+
+    return result
+}
+
 /**
- * Continuous EPG Guide with inline preview card, sticky 30-minute intervals, and vertical cyan NOW line (`epg.png`).
+ * Continuous EPG Guide timeline matching commit 9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d with time-aligned D-pad navigation.
  */
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun GuideScreen(
     channels: List<TvhChannel>,
     currentEpg: Map<Long, EpgRepository.ChannelEpg>,
-    guidePrograms: Map<Long, List<EpgRepository.ProgramInfo>>,
-    windowStartMs: Long,
+    guidePrograms: Map<Long, List<EpgRepository.ProgramInfo>> = emptyMap(),
+    windowStartMs: Long = System.currentTimeMillis(),
     scheduledEventIds: Set<Long> = emptySet(),
     seriesTitles: Set<String> = emptySet(),
     onTuneChannel: (TvhChannel) -> Unit,
@@ -102,11 +173,17 @@ fun GuideScreen(
     gridFocusRequester: FocusRequester = remember { FocusRequester() },
     modifier: Modifier = Modifier
 ) {
+    val dvrState by DvrRepository.dvrState.collectAsState()
+    val activeScheduledEventIds = if (scheduledEventIds.isNotEmpty()) scheduledEventIds else dvrState.scheduledEventIds
+    val activeSeriesTitles = if (seriesTitles.isNotEmpty()) seriesTitles else dvrState.seriesTitles
+    val activeGuidePrograms by EpgRepository.guidePrograms.collectAsState()
+    val mergedGuidePrograms = if (guidePrograms.isNotEmpty()) guidePrograms else activeGuidePrograms
+
     val categories = TvhUiRepository.CHANNEL_CATEGORIES
     var selectedCategoryIdx by remember { mutableIntStateOf(0) }
     val selectedCategory = categories[selectedCategoryIdx]
 
-    val filteredChannels = remember(channels, selectedCategory, currentEpg) {
+    val filteredChannels = remember(channels, selectedCategory) {
         TvhUiRepository.filterChannelsByCategory(channels, selectedCategory, currentEpg)
     }
 
@@ -273,32 +350,32 @@ fun GuideScreen(
         )
         Spacer(modifier = Modifier.height(6.dp))
 
-        val rowProgramsByChannelId = remember(filteredChannels, guidePrograms, currentEpg, alignedStartMs, windowEndMs) {
-            filteredChannels.associate { ch ->
-                val raw = guidePrograms[ch.id].orEmpty().ifEmpty {
-                    listOfNotNull(currentEpg[ch.id]?.currentProgram, currentEpg[ch.id]?.nextProgram)
+        val rowProgramsByChannelId = produceState<Map<Long, List<Pair<EpgRepository.ProgramInfo, TvhUiRepository.EpgGenre>>>>(
+            initialValue = emptyMap(),
+            keys = arrayOf(filteredChannels, mergedGuidePrograms, currentEpg, alignedStartMs, windowEndMs)
+        ) {
+            value = withContext(Dispatchers.Default) {
+                filteredChannels.associate { ch ->
+                    val raw = mergedGuidePrograms[ch.id].orEmpty().ifEmpty {
+                        listOfNotNull(currentEpg[ch.id]?.currentProgram, currentEpg[ch.id]?.nextProgram)
+                    }
+                    ch.id to fillEpgGaps(raw, ch, alignedStartMs, windowEndMs)
                 }
-                val items = raw
-                    .filter { it.endTimeMs > alignedStartMs && it.startTimeMs < windowEndMs }
-                    .map { prog -> prog to TvhUiRepository.classifyEpgGenre(prog.title, prog.summary, ch.name) }
-                ch.id to items
             }
-        }
+        }.value
 
         val lazyListState = rememberLazyListState()
         val rowChannelFocusRequesters = remember(filteredChannels) {
             List(filteredChannels.size) { FocusRequester() }
         }
-        val cellFocusRequesters = remember(filteredChannels, rowProgramsByChannelId) {
-            filteredChannels.map { ch ->
-                val count = maxOf(1, rowProgramsByChannelId[ch.id].orEmpty().size)
-                List(count) { FocusRequester() }
-            }
+        val cellFocusRequesterMap = remember(filteredChannels) { mutableMapOf<Pair<Int, Int>, FocusRequester>() }
+        fun getCellFocusRequester(rowIdx: Int, progIdx: Int): FocusRequester {
+            return cellFocusRequesterMap.getOrPut(rowIdx to progIdx) { FocusRequester() }
         }
         var focusedRowIndex by remember { mutableIntStateOf(0) }
         var focusedIsChannelHeader by remember { mutableStateOf(false) }
         var isVerticalNav by remember { mutableStateOf(false) }
-        var cursorTimeMs by remember(alignedStartMs, windowEndMs) {
+        var lockedCursorTimeMs by remember(alignedStartMs, windowEndMs) {
             mutableLongStateOf(System.currentTimeMillis().coerceIn(alignedStartMs, windowEndMs))
         }
 
@@ -314,35 +391,34 @@ fun GuideScreen(
         fun findTargetProgIndex(rowIdx: Int): Int {
             val progs = rowProgramsByChannelId[filteredChannels.getOrNull(rowIdx)?.id].orEmpty()
             if (progs.isEmpty()) return 0
-            val exact = progs.indexOfFirst { (p, _) -> cursorTimeMs in p.startTimeMs..p.endTimeMs }
+            val targetTime = lockedCursorTimeMs
+            val exact = progs.indexOfFirst { (p, _) -> targetTime in p.startTimeMs..p.endTimeMs }
             if (exact >= 0) return exact
             return progs.indices.minByOrNull { idx ->
                 val p = progs[idx].first
                 val clampedStart = maxOf(p.startTimeMs, alignedStartMs)
                 val clampedEnd = minOf(p.endTimeMs, windowEndMs)
                 val mid = (clampedStart + clampedEnd) / 2L
-                kotlin.math.abs(mid - cursorTimeMs)
+                kotlin.math.abs(mid - targetTime)
             } ?: 0
         }
 
         fun focusRowAtCurrentColumn(targetRow: Int) {
             if (targetRow !in filteredChannels.indices) return
             isVerticalNav = true
-            val visibleIndices = lazyListState.layoutInfo.visibleItemsInfo.map { it.index }
-            val needScroll = targetRow !in visibleIndices
+            val targetScrollIndex = (targetRow - 2).coerceAtLeast(0)
             scope.launch {
-                if (needScroll) {
-                    lazyListState.scrollToItem(targetRow)
-                }
+                lazyListState.scrollToItem(targetScrollIndex)
                 val requester = if (focusedIsChannelHeader) {
                     rowChannelFocusRequesters[targetRow]
                 } else {
                     val progIdx = findTargetProgIndex(targetRow)
-                    cellFocusRequesters[targetRow][progIdx]
+                    getCellFocusRequester(targetRow, progIdx)
                 }
                 try {
                     requester.requestFocus()
                 } catch (_: Exception) {}
+                isVerticalNav = false
             }
         }
 
@@ -427,9 +503,9 @@ fun GuideScreen(
                                         val firstCellMod = if (rowIndex == 0) {
                                             Modifier
                                                 .focusRequester(gridFocusRequester)
-                                                .focusRequester(cellFocusRequesters[rowIndex][0])
+                                                .focusRequester(getCellFocusRequester(rowIndex, 0))
                                         } else {
-                                            Modifier.focusRequester(cellFocusRequesters[rowIndex][0])
+                                            Modifier.focusRequester(getCellFocusRequester(rowIndex, 0))
                                         }
                                         GuideProgramCell(
                                             title = "${channel.name} — Live Broadcast",
@@ -459,14 +535,14 @@ fun GuideScreen(
                                             } else {
                                                 0f
                                             }
-                                            val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in scheduledEventIds) ||
-                                                prog.title.trim().lowercase() in seriesTitles
+                                            val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in activeScheduledEventIds) ||
+                                                prog.title.trim().lowercase() in activeSeriesTitles
                                             val cellMod = if (rowIndex == 0 && progIdx == 0) {
                                                 Modifier
                                                     .focusRequester(gridFocusRequester)
-                                                    .focusRequester(cellFocusRequesters[rowIndex][progIdx])
+                                                    .focusRequester(getCellFocusRequester(rowIndex, progIdx))
                                             } else {
-                                                Modifier.focusRequester(cellFocusRequesters[rowIndex][progIdx])
+                                                Modifier.focusRequester(getCellFocusRequester(rowIndex, progIdx))
                                             }
                                             GuideProgramCell(
                                                 title = prog.title,
@@ -480,7 +556,7 @@ fun GuideScreen(
                                                     focusedRowIndex = rowIndex
                                                     focusedIsChannelHeader = false
                                                     if (!isVerticalNav) {
-                                                        cursorTimeMs = ((clampedStartMs + clampedEndMs) / 2L)
+                                                        lockedCursorTimeMs = ((clampedStartMs + clampedEndMs) / 2L)
                                                             .coerceIn(alignedStartMs, windowEndMs)
                                                     }
                                                 },
@@ -782,6 +858,14 @@ private fun GuideProgramCell(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
+                    if (isLiveNow) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(MidnightCyanTokens.LiveBadgeRed)
+                        )
+                    }
                     if (isRecordingScheduled) {
                         Box(
                             modifier = Modifier

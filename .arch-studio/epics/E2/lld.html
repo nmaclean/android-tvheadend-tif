@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate 07 — Low-Level Design (lld.html) | android-tvheadend-tif | Epic E2</title>
+  <style>
+    :root {
+      --bg-page: #0b1020;
+      --bg-surface: #111827;
+      --bg-surface-alt: #162033;
+      --bg-code: #090d16;
+      --text-primary: #e5e7eb;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --border-subtle: #243049;
+      --border-strong: #374151;
+      --accent-primary: #38bdf8;
+      --accent-primary-soft: rgba(56, 189, 248, 0.14);
+      --accent-secondary: #818cf8;
+      --status-verified: #10b981;
+      --status-verified-bg: rgba(16, 185, 129, 0.14);
+      --status-inferred: #f59e0b;
+      --status-inferred-bg: rgba(245, 158, 11, 0.14);
+      --status-gap: #ef4444;
+      --status-gap-bg: rgba(239, 68, 68, 0.14);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.35);
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-page);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 20px 64px;
+    }
+
+    header.doc-header {
+      background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent-primary);
+      background: var(--accent-primary-soft);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.75rem;
+      line-height: 1.25;
+      color: #f9fafb;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--text-secondary);
+      font-size: 0.98rem;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .meta-item {
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .meta-value {
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .legend-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 0.84rem;
+      color: var(--text-secondary);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .badge-verified {
+      color: #6ee7b7;
+      background: var(--status-verified-bg);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .badge-inferred {
+      color: #fcd34d;
+      background: var(--status-inferred-bg);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .badge-gap {
+      color: #fca5a5;
+      background: var(--status-gap-bg);
+      border-color: rgba(239, 68, 68, 0.35);
+    }
+
+    section.lld-section {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+    }
+
+    .section-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: #f9fafb;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 1.04rem;
+      color: #f3f4f6;
+    }
+
+    .section-tag {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent-secondary);
+    }
+
+    p {
+      margin: 0 0 12px;
+      color: var(--text-secondary);
+    }
+
+    .callout {
+      background: var(--bg-surface-alt);
+      border-left: 4px solid var(--accent-primary);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      margin: 14px 0;
+      color: var(--text-primary);
+      font-size: 0.9rem;
+    }
+
+    .callout-gap {
+      border-left-color: var(--status-gap);
+      background: rgba(239, 68, 68, 0.08);
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--bg-surface-alt);
+      color: #f3f4f6;
+      font-weight: 600;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.83em;
+      color: #93c5fd;
+      background: var(--bg-code);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.15);
+    }
+
+    pre {
+      margin: 10px 0 0;
+      padding: 14px;
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.81rem;
+      line-height: 1.48;
+      color: #e2e8f0;
+    }
+
+    .diagram-frame {
+      background: var(--bg-code);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      overflow-x: auto;
+    }
+
+    .diagram-frame svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .filter-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 14px 0 16px;
+      padding: 10px 12px;
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+    }
+
+    .filter-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .filter-tab {
+      appearance: none;
+      background: var(--bg-code);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .filter-tab:hover {
+      color: var(--text-primary);
+      border-color: var(--accent-primary);
+    }
+
+    .filter-tab[aria-selected="true"] {
+      background: var(--accent-primary-soft);
+      color: var(--accent-primary);
+      border-color: var(--accent-primary);
+    }
+
+    .filter-count {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+
+    .filter-card {
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      margin-bottom: 14px;
+    }
+
+    .filter-card[hidden] {
+      display: none;
+    }
+
+    .card-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 1rem;
+      color: #f9fafb;
+    }
+
+    .card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .badge-category {
+      color: #c4b5fd;
+      background: rgba(129, 140, 248, 0.14);
+      border-color: rgba(129, 140, 248, 0.35);
+    }
+
+    ul.clean-list {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--text-secondary);
+    }
+
+    ul.clean-list li {
+      margin-bottom: 6px;
+    }
+
+    @media (max-width: 640px) {
+      h1 {
+        font-size: 1.4rem;
+      }
+      section.lld-section, header.doc-header {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="doc-header">
+      <div class="eyebrow">Gate 07 — Low-Level Design &bull; Deliverable: lld.html</div>
+      <h1>Android Tvheadend TIF — Epic E2 Low-Level Design</h1>
+      <p class="subtitle">
+        Grounding specification for <code>nmaclean/android-tvheadend-tif</code> (197 archive entries; 6,818,109 uncompressed bytes) targeting epic folder <code>E2</code>.
+      </p>
+
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Repository</span>
+          <span class="meta-value">nmaclean/android-tvheadend-tif</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Remote URL</span>
+          <span class="meta-value">https://github.com/nmaclean/android-tvheadend-tif.git</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Epic Folder</span>
+          <span class="meta-value">E2</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Archive &amp; Extra Focus</span>
+          <span class="meta-value">197 entries (5,732,570 B zip) &bull; None</span>
+        </div>
+      </div>
+
+      <div class="legend-bar">
+        <span><strong>Grounding Key:</strong></span>
+        <span class="badge badge-verified">VERIFIED</span>
+        <span>Confirmed in archive index or prompt</span>
+        <span class="badge badge-inferred">INFERRED BASELINE</span>
+        <span>Architecture/role reasoned from existing repo files &amp; tests</span>
+        <span class="badge badge-gap">GAP / UNVERIFIED</span>
+        <span>Not present in archive index or requires reading file contents</span>
+      </div>
+    </header>
+
+    <div class="callout callout-gap">
+      <strong>Archive &amp; Epic <code>E2</code> Grounding Note (<span class="badge badge-gap">GAP / UNVERIFIED</span>):</strong>
+      The archive index lists 197 entries including <code>.arch-studio/epics/E1/lld.html</code>, <code>.arch-studio/epics/E1/TASKS.md</code>, <code>.arch-studio/epics/E1/mockup-lld.html</code>, <code>.arch-studio/hld.html</code>, <code>.arch-studio/epic-breakdown.html</code>, and <code>.arch-studio/brief.md</code>, as well as Kotlin sources under <code>app/src/main/java/com/nmaclean/tvheadend/</code>. However, no <code>.arch-studio/epics/E2/</code> or top-level <code>E2/</code> directory appears in the archive entry list, and raw file contents are not included in the index. Below, <strong>VERIFIED</strong> items cite exact paths/symbols from the archive index; <strong>INFERRED BASELINE</strong> items reflect expected E2 responsibilities alongside existing repo components; and <strong>GAP / UNVERIFIED</strong> items flag missing E2 artifacts or unread internal methods/types.
+    </div>
+
+    <!-- SECTION 1: MODULE & CLASS SPECIFICATION -->
+    <section class="lld-section" id="sec-modules">
+      <div class="section-header">
+        <h2>1. Module &amp; Class Specification</h2>
+        <span class="section-tag">EPIC E2 &bull; REPO COMPONENT MAPPING</span>
+      </div>
+      <p>
+        Maps concrete files, classes, and test targets present in <code>nmaclean/android-tvheadend-tif</code> alongside inferred <code>E2</code> scope and archive gaps.
+      </p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 18%;">Subsystem</th>
+              <th style="width: 26%;">Class / File / Symbol</th>
+              <th style="width: 32%;">Role &amp; E2 Relevance</th>
+              <th style="width: 24%;">Path &amp; Grounding</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Epic E2 Context</strong></td>
+              <td><code>lld.html</code> / E2 Epic Folder</td>
+              <td>Target Gate 07 deliverable for Epic <code>E2</code>; unlike <code>E1</code> (which has <code>lld.html</code>, <code>mockup-lld.html</code>, and <code>TASKS.md</code> in the archive), no <code>E2</code> folder is listed in the archive index.</td>
+              <td><code>E2/lld.html</code> (target)<br /><span class="badge badge-verified">VERIFIED</span> (<code>E2</code>, <code>lld.html</code>)<br /><span class="badge badge-gap">GAP</span> (no <code>E2</code> dir in zip)</td>
+            </tr>
+            <tr>
+              <td><strong>TIF Input &amp; Sync</strong></td>
+              <td><code>TvheadendInputService</code>, <code>TvhSyncManager</code>, <code>SyncService</code>, <code>TvhSyncWorker</code></td>
+              <td>TIF service and sync orchestration (<code>TvhSyncManager</code>, <code>EpgRepository</code>, <code>DvrRepository</code>, <code>InputChannelRepository</code>, <code>TifChannelObserver</code>, <code>BackgroundSyncStrategy</code>).</td>
+              <td><code>app/src/main/java/com/nmaclean/tvheadend/TvheadendInputService.kt</code> &amp; <code>sync/*.kt</code><br /><span class="badge badge-verified">VERIFIED</span> (files in zip)<br /><span class="badge badge-inferred">INFERRED BASELINE</span> (E2 tie-in)</td>
+            </tr>
+            <tr>
+              <td><strong>HTSP Protocol &amp; Client</strong></td>
+              <td><code>HtspClient</code>, <code>HtspConnectionPool</code>, <code>HtspConnectionState</code>, <code>Htsmsg</code>, <code>ChannelRegistry</code></td>
+              <td>HTSP transport, connection state, message handling, and channel registry for Tvheadend communication.</td>
+              <td><code>app/src/main/java/com/nmaclean/tvheadend/htsp/*.kt</code><br /><span class="badge badge-verified">VERIFIED</span> (files in zip)<br /><span class="badge badge-gap">GAP</span> (internal signatures unread)</td>
+            </tr>
+            <tr>
+              <td><strong>Player &amp; AFR</strong></td>
+              <td><code>HtspDataSource</code>, <code>HtspDvrDataSource</code>, <code>HtspExtractor</code>, <code>Mp2Decoder</code>, <code>TifAfrSessionHelper</code>, <code>DisplayFrameRateController</code></td>
+              <td>Stream data sources, extractor, MP2 audio decoding, and auto-frame-rate (AFR) session/display helpers.</td>
+              <td><code>app/src/main/java/com/nmaclean/tvheadend/player/*.kt</code> &amp; <code>player/afr/*.kt</code><br /><span class="badge badge-verified">VERIFIED</span> (files in zip)<br /><span class="badge badge-inferred">INFERRED BASELINE</span> (E2 playback/retry role)</td>
+            </tr>
+            <tr>
+              <td><strong>UI, Telemetry &amp; Audits</strong></td>
+              <td><code>TvPlayerActivity</code>, <code>TvhUiRepository</code>, <code>TuneTelemetryTracker</code>, <code>docs/boundary-contract-audit.md</code></td>
+              <td>Playback UI, UI repository, tune telemetry tracking, and boundary/TIF contract audits in <code>docs/</code> and <code>.arch-studio/</code>.</td>
+              <td><code>app/src/main/java/com/nmaclean/tvheadend/ui/*.kt</code>, <code>telemetry/TuneTelemetryTracker.kt</code>, <code>docs/*.md</code><br /><span class="badge badge-verified">VERIFIED</span> (files in zip)<br /><span class="badge badge-gap">GAP</span> (E2 epic definition)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 2: SEQUENCE & EXECUTION FLOW DIAGRAM -->
+    <section class="lld-section" id="sec-sequence">
+      <div class="section-header">
+        <h2>2. Sequence &amp; Execution Flow Diagram</h2>
+        <span class="section-tag">1120&times;330 SVG &bull; FLOW, STATE &amp; RETRY</span>
+      </div>
+      <p>
+        Inline SVG sequence and execution flow across TIF/Playback entrypoints, Sync/HTSP components, Tvheadend Backend, Media/Sync targets, and Connection/Retry State handling. Concrete class interactions are an <span class="badge badge-inferred">INFERRED BASELINE</span> grounded in the verified Kotlin files in <code>app/src/main/java/com/nmaclean/tvheadend/</code>.
+      </p>
+
+      <div class="diagram-frame">
+        <svg viewBox="0 0 1120 330" width="1120" height="330" role="img" aria-label="Sequence and execution flow diagram for android-tvheadend-tif Epic E2">
+          <defs>
+            <marker id="arr-sky" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+            </marker>
+            <marker id="arr-emerald" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+            </marker>
+            <marker id="arr-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+            </marker>
+            <marker id="arr-rose" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#ef4444" />
+            </marker>
+          </defs>
+
+          <rect x="0" y="0" width="1120" height="330" rx="8" fill="#090d16" />
+
+          <!-- Lifelines Headers -->
+          <rect x="20" y="14" width="182" height="34" rx="6" fill="#162033" stroke="#38bdf8" stroke-width="1.5" />
+          <text x="111" y="35" text-anchor="middle" fill="#e5e7eb" font-family="ui-monospace, monospace" font-size="11" font-weight="bold">TvheadendInputService</text>
+
+          <rect x="242" y="14" width="186" height="34" rx="6" fill="#162033" stroke="#818cf8" stroke-width="1.5" />
+          <text x="335" y="35" text-anchor="middle" fill="#e5e7eb" font-family="ui-monospace, monospace" font-size="11" font-weight="bold">TvhSync / HtspClient</text>
+
+          <rect x="468" y="14" width="186" height="34" rx="6" fill="#162033" stroke="#10b981" stroke-width="1.5" />
+          <text x="561" y="35" text-anchor="middle" fill="#e5e7eb" font-family="ui-monospace, monospace" font-size="11" font-weight="bold">Tvheadend Server</text>
+
+          <rect x="694" y="14" width="188" height="34" rx="6" fill="#162033" stroke="#38bdf8" stroke-width="1.5" />
+          <text x="788" y="35" text-anchor="middle" fill="#e5e7eb" font-family="ui-monospace, monospace" font-size="11" font-weight="bold">Player / Epg / Dvr</text>
+
+          <rect x="922" y="14" width="178" height="34" rx="6" fill="#162033" stroke="#f59e0b" stroke-width="1.5" />
+          <text x="1011" y="35" text-anchor="middle" fill="#e5e7eb" font-family="ui-monospace, monospace" font-size="11" font-weight="bold">HtspConnectionState</text>
+
+          <!-- Vertical Lifelines -->
+          <line x1="111" y1="48" x2="111" y2="310" stroke="#243049" stroke-width="1.5" stroke-dasharray="4 4" />
+          <line x1="335" y1="48" x2="335" y2="310" stroke="#243049" stroke-width="1.5" stroke-dasharray="4 4" />
+          <line x1="561" y1="48" x2="561" y2="310" stroke="#243049" stroke-width="1.5" stroke-dasharray="4 4" />
+          <line x1="788" y1="48" x2="788" y2="310" stroke="#243049" stroke-width="1.5" stroke-dasharray="4 4" />
+          <line x1="1011" y1="48" x2="1011" y2="310" stroke="#243049" stroke-width="1.5" stroke-dasharray="4 4" />
+
+          <!-- Flow 1 -->
+          <line x1="111" y1="74" x2="335" y2="74" stroke="#38bdf8" stroke-width="1.6" marker-end="url(#arr-sky)" />
+          <text x="223" y="68" text-anchor="middle" fill="#93c5fd" font-family="ui-monospace, monospace" font-size="10">1. tune / sync request</text>
+
+          <!-- Flow 2 -->
+          <line x1="335" y1="104" x2="1011" y2="104" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#arr-amber)" />
+          <text x="673" y="98" text-anchor="middle" fill="#fcd34d" font-family="ui-monospace, monospace" font-size="10">2. state -> CONNECTING / ACTIVE</text>
+
+          <!-- Flow 3 -->
+          <line x1="335" y1="136" x2="561" y2="136" stroke="#10b981" stroke-width="1.6" marker-end="url(#arr-emerald)" />
+          <text x="448" y="130" text-anchor="middle" fill="#6ee7b7" font-family="ui-monospace, monospace" font-size="10">3. HTSP / stream exchange</text>
+
+          <!-- Flow 4 -->
+          <line x1="335" y1="168" x2="788" y2="168" stroke="#38bdf8" stroke-width="1.6" marker-end="url(#arr-sky)" />
+          <text x="561" y="162" text-anchor="middle" fill="#93c5fd" font-family="ui-monospace, monospace" font-size="10">4. feed DataSource/Extractor &amp; sync repos</text>
+
+          <!-- Flow 5 -->
+          <line x1="788" y1="200" x2="111" y2="200" stroke="#10b981" stroke-width="1.6" marker-end="url(#arr-emerald)" />
+          <text x="449" y="194" text-anchor="middle" fill="#6ee7b7" font-family="ui-monospace, monospace" font-size="10">5. ready / telemetry (ACTIVE)</text>
+
+          <!-- Flow 6a: Error -->
+          <line x1="561" y1="236" x2="335" y2="236" stroke="#ef4444" stroke-width="1.6" stroke-dasharray="4 2" marker-end="url(#arr-rose)" />
+          <text x="448" y="230" text-anchor="middle" fill="#fca5a5" font-family="ui-monospace, monospace" font-size="10">6a. socket/HTSP/stream failure</text>
+
+          <!-- Flow 6b: Retry -->
+          <line x1="335" y1="264" x2="1011" y2="264" stroke="#f59e0b" stroke-width="1.6" marker-end="url(#arr-amber)" />
+          <text x="673" y="258" text-anchor="middle" fill="#fcd34d" font-family="ui-monospace, monospace" font-size="10">6b. retry backoff (&lt;limit) | limit -> FAILED</text>
+
+          <!-- Flow 7: Release -->
+          <line x1="111" y1="294" x2="1011" y2="294" stroke="#38bdf8" stroke-width="1.5" marker-end="url(#arr-sky)" />
+          <text x="561" y="288" text-anchor="middle" fill="#93c5fd" font-family="ui-monospace, monospace" font-size="10">7. release / stop -> state CLOSED/IDLE</text>
+        </svg>
+      </div>
+    </section>
+
+    <!-- SECTION 3: DATA MODELS, CONTRACTS & EDGE CASES (FILTERABLE) -->
+    <section class="lld-section" id="sec-contracts">
+      <div class="section-header">
+        <h2>3. Data Models, Contracts &amp; Edge Cases</h2>
+        <span class="section-tag">FILTERABLE SPECIFICATION</span>
+      </div>
+      <p>
+        Filter by category to inspect data models, module contracts, error handling, and concurrency/lifecycle invariants grounded in the archive.
+      </p>
+
+      <div class="filter-toolbar" role="region" aria-label="Filter specification items">
+        <div class="filter-tabs" role="tablist" aria-label="Filter categories">
+          <button type="button" class="filter-tab" role="tab" aria-selected="true" data-filter="all">All</button>
+          <button type="button" class="filter-tab" role="tab" aria-selected="false" data-filter="schemas">Schemas</button>
+          <button type="button" class="filter-tab" role="tab" aria-selected="false" data-filter="contracts">Contracts</button>
+          <button type="button" class="filter-tab" role="tab" aria-selected="false" data-filter="errors">Error Handling</button>
+          <button type="button" class="filter-tab" role="tab" aria-selected="false" data-filter="concurrency">Concurrency &amp; Lifecycle</button>
+        </div>
+        <div class="filter-count" id="filter-count" aria-live="polite">Showing 8 of 8 items</div>
+      </div>
+
+      <article class="filter-card" data-category="schemas">
+        <div class="card-top">
+          <span class="card-title">DM-01: Channel, Capabilities &amp; Connection State Models</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Schemas</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-gap">GAP: FIELDS UNREAD</span>
+          </div>
+        </div>
+        <p>Verified model and connection-state files exist in the archive: <code>model/TvhChannel.kt</code>, <code>model/ChannelCapabilities.kt</code>, <code>model/TvhDvrModels.kt</code>, <code>model/TvhSettings.kt</code>, <code>model/TvhGeneralSettings.kt</code>, <code>model/TvhTifSettings.kt</code>, and <code>htsp/HtspConnectionState.kt</code>. Exact field names and types are a <span class="badge badge-gap">GAP</span> until file contents are read.</p>
+        <pre>{
+  "sourceFiles": [
+    "app/src/main/java/com/nmaclean/tvheadend/model/TvhChannel.kt",
+    "app/src/main/java/com/nmaclean/tvheadend/model/ChannelCapabilities.kt",
+    "app/src/main/java/com/nmaclean/tvheadend/htsp/HtspConnectionState.kt"
+  ],
+  "exactSchemaStatus": "UNVERIFIED_FILE_CONTENTS"
+}</pre>
+      </article>
+
+      <article class="filter-card" data-category="schemas">
+        <div class="card-top">
+          <span class="card-title">DM-02: Epic E2 Design &amp; Task Artifact Layout</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Schemas</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-gap">GAP: E2 MISSING IN ZIP</span>
+          </div>
+        </div>
+        <p>Verified <code>E1</code> artifacts reside under <code>.arch-studio/epics/E1/</code> (<code>lld.html</code>, <code>mockup-lld.html</code>, <code>TASKS.md</code>), alongside root <code>tasks.md</code> and <code>.arch-studio/epic-breakdown.html</code>. No <code>E2</code> entry is present in the 197-entry archive list.</p>
+        <pre>{
+  "epicTarget": "E2",
+  "deliverable": "lld.html",
+  "presentInArchiveIndex": false,
+  "existingEpicReference": ".arch-studio/epics/E1/"
+}</pre>
+      </article>
+
+      <article class="filter-card" data-category="contracts">
+        <div class="card-top">
+          <span class="card-title">CT-01: Boundary &amp; TIF Cross-Input Contracts</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Contracts</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-inferred">INFERRED BASELINE</span>
+          </div>
+        </div>
+        <ul class="clean-list">
+          <li><strong>Verified Audit Docs:</strong> The archive includes <code>docs/boundary-contract-audit.md</code>, <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, and <code>docs/SPLIT-APPS-FEASIBILITY.md</code>, plus <code>AndroidManifest.xml</code> and <code>res/xml/tv_input.xml</code>.</li>
+          <li><strong>Baseline Contract Rule:</strong> Module boundaries between TIF service/session, HTSP/sync repositories, and playback/AFR helpers must preserve explicit contracts and avoid leaking transport/player internals across layers (<span class="badge badge-inferred">INFERRED BASELINE</span>; exact clauses require reading <code>docs/boundary-contract-audit.md</code>).</li>
+        </ul>
+      </article>
+
+      <article class="filter-card" data-category="contracts">
+        <div class="card-top">
+          <span class="card-title">CT-02: HTSP Transport &amp; Media Extraction Contract</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Contracts</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-gap">GAP: SIGNATURES UNREAD</span>
+          </div>
+        </div>
+        <ul class="clean-list">
+          <li><strong>Verified Components:</strong> <code>HtspClient.kt</code>, <code>HtspConnectionPool.kt</code>, <code>Htsmsg.kt</code>, <code>ChannelRegistry.kt</code>, <code>HtspDataSource.kt</code>, <code>HtspDvrDataSource.kt</code>, <code>HtspExtractor.kt</code>, and <code>Mp2Decoder.kt</code>.</li>
+          <li><strong>Contract Gap:</strong> Exact method signatures, exceptions, and callback contracts are <span class="badge badge-gap">GAP / UNVERIFIED</span> pending source inspection.</li>
+        </ul>
+      </article>
+
+      <article class="filter-card" data-category="errors">
+        <div class="card-top">
+          <span class="card-title">ER-01: Connection State &amp; Retry Handling</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Error Handling</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-inferred">INFERRED BASELINE</span>
+          </div>
+        </div>
+        <ul class="clean-list">
+          <li><strong>Verified Test Target:</strong> <code>app/src/test/java/com/nmaclean/tvheadend/htsp/HtspConnectionStateTest.kt</code> exists alongside <code>HtspConnectionState.kt</code>.</li>
+          <li><strong>Baseline Error Rule:</strong> Transient connection/stream failures should transition through explicit connection/retry states and terminate cleanly after retry limits rather than hanging indefinitely (<span class="badge badge-inferred">INFERRED BASELINE</span>).</li>
+        </ul>
+      </article>
+
+      <article class="filter-card" data-category="errors">
+        <div class="card-top">
+          <span class="card-title">ER-02: Setup Validation &amp; Stream/Extractor Faults</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Error Handling</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-gap">GAP: POLICY DETAILS UNREAD</span>
+          </div>
+        </div>
+        <ul class="clean-list">
+          <li><strong>Verified Components &amp; Tests:</strong> <code>TvhSetupInputValidator.kt</code> / <code>TvhSetupInputValidatorTest.kt</code> and <code>HtspExtractorTest.kt</code> are present in the archive.</li>
+          <li><strong>Gap:</strong> Invalid input rules and malformed stream/extractor error behaviors must be confirmed directly from those files.</li>
+        </ul>
+      </article>
+
+      <article class="filter-card" data-category="concurrency">
+        <div class="card-top">
+          <span class="card-title">CC-01: Sync Scheduling &amp; Tune Telemetry</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Concurrency &amp; Lifecycle</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-inferred">INFERRED BASELINE</span>
+          </div>
+        </div>
+        <ul class="clean-list">
+          <li><strong>Verified Files:</strong> <code>TvhSyncManager.kt</code>, <code>TvhSyncWorker.kt</code>, <code>SyncService.kt</code>, <code>BackgroundSyncStrategy.kt</code>, <code>TuneTelemetryTracker.kt</code>, and tests <code>TvhSyncManagerTest.kt</code>, <code>TuneTelemetryTrackerTest.kt</code>, and <code>TvPlayerActivityChannelSyncTest.kt</code>.</li>
+          <li><strong>Baseline Rule:</strong> Background sync and tune operations must avoid blocking UI/main threads and coordinate channel sync updates safely (<span class="badge badge-inferred">INFERRED BASELINE</span>).</li>
+        </ul>
+      </article>
+
+      <article class="filter-card" data-category="concurrency">
+        <div class="card-top">
+          <span class="card-title">CC-02: Session, AFR &amp; Activity Lifecycle Teardown</span>
+          <div class="card-badges">
+            <span class="badge badge-category">Concurrency &amp; Lifecycle</span>
+            <span class="badge badge-verified">VERIFIED</span>
+            <span class="badge badge-gap">GAP: TEARDOWN DETAILS UNREAD</span>
+          </div>
+        </div>
+        <ul class="clean-list">
+          <li><strong>Verified Files:</strong> <code>TvheadendInputService.kt</code>, <code>TvPlayerActivity.kt</code>, <code>TifAfrSessionHelper.kt</code>, <code>DisplayFrameRateController.kt</code>, and <code>FrameRateMatcherTest.kt</code>.</li>
+          <li><strong>Gap:</strong> Exact release/teardown order across TIF sessions, connection pools, and AFR controllers is <span class="badge badge-gap">GAP / UNVERIFIED</span> until inspected.</li>
+        </ul>
+      </article>
+    </section>
+
+    <!-- SECTION 4: TESTABILITY & HANDOFF TO BUILD TASKS -->
+    <section class="lld-section" id="sec-handoff">
+      <div class="section-header">
+        <h2>4. Testability &amp; Handoff to Build Tasks</h2>
+        <span class="section-tag">TEST SEAMS &bull; GATE 08 TASKS.MD</span>
+      </div>
+      <p>
+        Grounded test seams from <code>app/src/test/java/com/nmaclean/tvheadend/</code> and concrete inputs required for Gate 08 (<code>TASKS.md</code>).
+      </p>
+
+      <h3>Existing Unit Test Seams in Repository</h3>
+      <ul class="clean-list">
+        <li><strong>HTSP &amp; Extraction Seams:</strong> <code>ChannelRegistryTest.kt</code>, <code>HtsmsgTest.kt</code>, <code>HtspConnectionStateTest.kt</code>, <code>HtspExtractorTest.kt</code>, and <code>Mp2DecoderTest.kt</code> indicate testable HTSP message, state, registry, and media extraction/decoding seams.</li>
+        <li><strong>Sync, UI &amp; Telemetry Seams:</strong> <code>TvhSyncManagerTest.kt</code>, <code>TifChannelObserverTest.kt</code>, <code>DvrRepositoryTest.kt</code>, <code>TvhUiRepositoryTest.kt</code>, <code>TvPlayerActivityChannelSyncTest.kt</code>, and <code>TuneTelemetryTrackerTest.kt</code> cover sync, repository, channel-sync, and telemetry behaviors.</li>
+        <li><strong>AFR &amp; Validation Seams:</strong> <code>FrameRateMatcherTest.kt</code> and <code>TvhSetupInputValidatorTest.kt</code> provide targeted unit test seams for frame-rate matching and setup validation.</li>
+      </ul>
+
+      <h3>Gate 08 (<code>TASKS.md</code>) Handoff Inputs</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 25%;">Handoff Input</th>
+              <th style="width: 47%;">Action for Gate 08 <code>TASKS.md</code></th>
+              <th style="width: 28%;">Grounding</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Confirm Epic <code>E2</code> Scope</strong></td>
+              <td>Inspect <code>.arch-studio/epic-breakdown.html</code>, <code>.arch-studio/hld.html</code>, <code>.arch-studio/brief.md</code>, and <code>.arch-studio/epics/E1/TASKS.md</code> to confirm how <code>E2</code> is defined and where <code>E2/lld.html</code> should live.</td>
+              <td><span class="badge badge-gap">GAP / UNVERIFIED</span><br />(<code>E2</code> not in zip index)</td>
+            </tr>
+            <tr>
+              <td><strong>Read Target Kotlin Sources</strong></td>
+              <td>Read the relevant files under <code>app/src/main/java/com/nmaclean/tvheadend/</code> and <code>docs/boundary-contract-audit.md</code> to replace inferred contracts with exact symbols and acceptance criteria.</td>
+              <td><span class="badge badge-verified">VERIFIED</span> (paths exist)<br /><span class="badge badge-gap">GAP</span> (contents unread)</td>
+            </tr>
+            <tr>
+              <td><strong>Sequence Build &amp; Test Tasks</strong></td>
+              <td>Order <code>TASKS.md</code> items using <code>app/build.gradle.kts</code> and existing <code>app/src/test/</code> suites with zero unrequested focus additions (<em>Extra Focus: None</em>).</td>
+              <td><span class="badge badge-verified">VERIFIED</span> (<code>app/build.gradle.kts</code>, <code>None</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const tabs = Array.from(document.querySelectorAll('.filter-tab[role="tab"]'));
+      const cards = Array.from(document.querySelectorAll('.filter-card'));
+      const countEl = document.getElementById('filter-count');
+      const total = cards.length;
+
+      function applyFilter(category) {
+        let visible = 0;
+
+        cards.forEach((card) => {
+          const matches = category === 'all' || card.getAttribute('data-category') === category;
+          card.hidden = !matches;
+          if (matches) {
+            visible += 1;
+          }
+        });
+
+        tabs.forEach((tab) => {
+          tab.setAttribute('aria-selected', String(tab.getAttribute('data-filter') === category));
+        });
+
+        if (countEl) {
+          countEl.textContent = `Showing ${visible} of ${total} items`;
+        }
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener('click', () => {
+          applyFilter(tab.getAttribute('data-filter') || 'all');
+        });
+      });
+
+      applyFilter('all');
+    })();
+  </script>
+</body>
+</html>

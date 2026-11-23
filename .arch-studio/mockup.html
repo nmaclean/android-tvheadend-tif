@@ -1,0 +1,1525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TVheadend TIF — Android TV &amp; LAN Curation Mockup</title>
+  <style>
+    :root {
+      --bg-app: #090d16;
+      --bg-panel: #101726;
+      --bg-card: #162033;
+      --bg-card-hover: #1d2a42;
+      --bg-input: #0c1220;
+      --border: #25334f;
+      --border-subtle: #1b263d;
+      --text-primary: #eaf1fc;
+      --text-secondary: #9fb0cc;
+      --text-muted: #6c7f9e;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --focus-ring: #60a5fa;
+      --ok: #10b981;
+      --ok-soft: rgba(16, 185, 129, 0.15);
+      --warn: #f59e0b;
+      --warn-soft: rgba(245, 158, 11, 0.15);
+      --err: #ef4444;
+      --err-soft: rgba(239, 68, 68, 0.16);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow: hidden;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    .nav-item:focus-visible,
+    .channel-card:focus-visible,
+    .dvr-row:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      grid-template-columns: 236px 1fr;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Top Bar */
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      color: var(--focus-ring);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .sim-state-group {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .sim-state-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 0 6px;
+    }
+
+    .state-btn {
+      border: 0;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .state-btn[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: var(--focus-ring);
+      border: 1px solid rgba(96, 165, 250, 0.4);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .pill-ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .pill-warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .pill-err {
+      color: var(--err);
+      background: var(--err-soft);
+      border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 11px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: #364970;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-danger {
+      background: var(--err-soft);
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #fca5a5;
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11.5px;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-y: auto;
+    }
+
+    .nav-group-label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 8px 10px 4px;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .nav-item {
+      width: 100%;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .nav-item[aria-current="page"] {
+      background: var(--accent-soft);
+      color: var(--focus-ring);
+      border-color: rgba(96, 165, 250, 0.35);
+      font-weight: 600;
+    }
+
+    .nav-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--bg-input);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Main Workspace */
+    .workspace {
+      overflow-y: auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .state-banner {
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12.5px;
+    }
+
+    .state-banner.loading {
+      background: var(--warn-soft);
+      border-color: rgba(245, 158, 11, 0.4);
+      color: #fde68a;
+    }
+
+    .state-banner.error {
+      background: var(--err-soft);
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #fecaca;
+    }
+
+    .state-banner.empty {
+      background: var(--bg-card);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .input-control, .select-control {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 12.5px;
+      color: var(--text-primary);
+    }
+
+    .input-control::placeholder {
+      color: var(--text-muted);
+    }
+
+    /* Live Channels Grid + Inspector Split */
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 12px;
+    }
+
+    .channel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .channel-card:hover {
+      background: var(--bg-card-hover);
+      border-color: #3a507a;
+    }
+
+    .channel-card.selected {
+      border-color: var(--focus-ring);
+      background: var(--bg-card-hover);
+      box-shadow: 0 0 0 1px var(--focus-ring);
+    }
+
+    .channel-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .ch-num {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      color: var(--focus-ring);
+      background: var(--accent-soft);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .ch-name {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .ch-program {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .progress-track {
+      height: 5px;
+      width: 100%;
+      background: var(--bg-input);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    .ch-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .kv-list {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 6px 10px;
+      font-size: 12px;
+    }
+
+    .kv-k {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .kv-v {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    /* Guide Timeline */
+    .guide-table-wrap {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow-x: auto;
+    }
+
+    .guide-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    .guide-table th,
+    .guide-table td {
+      border-bottom: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .guide-table th {
+      background: var(--bg-card);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    .slot-btn {
+      width: 100%;
+      text-align: left;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .slot-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--focus-ring);
+    }
+
+    .slot-title {
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+
+    .slot-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* Recordings List */
+    .dvr-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .dvr-row {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .dvr-main {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .dvr-title {
+      font-weight: 700;
+      font-size: 13.5px;
+    }
+
+    .dvr-meta {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    .dvr-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* IPTV & LAN Curation */
+    .curation-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .allow-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 9px 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field label {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Modal Backdrop & Dialog */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 15, 0.78);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .player-screen {
+      background: #05080f;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .osd-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-secondary);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--focus-ring);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12.5px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      z-index: 60;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: 56px auto 1fr;
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+      }
+      html, body {
+        overflow: auto;
+      }
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 8px 12px;
+      }
+      .nav-list {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+      .nav-item {
+        width: auto;
+        white-space: nowrap;
+      }
+      .sidebar-footer, .nav-group-label {
+        display: none;
+      }
+      .split-layout, .curation-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Header Bar -->
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TIF</div>
+        <div>
+          <div class="brand-title">TVheadend TIF Client</div>
+          <div class="brand-sub">nmaclean/android-tvheadend-tif · HTSP + IPTV</div>
+        </div>
+      </div>
+
+      <div class="topbar-controls">
+        <div class="sim-state-group" role="group" aria-label="Simulate UI State">
+          <span class="sim-state-label">STATE</span>
+          <button class="state-btn" data-sim-state="nominal" aria-pressed="true">Nominal</button>
+          <button class="state-btn" data-sim-state="loading" aria-pressed="false">Syncing</button>
+          <button class="state-btn" data-sim-state="error" aria-pressed="false">Offline/Err</button>
+          <button class="state-btn" data-sim-state="empty" aria-pressed="false">Empty</button>
+        </div>
+
+        <span class="pill pill-ok" id="htsp-pill">HTSP · Connected</span>
+        <button class="btn btn-sm" id="btn-trigger-sync">Sync Now</button>
+      </div>
+    </header>
+
+    <!-- Left Navigation Rail -->
+    <nav class="sidebar" aria-label="Primary Views">
+      <div>
+        <div class="nav-group-label">TV Input Framework</div>
+        <div class="nav-list">
+          <button class="nav-item" data-screen="live" aria-current="page">
+            <span>Live Channels</span>
+            <span class="nav-badge" id="badge-live">0</span>
+          </button>
+          <button class="nav-item" data-screen="guide">
+            <span>EPG Guide</span>
+            <span class="nav-badge">XMLTV/HTSP</span>
+          </button>
+          <button class="nav-item" data-screen="recordings">
+            <span>DVR Recordings</span>
+            <span class="nav-badge" id="badge-dvr">0</span>
+          </button>
+        </div>
+
+        <div class="nav-group-label">IPTV &amp; LAN Curation</div>
+        <div class="nav-list">
+          <button class="nav-item" data-screen="curation">
+            <span>IPTV &amp; LAN Server</span>
+            <span class="nav-badge" id="badge-iptv">0</span>
+          </button>
+          <button class="nav-item" data-screen="setup">
+            <span>Setup &amp; AFR</span>
+            <span class="nav-badge">TIF</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div>Input: Tvheadend + IPTV</div>
+        <div id="sidebar-lan-status">LAN Curation: Stopped</div>
+        <div id="sidebar-tune-ms">Last Tune: 184 ms</div>
+      </div>
+    </nav>
+
+    <!-- Active Workspace -->
+    <main class="workspace" id="workspace">
+      <div id="state-banner" class="state-banner loading" style="display:none;"></div>
+      <div id="screen-container"></div>
+    </main>
+  </div>
+
+  <!-- Player / Detail Modal -->
+  <div class="modal-backdrop" id="player-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="panel-title">
+        <span id="modal-title">Stream Playback</span>
+        <button class="btn btn-sm" id="btn-close-modal">Close</button>
+      </div>
+      <div class="player-screen">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <div>
+            <div id="modal-stream-name" style="font-size:16px; font-weight:700;"></div>
+            <div id="modal-stream-sub" style="font-size:12px; color:var(--text-secondary);"></div>
+          </div>
+          <span class="pill pill-ok" id="modal-afr-pill">AFR · 50.00 Hz</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="modal-progress" style="width:42%;"></div>
+        </div>
+        <div class="osd-bar">
+          <span id="modal-codec-info">Video: H.264 · Audio: MP2</span>
+          <span id="modal-telemetry-info">TuneTelemetry: 184 ms</span>
+        </div>
+      </div>
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-sm" id="btn-cycle-audio">Switch Audio Track</button>
+          <button class="btn btn-sm" id="btn-cycle-afr">Match Display Hz</button>
+        </div>
+        <button class="btn btn-primary btn-sm" id="btn-done-modal">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Feedback -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      const state = {
+        screen: "live",
+        simState: "nominal",
+        searchQuery: "",
+        sourceFilter: "ALL",
+        selectedChannelId: "ch-101",
+        lanServerRunning: false,
+        lanPort: 8089,
+        tuneMs: 184,
+        audioTrackIdx: 0,
+        afrMode: "AUTO_MATCH",
+        channels: [
+          {
+            id: "ch-101",
+            number: "101",
+            name: "BBC One HD",
+            source: "HTSP",
+            group: "Terrestrial",
+            program: "Regional News & Weather",
+            timeWindow: "21:00 – 21:30",
+            progress: 78,
+            codec: "H.264 1080i · MP2 256k",
+            fps: "50.00 Hz",
+            tifBound: true
+          },
+          {
+            id: "ch-102",
+            number: "102",
+            name: "BBC Two HD",
+            source: "HTSP",
+            group: "Terrestrial",
+            program: "Horizon: Deep Ocean Mapping",
+            timeWindow: "21:00 – 22:00",
+            progress: 46,
+            codec: "H.264 1080p · AAC",
+            fps: "50.00 Hz",
+            tifBound: true
+          },
+          {
+            id: "ch-204",
+            number: "204",
+            name: "Science & Space IP",
+            source: "IPTV",
+            group: "M3U Local",
+            program: "Orbital Telemetry Live Feed",
+            timeWindow: "20:30 – 22:00",
+            progress: 64,
+            codec: "H.264 720p · AAC",
+            fps: "30.00 Hz",
+            tifBound: true
+          },
+          {
+            id: "ch-309",
+            number: "309",
+            name: "Classic Cinema",
+            source: "IPTV",
+            group: "M3U Local",
+            program: "Midnight Noir Double Bill",
+            timeWindow: "21:00 – 23:15",
+            progress: 28,
+            codec: "MPEG-2 · MP2 192k",
+            fps: "25.00 Hz",
+            tifBound: false
+          }
+        ],
+        recordings: [
+          {
+            id: "dvr-1",
+            title: "Autumnwatch — Highland Estuary",
+            channel: "BBC Two HD",
+            window: "Yesterday · 20:00 (60m)",
+            size: "2.4 GB",
+            status: "COMPLETED"
+          },
+          {
+            id: "dvr-2",
+            title: "Late Night Architecture",
+            channel: "BBC One HD",
+            window: "Tonight · 22:45 (45m)",
+            size: "Scheduled",
+            status: "SCHEDULED"
+          },
+          {
+            id: "dvr-3",
+            title: "Linux Kernel Maintainers Summit",
+            channel: "Science & Space IP",
+            window: "Thu · 18:00 (90m)",
+            size: "1.8 GB",
+            status: "COMPLETED"
+          }
+        ],
+        allowlist: [
+          { id: "al-1", name: "Science & Space IP", url: "http://192.168.1.45:8000/stream/sci.m3u8", allowed: true },
+          { id: "al-2", name: "Classic Cinema", url: "http://192.168.1.45:8000/stream/cinema.ts", allowed: true },
+          { id: "al-3", name: "Raw Test Feed #7", url: "http://192.168.1.45:8000/stream/test7.ts", allowed: false }
+        ],
+        settings: {
+          host: "192.168.1.20",
+          htspPort: "9982",
+          username: "tvheadend",
+          m3uUrl: "http://192.168.1.45/playlist/curated.m3u",
+          xmltvUrl: "http://192.168.1.45/epg/guide.xml"
+        }
+      };
+
+      const audioTracks = ["MP2 Stereo (eng)", "AC-3 5.1 (eng)", "AAC 2.0 (nar)"];
+      const afrModes = ["AUTO_MATCH", "OFF", "SEAMLESS_ONLY"];
+
+      const screenContainer = document.getElementById("screen-container");
+      const stateBanner = document.getElementById("state-banner");
+      const toastEl = document.getElementById("toast");
+      const modalEl = document.getElementById("player-modal");
+
+      let toastTimer = null;
+      function showToast(msg) {
+        toastEl.textContent = msg;
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
+      }
+
+      function updateChromeCounts() {
+        document.getElementById("badge-live").textContent = String(state.channels.length);
+        document.getElementById("badge-dvr").textContent = String(state.recordings.length);
+        document.getElementById("badge-iptv").textContent = String(state.allowlist.filter(x => x.allowed).length);
+        document.getElementById("sidebar-lan-status").textContent =
+          state.lanServerRunning ? `LAN Curation: :${state.lanPort} (Active)` : "LAN Curation: Stopped";
+        document.getElementById("sidebar-tune-ms").textContent = `Last Tune: ${state.tuneMs} ms`;
+
+        const pill = document.getElementById("htsp-pill");
+        pill.className = "pill";
+        if (state.simState === "loading") {
+          pill.classList.add("pill-warn");
+          pill.textContent = "Syncing · HTSP/EPG";
+        } else if (state.simState === "error") {
+          pill.classList.add("pill-err");
+          pill.textContent = "HTSP · Disconnected";
+        } else {
+          pill.classList.add("pill-ok");
+          pill.textContent = "HTSP · Connected";
+        }
+      }
+
+      function renderStateBanner() {
+        stateBanner.style.display = "none";
+        stateBanner.className = "state-banner";
+        if (state.simState === "loading") {
+          stateBanner.style.display = "flex";
+          stateBanner.classList.add("loading");
+          stateBanner.innerHTML = `
+            <span>Background sync active (<code>TvhSyncWorker</code> &amp; <code>IptvEpgSyncer</code>) — refreshing channels &amp; XMLTV slots...</span>
+            <button class="btn btn-sm" id="banner-reset-nominal">Complete Sync</button>
+          `;
+          document.getElementById("banner-reset-nominal").onclick = () => setSimState("nominal");
+        } else if (state.simState === "error") {
+          stateBanner.style.display = "flex";
+          stateBanner.classList.add("error");
+          stateBanner.innerHTML = `
+            <span>HTSP connection pool degraded (<code>HtspConnectionState.RETRYING</code>) — verify server reachability or retry.</span>
+            <button class="btn btn-sm" id="banner-retry">Reconnect</button>
+          `;
+          document.getElementById("banner-retry").onclick = () => {
+            state.tuneMs = 196;
+            setSimState("nominal");
+            showToast("Reconnected to Tvheadend HTSP pool");
+          };
+        } else if (state.simState === "empty") {
+          stateBanner.style.display = "flex";
+          stateBanner.classList.add("empty");
+          stateBanner.innerHTML = `
+            <span>Empty state preview active — no channels or records shown while in Empty mode.</span>
+            <button class="btn btn-sm" id="banner-restore">Restore Sample Data</button>
+          `;
+          document.getElementById("banner-restore").onclick = () => setSimState("nominal");
+        }
+      }
+
+      function filteredChannels() {
+        if (state.simState === "empty") return [];
+        return state.channels.filter(ch => {
+          const matchesSource = state.sourceFilter === "ALL" || ch.source === state.sourceFilter;
+          const q = state.searchQuery.trim().toLowerCase();
+          const matchesQuery = !q ||
+            ch.name.toLowerCase().includes(q) ||
+            ch.number.toLowerCase().includes(q) ||
+            ch.program.toLowerCase().includes(q);
+          return matchesSource && matchesQuery;
+        });
+      }
+
+      function renderLiveScreen() {
+        const list = filteredChannels();
+        const selected = state.channels.find(c => c.id === state.selectedChannelId) || list[0] || null;
+
+        screenContainer.innerHTML = `
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <input
+                class="input-control"
+                id="ch-search"
+                type="search"
+                placeholder="Filter channel # or show..."
+                value="${state.searchQuery}"
+              />
+              <select class="select-control" id="ch-source-filter" aria-label="Filter by input source">
+                <option value="ALL" ${state.sourceFilter === "ALL" ? "selected" : ""}>All Inputs (HTSP + IPTV)</option>
+                <option value="HTSP" ${state.sourceFilter === "HTSP" ? "selected" : ""}>Tvheadend HTSP</option>
+                <option value="IPTV" ${state.sourceFilter === "IPTV" ? "selected" : ""}>IPTV M3U</option>
+              </select>
+            </div>
+            <div class="toolbar-left">
+              <span class="pill">Showing ${list.length} channels</span>
+            </div>
+          </div>
+
+          <div class="split-layout">
+            <div class="channel-grid" id="channel-grid">
+              ${list.length === 0 ? `
+                <div class="panel" style="grid-column: 1 / -1;">
+                  <div class="panel-title">No Channels Match</div>
+                  <div style="color:var(--text-secondary); font-size:12.5px;">
+                    Adjust your search filter or switch to LAN Curation to import/allowlist streams.
+                  </div>
+                </div>
+              ` : list.map(ch => `
+                <div
+                  class="channel-card ${selected && selected.id === ch.id ? "selected" : ""}"
+                  data-ch-id="${ch.id}"
+                  tabindex="0"
+                  role="button"
+                  aria-label="Channel ${ch.number} ${ch.name}"
+                >
+                  <div class="channel-card-top">
+                    <span class="ch-num">${ch.number}</span>
+                    <span class="pill">${ch.source}</span>
+                  </div>
+                  <div class="ch-name">${ch.name}</div>
+                  <div class="ch-program">${ch.program}</div>
+                  <div class="progress-track"><div class="progress-fill" style="width:${ch.progress}%;"></div></div>
+                  <div class="ch-meta">
+                    <span>${ch.timeWindow}</span>
+                    <span>${ch.fps}</span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+
+            <aside class="panel" aria-label="Channel Inspector">
+              <div class="panel-title">
+                <span>Channel Inspector</span>
+                ${selected ? `<span class="pill ${selected.tifBound ? "pill-ok" : "pill-warn"}">${selected.tifBound ? "TIF Synced" : "Unpublished"}</span>` : ""}
+              </div>
+              ${selected ? `
+                <div>
+                  <div style="font-size:16px; font-weight:700;">${selected.number} · ${selected.name}</div>
+                  <div style="font-size:12.5px; color:var(--text-secondary); margin-top:2px;">${selected.program}</div>
+                </div>
+                <div class="kv-list">
+                  <span class="kv-k">Input</span><span class="kv-v">${selected.source} (${selected.group})</span>
+                  <span class="kv-k">Stream</span><span class="kv-v">${selected.codec}</span>
+                  <span class="kv-k">Refresh</span><span class="kv-v">${selected.fps}</span>
+                  <span class="kv-k">Tune Time</span><span class="kv-v">${state.tuneMs} ms</span>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn btn-primary btn-sm" id="btn-tune-selected">Tune Stream</button>
+                  <button class="btn btn-sm" id="btn-toggle-tif">${selected.tifBound ? "Hide from TIF" : "Publish to TIF"}</button>
+                </div>
+              ` : `
+                <div style="color:var(--text-muted); font-size:12.5px;">Select a channel card to inspect stream &amp; TIF state.</div>
+              `}
+            </aside>
+          </div>
+        `;
+
+        const searchInput = document.getElementById("ch-search");
+        if (searchInput) {
+          searchInput.addEventListener("input", (e) => {
+            state.searchQuery = e.target.value;
+            renderWorkspace();
+          });
+        }
+
+        const sourceSelect = document.getElementById("ch-source-filter");
+        if (sourceSelect) {
+          sourceSelect.addEventListener("change", (e) => {
+            state.sourceFilter = e.target.value;
+            renderWorkspace();
+          });
+        }
+
+        document.querySelectorAll(".channel-card").forEach(card => {
+          const selectCard = () => {
+            state.selectedChannelId = card.getAttribute("data-ch-id");
+            renderWorkspace();
+          };
+          card.addEventListener("click", selectCard);
+          card.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              selectCard();
+            }
+          });
+        });
+
+        const tuneBtn = document.getElementById("btn-tune-selected");
+        if (tuneBtn && selected) {
+          tuneBtn.addEventListener("click", () => openPlayerModal(selected.name, `${selected.source} · ${selected.program}`, selected.codec, selected.fps));
+        }
+
+        const tifBtn = document.getElementById("btn-toggle-tif");
+        if (tifBtn && selected) {
+          tifBtn.addEventListener("click", () => {
+            selected.tifBound = !selected.tifBound;
+            renderWorkspace();
+            showToast(`${selected.name}: ${selected.tifBound ? "Published to TIF" : "Removed from TIF"}`);
+          });
+        }
+      }
+
+      function renderGuideScreen() {
+        const rows = state.simState === "empty" ? [] : state.channels;
+        screenContainer.innerHTML = `
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <span class="pill">Timeline: 21:00 – 23:00</span>
+              <span class="pill">AFR Mode: ${state.afrMode}</span>
+            </div>
+            <button class="btn btn-sm" id="btn-refresh-epg">Refresh EPG Feed</button>
+          </div>
+
+          <div class="guide-table-wrap">
+            <table class="guide-table">
+              <thead>
+                <tr>
+                  <th style="width:170px;">Channel</th>
+                  <th>21:00 – 22:00</th>
+                  <th>22:00 – 23:00</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.length === 0 ? `
+                  <tr><td colspan="3" style="color:var(--text-muted);">No EPG entries available in current state.</td></tr>
+                ` : rows.map(ch => `
+                  <tr>
+                    <td>
+                      <div style="font-weight:700;">${ch.number} ${ch.name}</div>
+                      <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted);">${ch.source}</div>
+                    </td>
+                    <td>
+                      <button class="slot-btn" data-slot="${ch.name}|${ch.program}|${ch.codec}|${ch.fps}">
+                        <span class="slot-title">${ch.program}</span>
+                        <span class="slot-sub">${ch.timeWindow} · Click to tune</span>
+                      </button>
+                    </td>
+                    <td>
+                      <button class="slot-btn" data-slot="${ch.name}|Late Night Digest (${ch.name})|${ch.codec}|${ch.fps}">
+                        <span class="slot-title">Late Night Digest</span>
+                        <span class="slot-sub">22:00 – 23:00 · Click to schedule/tune</span>
+                      </button>
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `;
+
+        document.querySelectorAll(".slot-btn").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const [chName, prog, codec, fps] = btn.getAttribute("data-slot").split("|");
+            openPlayerModal(`${chName} — ${prog}`, "EPG Guide Tune", codec, fps);
+          });
+        });
+
+        const refBtn = document.getElementById("btn-refresh-epg");
+        if (refBtn) {
+          refBtn.addEventListener("click", () => {
+            setSimState("loading");
+            showToast("Triggered EPG sync worker");
+          });
+        }
+      }
+
+      function renderRecordingsScreen() {
+        const recs = state.simState === "empty" ? [] : state.recordings;
+        screenContainer.innerHTML = `
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <span class="pill">DVR Engine: HTSP DVR</span>
+              <span class="pill">${recs.length} Entries</span>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-add-rec">+ Quick Timer</button>
+          </div>
+
+          <div class="dvr-list">
+            ${recs.length === 0 ? `
+              <div class="panel">
+                <div class="panel-title">No Recordings</div>
+                <div style="color:var(--text-secondary); font-size:12.5px;">Add a quick timer or restore sample data.</div>
+              </div>
+            ` : recs.map(r => `
+              <div class="dvr-row">
+                <div class="dvr-main">
+                  <div class="dvr-title">${r.title}</div>
+                  <div class="dvr-meta">${r.channel} · ${r.window} · ${r.size}</div>
+                </div>
+                <div class="dvr-actions">
+                  <span class="pill ${r.status === "COMPLETED" ? "pill-ok" : "pill-warn"}">${r.status}</span>
+                  ${r.status === "COMPLETED" ? `<button class="btn btn-sm btn-primary" data-play-dvr="${r.id}">Play DVR</button>` : ""}
+                  <button class="btn btn-sm btn-danger" data-del-dvr="${r.id}">Remove</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+
+        const addBtn = document.getElementById("btn-add-rec");
+        if (addBtn) {
+          addBtn.addEventListener("click", () => {
+            state.recordings.unshift({
+              id: `dvr-${Date.now()}`,
+              title: "Nightly System & Media Log",
+              channel: "BBC Two HD",
+              window: "Tomorrow · 21:00 (30m)",
+              size: "Scheduled",
+              status: "SCHEDULED"
+            });
+            updateChromeCounts();
+            renderWorkspace();
+            showToast("Scheduled new DVR recording");
+          });
+        }
+
+        document.querySelectorAll("[data-play-dvr]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const rec = state.recordings.find(x => x.id === btn.getAttribute("data-play-dvr"));
+            if (rec) openPlayerModal(rec.title, `DVR Playback · ${rec.channel}`, "MPEG-TS · MP2", "50.00 Hz");
+          });
+        });
+
+        document.querySelectorAll("[data-del-dvr]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const id = btn.getAttribute("data-del-dvr");
+            state.recordings = state.recordings.filter(x => x.id !== id);
+            updateChromeCounts();
+            renderWorkspace();
+            showToast("Removed recording entry");
+          });
+        });
+      }
+
+      function renderCurationScreen() {
+        const items = state.simState === "empty" ? [] : state.allowlist;
+        screenContainer.innerHTML = `
+          <div class="curation-grid">
+            <div class="panel">
+              <div class="panel-title">
+                <span>IPTV Stream Allowlist</span>
+                <span class="pill">${items.filter(i => i.allowed).length} / ${items.length} Allowed</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${items.length === 0 ? `
+                  <div style="color:var(--text-muted); font-size:12.5px;">Allowlist is empty in current state.</div>
+                ` : items.map(item => `
+                  <div class="allow-row">
+                    <div style="min-width:0;">
+                      <div style="font-weight:600; font-size:13px;">${item.name}</div>
+                      <div style="font-family:var(--font-mono); font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis;">${item.url}</div>
+                    </div>
+                    <button class="btn btn-sm ${item.allowed ? "btn-primary" : ""}" data-toggle-allow="${item.id}">
+                      ${item.allowed ? "Allowed" : "Blocked"}
+                    </button>
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-title">
+                <span>LAN Curation HTTP Server</span>
+                <span class="pill ${state.lanServerRunning ? "pill-ok" : ""}">${state.lanServerRunning ? "RUNNING" : "STOPPED"}</span>
+              </div>
+              <div style="font-size:12.5px; color:var(--text-secondary);">
+                Serves browser curation UI on the local network so playlists and allowlists can be managed away from the TV remote.
+              </div>
+              <div class="field">
+                <label for="lan-port-input">Listen Port</label>
+                <input class="input-control" id="lan-port-input" type="number" value="${state.lanPort}" />
+              </div>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="btn btn-primary btn-sm" id="btn-toggle-lan">
+                  ${state.lanServerRunning ? "Stop LAN Server" : "Start LAN Server"}
+                </button>
+                <button class="btn btn-sm" id="btn-sync-allowlist">Sync TIF Allowlist</button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.querySelectorAll("[data-toggle-allow]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const item = state.allowlist.find(x => x.id === btn.getAttribute("data-toggle-allow"));
+            if (item) {
+              item.allowed = !item.allowed;
+              updateChromeCounts();
+              renderWorkspace();
+              showToast(`${item.name}: ${item.allowed ? "Added to allowlist" : "Excluded from TIF"}`);
+            }
+          });
+        });
+
+        const toggleLanBtn = document.getElementById("btn-toggle-lan");
+        if (toggleLanBtn) {
+          toggleLanBtn.addEventListener("click", () => {
+            const portVal = Number(document.getElementById("lan-port-input").value) || 8089;
+            state.lanPort = portVal;
+            state.lanServerRunning = !state.lanServerRunning;
+            updateChromeCounts();
+            renderWorkspace();
+            showToast(state.lanServerRunning ? `LAN Curation listening on :${state.lanPort}` : "LAN Curation stopped");
+          });
+        }
+
+        const syncAllowBtn = document.getElementById("btn-sync-allowlist");
+        if (syncAllowBtn) {
+          syncAllowBtn.addEventListener("click", () => {
+            showToast("Synced IPTV allowlist to TIF channel database");
+          });
+        }
+      }
+
+      function renderSetupScreen() {
+        screenContainer.innerHTML = `
+          <div class="panel">
+            <div class="panel-title">
+              <span>Tvheadend HTSP, IPTV Feeds &amp; AFR Frame-Rate Settings</span>
+              <span class="pill">AFR: ${state.afrMode}</span>
+            </div>
+
+            <form id="setup-form" class="form-grid">
+              <div class="field">
+                <label for="cfg-host">Tvheadend Host</label>
+                <input class="input-control" id="cfg-host" value="${state.settings.host}" />
+              </div>
+              <div class="field">
+                <label for="cfg-port">HTSP Port</label>
+                <input class="input-control" id="cfg-port" value="${state.settings.htspPort}" />
+              </div>
+              <div class="field">
+                <label for="cfg-user">HTSP Username</label>
+                <input class="input-control" id="cfg-user" value="${state.settings.username}" />
+              </div>
+              <div class="field">
+                <label for="cfg-afr">Display AFR Mode</label>
+                <select class="select-control" id="cfg-afr">
+                  ${afrModes.map(m => `<option value="${m}" ${state.afrMode === m ? "selected" : ""}>${m}</option>`).join("")}
+                </select>
+              </div>
+              <div class="field">
+                <label for="cfg-m3u">M3U Playlist URL</label>
+                <input class="input-control" id="cfg-m3u" value="${state.settings.m3uUrl}" />
+              </div>
+              <div class="field">
+                <label for="cfg-xmltv">XMLTV EPG URL</label>
+                <input class="input-control" id="cfg-xmltv" value="${state.settings.xmltvUrl}" />
+              </div>
+            </form>
+
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:4px;">
+              <button class="btn btn-primary btn-sm" id="btn-save-setup">Save &amp; Validate</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btn-save-setup").addEventListener("click", () => {
+          state.settings.host = document.getElementById("cfg-host").value.trim() || state.settings.host;
+          state.settings.htspPort = document.getElementById("cfg-port").value.trim() || state.settings.htspPort;
+          state.settings.username = document.getElementById("cfg-user").value.trim() || state.settings.username;
+          state.settings.m3uUrl = document.getElementById("cfg-m3u").value.trim() || state.settings.m3uUrl;
+          state.settings.xmltvUrl = document.getElementById("cfg-xmltv").value.trim() || state.settings.xmltvUrl;
+          state.afrMode = document.getElementById("cfg-afr").value;
+          renderWorkspace();
+          showToast(`Saved settings for ${state.settings.host}:${state.settings.htspPort}`);
+        });
+      }
+
+      function renderWorkspace() {
+        renderStateBanner();
+        if (state.screen === "live") renderLiveScreen();
+        else if (state.screen === "guide") renderGuideScreen();
+        else if (state.screen === "recordings") renderRecordingsScreen();
+        else if (state.screen === "curation") renderCurationScreen();
+        else if (state.screen === "setup") renderSetupScreen();
+      }
+
+      function setScreen(nextScreen) {
+        state.screen = nextScreen;
+        document.querySelectorAll(".nav-item").forEach(item => {
+          item.setAttribute("aria-current", item.getAttribute("data-screen") === nextScreen ? "page" : "false");
+        });
+        renderWorkspace();
+      }
+
+      function setSimState(nextState) {
+        state.simState = nextState;
+        document.querySelectorAll(".state-btn").forEach(btn => {
+          btn.setAttribute("aria-pressed", btn.getAttribute("data-sim-state") === nextState ? "true" : "false");
+        });
+        updateChromeCounts();
+        renderWorkspace();
+      }
+
+      function openPlayerModal(title, sub, codec, fps) {
+        state.tuneMs = 152 + Math.floor(Math.random() * 65);
+        document.getElementById("modal-stream-name").textContent = title;
+        document.getElementById("modal-stream-sub").textContent = sub;
+        document.getElementById("modal-codec-info").textContent = `${codec} · Audio: ${audioTracks[state.audioTrackIdx]}`;
+        document.getElementById("modal-telemetry-info").textContent = `TuneTelemetry: ${state.tuneMs} ms`;
+        document.getElementById("modal-afr-pill").textContent = `AFR · ${fps} (${state.afrMode})`;
+        updateChromeCounts();
+        modalEl.classList.add("open");
+      }
+
+      function closePlayerModal() {
+        modalEl.classList.remove("open");
+      }
+
+      document.querySelectorAll(".nav-item").forEach(item => {
+        item.addEventListener("click", () => setScreen(item.getAttribute("data-screen")));
+      });
+
+      document.querySelectorAll(".state-btn").forEach(btn => {
+        btn.addEventListener("click", () => setSimState(btn.getAttribute("data-sim-state")));
+      });
+
+      document.getElementById("btn-trigger-sync").addEventListener("click", () => {
+        setSimState("loading");
+        showToast("Started Tvheadend & IPTV sync");
+      });
+
+      document.getElementById("btn-close-modal").addEventListener("click", closePlayerModal);
+      document.getElementById("btn-done-modal").addEventListener("click", closePlayerModal);
+      modalEl.addEventListener("click", (e) => {
+        if (e.target === modalEl) closePlayerModal();
+      });
+
+      document.getElementById("btn-cycle-audio").addEventListener("click", () => {
+        state.audioTrackIdx = (state.audioTrackIdx + 1) % audioTracks.length;
+        const current = document.getElementById("modal-codec-info").textContent.split(" · Audio:")[0];
+        document.getElementById("modal-codec-info").textContent = `${current} · Audio: ${audioTracks[state.audioTrackIdx]}`;
+        showToast(`Audio track: ${audioTracks[state.audioTrackIdx]}`);
+      });
+
+      document.getElementById("btn-cycle-afr").addEventListener("click", () => {
+        const idx = afrModes.indexOf(state.afrMode);
+        state.afrMode = afrModes[(idx + 1) % afrModes.length];
+        const fpsPart = document.getElementById("modal-afr-pill").textContent.split(" (")[0];
+        document.getElementById("modal-afr-pill").textContent = `${fpsPart} (${state.afrMode})`;
+        showToast(`AFR mode set to ${state.afrMode}`);
+      });
+
+      updateChromeCounts();
+      renderWorkspace();
+    })();
+  </script>
+</body>
+</html>

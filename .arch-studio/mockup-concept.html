@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate 03 — Concept UI Mockup | android-tvheadend-tif</title>
+  <style>
+    :root {
+      --bg: #05070d;
+      --surface: #0b101b;
+      --surface-2: #121a2b;
+      --surface-3: #19243b;
+      --border: #24324f;
+      --border-focus: #38bdf8;
+      --text: #f3f6fc;
+      --muted: #8b9bb8;
+      --cyan: #38bdf8;
+      --cyan-glow: rgba(56, 189, 248, 0.25);
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.14);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245, 158, 11, 0.14);
+      --red: #f87171;
+      --red-bg: rgba(248, 113, 113, 0.14);
+      --purple: #a78bfa;
+      --purple-bg: rgba(167, 139, 250, 0.14);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Architecture Control Bar */
+    .studio-bar {
+      background: #080c15;
+      border-bottom: 1px solid var(--border);
+      padding: 12px 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      z-index: 50;
+    }
+
+    .studio-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .gate-badge {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+
+    .repo-title {
+      font-family: var(--font-mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .repo-sub {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Surface Switcher Tabs */
+    .surface-tabs {
+      display: flex;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .surface-tab {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.18s ease;
+    }
+
+    .surface-tab:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .surface-tab.active {
+      background: var(--surface-3);
+      color: var(--cyan);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.45);
+    }
+
+    .tab-tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.35);
+      color: var(--muted);
+    }
+
+    .surface-tab.active .tab-tag {
+      color: var(--cyan);
+      background: rgba(56, 189, 248, 0.12);
+    }
+
+    /* Main Workspace Layout */
+    .workspace {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 20px;
+      padding: 20px 24px;
+      max-width: 1600px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    @media (max-width: 1180px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* 16:9 Android TV 10-Foot Viewport Bezel */
+    .tv-stage {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .tv-status-strip {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-size: 12px;
+    }
+
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-pill.ok {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .status-pill.warn {
+      background: var(--amber-bg);
+      color: var(--amber);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .status-pill.err {
+      background: var(--red-bg);
+      color: var(--red);
+      border: 1px solid rgba(248, 113, 113, 0.35);
+    }
+
+    .status-pill.info {
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    .tv-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      min-height: 540px;
+      background: radial-gradient(circle at 75% 20%, #101b33 0%, #060911 65%, #03050a 100%);
+      border: 2px solid #283757;
+      border-radius: 18px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Screen Views */
+    .tv-view {
+      display: none;
+      width: 100%;
+      height: 100%;
+      flex-direction: column;
+    }
+
+    .tv-view.active {
+      display: flex;
+    }
+
+    /* D-Pad Focusable Element Styling (10-Foot UI Standard) */
+    .focusable {
+      outline: none;
+      transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s ease, border-color 0.16s ease, background-color 0.16s ease;
+      cursor: pointer;
+    }
+
+    .focusable.is-focused,
+    .focusable:focus {
+      transform: scale(1.02);
+      border-color: var(--cyan) !important;
+      box-shadow: 0 0 0 3px var(--cyan-glow), 0 10px 24px rgba(0, 0, 0, 0.55) !important;
+      z-index: 5;
+    }
+
+    /* =====================================================================
+       VIEW 1: SYSTEM LIVE TV / TIF EPG GUIDE & CHANNEL PLAYER
+       ===================================================================== */
+    .live-video-backdrop {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 32px;
+      background:
+        radial-gradient(ellipse at 65% 35%, rgba(56, 189, 248, 0.16) 0%, transparent 55%),
+        linear-gradient(180deg, rgba(5, 7, 13, 0.75) 0%, rgba(5, 7, 13, 0.25) 45%, rgba(5, 7, 13, 0.94) 100%);
+    }
+
+    /* Simulated Broadcast Signal Layer */
+    .broadcast-canvas {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .scanlines {
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.015) 0px,
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+    }
+
+    .signal-watermark {
+      position: absolute;
+      top: 28px;
+      right: 36px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(8, 12, 22, 0.72);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+    }
+
+    .channel-bug {
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      color: var(--text);
+      padding: 2px 8px;
+      background: rgba(56, 189, 248, 0.2);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 4px;
+    }
+
+    /* Tuning / Buffering / Weak Signal Banner */
+    .tif-state-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(10, 15, 26, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 28px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+      z-index: 20;
+      min-width: 340px;
+    }
+
+    .tif-state-overlay.visible {
+      display: flex;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(56, 189, 248, 0.2);
+      border-top-color: var(--cyan);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Top Program Info Banner (Now Playing OSD) */
+    .osd-top {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      max-width: 68%;
+    }
+
+    .now-playing-card {
+      background: rgba(11, 16, 27, 0.84);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      border-radius: 14px;
+      padding: 16px 20px;
+      width: 100%;
+    }
+
+    .np-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .np-ch-num {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--cyan);
+    }
+
+    .np-ch-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .np-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+    }
+
+    .np-title {
+      font-size: 21px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .np-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--cyan), #60a5fa);
+      border-radius: 999px;
+      transition: width 0.3s ease;
+    }
+
+    /* Quick Track & Action Bar */
+    .osd-actions {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .tv-chip-btn {
+      background: rgba(18, 26, 43, 0.9);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 7px 13px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* System TIF EPG Grid Drawer (Bottom Half) */
+    .epg-drawer {
+      position: relative;
+      z-index: 4;
+      background: rgba(9, 13, 23, 0.95);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid var(--border);
+      padding: 14px 24px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .epg-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .epg-timeline-labels {
+      display: grid;
+      grid-template-columns: 210px 1fr 1fr 1fr;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .epg-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .epg-row {
+      display: grid;
+      grid-template-columns: 210px 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .epg-channel-cell {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .epg-channel-cell.active-ch {
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .epg-ch-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .epg-num {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--cyan);
+      min-width: 34px;
+    }
+
+    .epg-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .epg-programs-track {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .epg-prog-cell {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 11px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .epg-prog-cell.on-air {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(18, 26, 43, 0.95));
+      border-color: rgba(56, 189, 248, 0.42);
+    }
+
+    .epg-prog-title {
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .epg-prog-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    /* =====================================================================
+       VIEW 2: LEANBACK SETUP WIZARD (GuidedStepFragment)
+       ===================================================================== */
+    .leanback-split {
+      display: grid;
+      grid-template-columns: 36% 64%;
+      height: 100%;
+    }
+
+    .leanback-guidance {
+      background: linear-gradient(180deg, #0c1322 0%, #070b14 100%);
+      border-right: 1px solid var(--border);
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .wizard-breadcrumb {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--cyan);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .wizard-title {
+      font-size: 26px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 12px;
+    }
+
+    .wizard-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .wizard-steps-indicator {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .step-indicator-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      color: var(--muted);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+    }
+
+    .step-indicator-item.active {
+      color: var(--text);
+      background: var(--surface-2);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .step-indicator-item.done {
+      color: var(--green);
+    }
+
+    .step-num-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--surface-3);
+      color: var(--muted);
+    }
+
+    .step-indicator-item.active .step-num-dot {
+      background: var(--cyan);
+      color: #05070d;
+    }
+
+    .step-indicator-item.done .step-num-dot {
+      background: var(--green);
+      color: #05070d;
+    }
+
+    .leanback-actions-pane {
+      background: #080c16;
+      padding: 36px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 14px;
+      overflow-y: auto;
+    }
+
+    .action-group-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .lb-action-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .lb-action-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .lb-action-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .lb-input-mock {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: #060911;
+      border: 1px solid var(--border);
+      color: var(--cyan);
+      padding: 6px 12px;
+      border-radius: 6px;
+    }
+
+    .lb-primary-btn {
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 14px 20px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+
+    .tag-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .tag-toggle-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .tag-toggle-card.selected {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.08);
+    }
+
+    .check-box {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .tag-toggle-card.selected .check-box {
+      background: var(--green);
+      border-color: var(--green);
+      color: #05070d;
+    }
+
+    /* =====================================================================
+       VIEW 3: SETTINGS, STREAM PROFILES & EPG DIAGNOSTICS
+       ===================================================================== */
+    .settings-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      height: 100%;
+    }
+
+    .settings-sidebar {
+      background: #0a0f1c;
+      border-right: 1px solid var(--border);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .settings-nav-title {
+      font-size: 18px;
+      font-weight: 700;
+      padding: 0 10px 12px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+    }
+
+    .settings-nav-item {
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .settings-nav-item.active {
+      background: var(--surface-2);
+      color: var(--text);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .settings-main {
+      padding: 28px 34px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+
+    .diag-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .metric-tile {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 4px;
+    }
+
+    .metric-sub {
+      font-size: 11px;
+      color: var(--green);
+      margin-top: 2px;
+    }
+
+    .settings-section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+    }
+
+    .log-console {
+      background: #04060b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.5;
+      color: #9fb3d4;
+      max-height: 125px;
+      overflow-y: auto;
+    }
+
+    /* =====================================================================
+       RIGHT SIDEBAR: ARCHITECTURAL INSPECTOR & D-PAD SIMULATOR
+       ===================================================================== */
+    .inspector-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Virtual Android TV Remote Control */
+    .dpad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 210px;
+      margin: 0 auto;
+    }
+
+    .remote-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 11px 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.12s ease;
+    }
+
+    .remote-btn:hover {
+      border-color: var(--cyan);
+      background: var(--surface-3);
+    }
+
+    .remote-btn:active {
+      transform: scale(0.95);
+    }
+
+    .remote-btn.ok-btn {
+      background: rgba(56, 189, 248, 0.18);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: var(--cyan);
+    }
+
+    .sim-state-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .sim-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s ease;
+    }
+
+    .sim-btn:hover,
+    .sim-btn.active {
+      color: var(--text);
+      border-color: var(--cyan);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    .contract-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .contract-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+    }
+
+    .contract-key {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--purple);
+      font-weight: 600;
+    }
+
+    .contract-val {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text);
+      margin-top: 3px;
+      word-break: break-all;
+    }
+
+    .kbd-hint {
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Studio Header & View Switcher -->
+  <header class="studio-bar">
+    <div class="studio-brand">
+      <span class="gate-badge">Gate 03 • Concept UI Mockup</span>
+      <div>
+        <div class="repo-title">nmaclean/android-tvheadend-tif</div>
+        <div class="repo-sub">Android TV Input Framework (TIF) • HTSP v34 + TvContract Provider Prototype</div>
+      </div>
+    </div>
+
+    <nav class="surface-tabs" role="tablist" aria-label="TIF Surface Switcher">
+      <button class="surface-tab active" data-target="view-live" onclick="switchSurface('view-live')">
+        <span>1. System Live TV &amp; EPG</span>
+        <span class="tab-tag">TvInputService.Session</span>
+      </button>
+      <button class="surface-tab" data-target="view-setup" onclick="switchSurface('view-setup')">
+        <span>2. Leanback Setup Wizard</span>
+        <span class="tab-tag">GuidedStepFragment</span>
+      </button>
+      <button class="surface-tab" data-target="view-settings" onclick="switchSurface('view-settings')">
+        <span>3. Sync &amp; Stream Diagnostics</span>
+        <span class="tab-tag">WorkManager + HTSP</span>
+      </button>
+    </nav>
+  </header>
+
+  <!-- Main Interactive Stage + Architectural Inspector -->
+  <main class="workspace">
+
+    <!-- Left: 10-Foot Android TV 16:9 Viewport -->
+    <section class="tv-stage">
+      <!-- Live Telemetry Status Strip -->
+      <div class="tv-status-strip">
+        <div class="status-group">
+          <span id="htsp-conn-pill" class="status-pill ok"><span class="dot"></span>HTSP :9982 CONNECTED</span>
+          <span id="session-state-pill" class="status-pill info"><span class="dot"></span>VIDEO_AVAILABLE (1080i50 → 50p)</span>
+        </div>
+        <div class="status-group" style="font-family: var(--font-mono); font-size: 11px; color: var(--muted);">
+          <span>Zap Latency: <strong id="zap-latency-readout" style="color: var(--green);">410 ms</strong></span>
+          <span>•</span>
+          <span>TvContract Rows: <strong style="color: var(--text);">142 ch / 18,940 prog</strong></span>
+        </div>
+      </div>
+
+      <!-- 16:9 Android TV Screen -->
+      <div class="tv-frame" id="tv-viewport">
+
+        <!-- ================================================================
+             SURFACE 1: SYSTEM LIVE TV / TIF EPG GUIDE
+             ================================================================ -->
+        <div id="view-live" class="tv-view active">
+          <div class="live-video-backdrop">
+            <div class="broadcast-canvas">
+              <div class="scanlines"></div>
+              <div class="signal-watermark">
+                <span class="channel-bug" id="osd-bug">BBC ONE HD</span>
+                <span id="osd-codec-info" style="color: var(--muted);">H.264 1920×1080i • E-AC-3 5.1 • 9.4 Mbps</span>
+              </div>
+            </div>
+
+            <!-- State Overlay (Tuning / Weak Signal / Timeshift Paused) -->
+            <div id="tif-overlay" class="tif-state-overlay">
+              <div class="spinner" id="tif-overlay-spinner"></div>
+              <div id="tif-overlay-title" style="font-size: 16px; font-weight: 700;">Tuning HTSP Subscription...</div>
+              <div id="tif-overlay-sub" style="font-family: var(--font-mono); font-size: 12px; color: var(--cyan);">VIDEO_UNAVAILABLE_REASON_TUNING</div>
+            </div>
+
+            <!-- Top Now Playing OSD -->
+            <div class="osd-top">
+              <div class="now-playing-card">
+                <div class="np-header">
+                  <span class="np-ch-num" id="np-num">101</span>
+                  <span class="np-ch-name" id="np-ch">BBC One HD</span>
+                  <span class="np-badge" id="np-profile">Profile: htsp-pass</span>
+                  <span class="np-badge" id="np-audio-badge">Audio: English (E-AC-3)</span>
+                  <span class="np-badge" id="np-sub-badge">Subtitles: DVB-SUB [EN]</span>
+                </div>
+                <div class="np-title" id="np-prog-title">Planet Earth III — Coastlines</div>
+                <div class="np-meta">
+                  <span id="np-time-window">16:00 – 17:00 (44m remaining)</span>
+                  <span>•</span>
+                  <span id="np-event-id" style="font-family: var(--font-mono);">eventId: 884210</span>
+                  <span>•</span>
+                  <span id="np-dvr-status" style="color: var(--green);">● Timeshift Ring: 14m buffered</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" id="np-progress" style="width: 43%;"></div>
+                </div>
+
+                <!-- Quick TIF Session Controls -->
+                <div class="osd-actions">
+                  <button class="tv-chip-btn focusable is-focused" data-focus-group="live" onclick="cycleAudioTrack()">
+                    🔊 Audio Track (<span id="btn-audio-lbl">EN 5.1</span>)
+                  </button>
+                  <button class="tv-chip-btn focusable" data-focus-group="live" onclick="toggleSubtitles()">
+                    💬 Captions: <span id="btn-sub-lbl">ON</span>
+                  </button>
+                  <button class="tv-chip-btn focusable" data-focus-group="live" onclick="toggleTimeshiftPause()">
+                    ⏯ <span id="btn-ts-lbl">Pause Live (Timeshift)</span>
+                  </button>
+                  <button class="tv-chip-btn focusable" data-focus-group="live" onclick="scheduleDvrRecord()">
+                    ⏺ <span id="btn-rec-lbl">Record Series</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom System Live Channels EPG Matrix -->
+            <div class="epg-drawer">
+              <div class="epg-header-row">
+                <span><strong>Android TV System EPG</strong> • Source: <code style="color: var(--cyan);">com.github.nmaclean.tvheadend/.TvInputService</code></span>
+                <span>Use <strong>D-Pad ↑/↓</strong> to zap channels • <strong>OK</strong> to tune</span>
+              </div>
+
+              <div class="epg-timeline-labels">
+                <span>CHANNEL (TvContract)</span>
+                <span>NOW • 16:00</span>
+                <span>NEXT • 17:00</span>
+                <span>LATER • 18:00</span>
+              </div>
+
+              <div class="epg-rows" id="epg-rows-container">
+                <!-- Populated dynamically by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             SURFACE 2: LEANBACK ONBOARDING & SETUP WIZARD
+             ================================================================ -->
+        <div id="view-setup" class="tv-view">
+          <div class="leanback-split">
+            <!-- Left Guidance Column -->
+            <div class="leanback-guidance">
+              <div>
+                <div class="wizard-breadcrumb" id="wiz-crumb">STEP 1 OF 3 • NSD DISCOVERY</div>
+                <h2 class="wizard-title" id="wiz-title">Connect to Tvheadend Server</h2>
+                <p class="wizard-desc" id="wiz-desc">
+                  Discovers local <code>_htsp._tcp</code> servers via Android <code>NsdManager</code> or connects manually over LAN port <code>9982</code>. Credentials are encrypted with Android Keystore.
+                </p>
+
+                <div class="wizard-steps-indicator">
+                  <div class="step-indicator-item active" id="wiz-ind-1">
+                    <span class="step-num-dot">1</span>
+                    <span>Server Discovery &amp; Auth</span>
+                  </div>
+                  <div class="step-indicator-item" id="wiz-ind-2">
+                    <span class="step-num-dot">2</span>
+                    <span>Channel Tags &amp; Stream Profile</span>
+                  </div>
+                  <div class="step-indicator-item" id="wiz-ind-3">
+                    <span class="step-num-dot">3</span>
+                    <span>TvContract EPG Import</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="font-family: var(--font-mono); font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); padding-top: 14px;">
+                Activity: TvInputSetupActivity<br />
+                Contract: TvInputInfo.EXTRA_INPUT_ID
+              </div>
+            </div>
+
+            <!-- Right Guided Actions Column -->
+            <div class="leanback-actions-pane" id="wiz-actions-pane">
+              <!-- Rendered dynamically per wizard step -->
+            </div>
+          </div>
+        </div>
+
+        <!-- ================================================================
+             SURFACE 3: SETTINGS, STREAM PROFILES & EPG DIAGNOSTICS
+             ================================================================ -->
+        <div id="view-settings" class="tv-view">
+          <div class="settings-layout">
+            <aside class="settings-sidebar">
+              <div class="settings-nav-title">Tvheadend TIF</div>
+              <button class="settings-nav-item active focusable" data-focus-group="settings" onclick="selectSettingsTab(this, 'diagnostics')">
+                <span>Sync &amp; EPG Health</span>
+                <span style="color: var(--green); font-size: 11px;">● OK</span>
+              </button>
+              <button class="settings-nav-item focusable" data-focus-group="settings" onclick="selectSettingsTab(this, 'playback')">
+                <span>Playback &amp; Profiles</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">htsp</span>
+              </button>
+              <button class="settings-nav-item focusable" data-focus-group="settings" onclick="selectSettingsTab(this, 'htsp-log')">
+                <span>HTSP Wire Inspector</span>
+                <span style="font-family: var(--font-mono); font-size: 11px;">v34</span>
+              </button>
+            </aside>
+
+            <div class="settings-main" id="settings-content-pane">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Right: Principal Architect Inspector & D-Pad Remote -->
+    <aside class="inspector-panel">
+
+      <!-- D-Pad Remote Simulator -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>10-Foot D-Pad Controller</span>
+          <span style="font-family: var(--font-mono); font-size: 10px; color: var(--muted);">KEYCODE_DPAD_*</span>
+        </div>
+
+        <div class="dpad-grid">
+          <div></div>
+          <button class="remote-btn" onclick="handleDpad('UP')">▲ UP</button>
+          <div></div>
+          <button class="remote-btn" onclick="handleDpad('LEFT')">◀ LEFT</button>
+          <button class="remote-btn ok-btn" onclick="handleDpad('OK')">OK</button>
+          <button class="remote-btn" onclick="handleDpad('RIGHT')">RIGHT ▶</button>
+          <div></div>
+          <button class="remote-btn" onclick="handleDpad('DOWN')">▼ DOWN</button>
+          <div></div>
+        </div>
+
+        <div class="kbd-hint">Supports physical Arrow Keys + Enter</div>
+      </div>
+
+      <!-- Edge Case & TIF Lifecycle State Simulator -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>TIF Edge-Case &amp; State Triggers</span>
+        </div>
+        <div class="sim-state-buttons">
+          <button class="sim-btn active" id="sim-normal" onclick="simulateTifState('normal')">
+            ● Normal Playback<br /><span style="font-size:10px; opacity:0.75;">notifyVideoAvailable()</span>
+          </button>
+          <button class="sim-btn" id="sim-tuning" onclick="simulateTifState('tuning')">
+            ◐ Cold Tune Zap<br /><span style="font-size:10px; opacity:0.75;">REASON_TUNING (650ms)</span>
+          </button>
+          <button class="sim-btn" id="sim-weak" onclick="simulateTifState('weak')">
+            ▲ Weak Signal / Drop<br /><span style="font-size:10px; opacity:0.75;">REASON_WEAK_SIGNAL</span>
+          </button>
+          <button class="sim-btn" id="sim-interlace" onclick="simulateTifState('interlace')">
+            ⚙ Deinterlace Fallback<br /><span style="font-size:10px; opacity:0.75;">1080i50 → MediaCodec</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Architectural Contract Inspector -->
+      <div class="panel-card">
+        <div class="panel-title">
+          <span>Active Boundary Contract</span>
+          <span style="font-family: var(--font-mono); font-size: 10px; color: var(--green);">LIVE</span>
+        </div>
+        <div class="contract-list" id="contract-inspector">
+          <div class="contract-item">
+            <div class="contract-key">TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA</div>
+            <div class="contract-val" id="ci-provider-data">{"tvh_uuid":"a91f-401","htsp_ch_id":101,"profile":"htsp-pass"}</div>
+          </div>
+          <div class="contract-item">
+            <div class="contract-key">HTSP Active Subscription (TCP :9982)</div>
+            <div class="contract-val" id="ci-htsp-sub">subscriptionId=14 • channelId=101 • weight=150</div>
+          </div>
+          <div class="contract-item">
+            <div class="contract-key">ExoPlayer / Media3 Pipeline</div>
+            <div class="contract-val" id="ci-player-state">STATE_READY • HtspDataSource → TsExtractor → Surface</div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <script>
+    // =========================================================================
+    // REALISTIC SAMPLE DATA (Tvheadend 4.3 HTSP + Android TvContract Model)
+    // =========================================================================
+    const CHANNELS = [
+      {
+        num: "101",
+        name: "BBC One HD",
+        uuid: "a91f8c20-101b-4e8a",
+        htspId: 101,
+        codec: "H.264 1920×1080i • E-AC-3 5.1 • 9.4 Mbps",
+        audioTracks: ["EN 5.1 (E-AC-3)", "EN Narrated (AAC)"],
+        programs: [
+          { title: "Planet Earth III — Coastlines", time: "16:00 – 17:00", rem: "44m remaining", progress: 43, eventId: 884210, onAir: true },
+          { title: "BBC News at Five", time: "17:00 – 18:00", rem: "Up Next", progress: 0, eventId: 884211, onAir: false },
+          { title: "The One Show", time: "18:00 – 18:30", rem: "Later", progress: 0, eventId: 884212, onAir: false }
+        ]
+      },
+      {
+        num: "102",
+        name: "BBC Two HD",
+        uuid: "b72e9d11-102c-4a11",
+        htspId: 102,
+        codec: "H.264 1920×1080p • AAC-LC 2.0 • 7.8 Mbps",
+        audioTracks: ["EN Stereo (AAC)", "EN Audio Desc"],
+        programs: [
+          { title: "Flog It! — Scottish Highlands", time: "16:00 – 16:45", rem: "19m remaining", progress: 58, eventId: 884301, onAir: true },
+          { title: "Richard Osman's House of Games", time: "16:45 – 17:15", rem: "Up Next", progress: 0, eventId: 884302, onAir: false },
+          { title: "Strictly: It Takes Two", time: "17:15 – 18:00", rem: "Later", progress: 0, eventId: 884303, onAir: false }
+        ]
+      },
+      {
+        num: "103",
+        name: "STV HD (Scotland)",
+        uuid: "c44d1e90-103f-4b22",
+        htspId: 103,
+        codec: "H.264 1920×1080i • AC-3 2.0 • 8.2 Mbps",
+        audioTracks: ["EN Stereo (AC-3)"],
+        programs: [
+          { title: "Tipping Point", time: "16:00 – 17:00", rem: "44m remaining", progress: 43, eventId: 884410, onAir: true },
+          { title: "The Chase", time: "17:00 – 18:00", rem: "Up Next", progress: 0, eventId: 884411, onAir: false },
+          { title: "STV News at Six", time: "18:00 – 18:30", rem: "Later", progress: 0, eventId: 884412, onAir: false }
+        ]
+      },
+      {
+        num: "104",
+        name: "Channel 4 HD",
+        uuid: "d89a3f77-104d-4c39",
+        htspId: 104,
+        codec: "H.264 1920×1080i • E-AC-3 5.1 • 8.9 Mbps",
+        audioTracks: ["EN 5.1 (E-AC-3)", "EN Stereo"],
+        programs: [
+          { title: "A Place in the Sun", time: "16:00 – 17:00", rem: "44m remaining", progress: 43, eventId: 884501, onAir: true },
+          { title: "Four in a Bed", time: "17:00 – 17:30", rem: "Up Next", progress: 0, eventId: 884502, onAir: false },
+          { title: "The Simpsons", time: "17:30 – 18:00", rem: "Later", progress: 0, eventId: 884503, onAir: false }
+        ]
+      }
+    ];
+
+    let state = {
+      activeSurface: "view-live",
+      activeChannelIdx: 0,
+      audioTrackIdx: 0,
+      subtitlesOn: true,
+      timeshiftPaused: false,
+      dvrScheduled: false,
+      wizardStep: 1,
+      selectedTags: ["HD Channels", "UK Freeview", "News & Docs"],
+      selectedProfile: "htsp (Native Demux)",
+      settingsTab: "diagnostics",
+      syncInProgress: false,
+      lastSyncTime: "Today, 16:02 GMT"
+    };
+
+    // =========================================================================
+    // INITIALIZATION & RENDERING
+    // =========================================================================
+    function init() {
+      renderEpgGrid();
+      updateNowPlaying();
+      renderWizardStep();
+      renderSettingsPane();
+    }
+
+    function switchSurface(viewId) {
+      state.activeSurface = viewId;
+      document.querySelectorAll(".tv-view").forEach(v => v.classList.remove("active"));
+      document.getElementById(viewId).classList.add("active");
+
+      document.querySelectorAll(".surface-tab").forEach(t => {
+        t.classList.toggle("active", t.dataset.target === viewId);
+      });
+
+      // Reset D-pad focus to first focusable in active view
+      setTimeout(() => {
+        const first = document.querySelector(`#${viewId} .focusable`);
+        if (first) setFocus(first);
+      }, 30);
+    }
+
+    // =========================================================================
+    // SURFACE 1: LIVE TV & EPG LOGIC
+    // =========================================================================
+    function renderEpgGrid() {
+      const container = document.getElementById("epg-rows-container");
+      container.innerHTML = CHANNELS.map((ch, idx) => {
+        const isActive = idx === state.activeChannelIdx;
+        return `
+          <div class="epg-row">
+            <div class="epg-channel-cell focusable ${isActive ? 'active-ch' : ''}"
+                 data-focus-group="live"
+                 onclick="tuneChannel(${idx})">
+              <div class="epg-ch-left">
+                <span class="epg-num">${ch.num}</span>
+                <span class="epg-name">${ch.name}</span>
+              </div>
+              <span style="font-size:10px; font-family:var(--font-mono); color:${isActive ? 'var(--cyan)' : 'var(--muted)'};">
+                ${isActive ? '● LIVE' : 'HD'}
+              </span>
+            </div>
+            <div class="epg-programs-track">
+              ${ch.programs.map(p => `
+                <div class="epg-prog-cell focusable ${p.onAir ? 'on-air' : ''}"
+                     data-focus-group="live"
+                     onclick="tuneChannel(${idx})">
+                  <div class="epg-prog-title">${p.title}</div>
+                  <div class="epg-prog-time">${p.time}</div>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    function tuneChannel(idx) {
+      if (idx === state.activeChannelIdx) return;
+      state.activeChannelIdx = idx;
+      state.audioTrackIdx = 0;
+      state.timeshiftPaused = false;
+      state.dvrScheduled = false;
+
+      // Simulate sub-2s HTSP subscription tune cycle
+      const ch = CHANNELS[idx];
+      const zapMs = Math.floor(340 + Math.random() * 290);
+      document.getElementById("zap-latency-readout").textContent = `${zapMs} ms`;
+      document.getElementById("zap-latency-readout").style.color = "var(--cyan)";
+
+      showTifOverlay(true, `Tuning ${ch.num} ${ch.name}...`, `VIDEO_UNAVAILABLE_REASON_TUNING • subscribe(channelId=${ch.htspId})`);
+      document.getElementById("session-state-pill").className = "status-pill warn";
+      document.getElementById("session-state-pill").innerHTML = `<span class="dot"></span>TUNING (ch ${ch.num})`;
+
+      renderEpgGrid();
+      updateNowPlaying();
+
+      setTimeout(() => {
+        showTifOverlay(false);
+        document.getElementById("session-state-pill").className = "status-pill ok";
+        document.getElementById("session-state-pill").innerHTML = `<span class="dot"></span>VIDEO_AVAILABLE (1080i50 → 50p)`;
+        document.getElementById("zap-latency-readout").style.color = "var(--green)";
+      }, 520);
+    }
+
+    function updateNowPlaying() {
+      const ch = CHANNELS[state.activeChannelIdx];
+      const curr = ch.programs[0];
+
+      document.getElementById("osd-bug").textContent = ch.name.toUpperCase();
+      document.getElementById("osd-codec-info").textContent = ch.codec;
+      document.getElementById("np-num").textContent = ch.num;
+      document.getElementById("np-ch").textContent = ch.name;
+      document.getElementById("np-prog-title").textContent = curr.title;
+      document.getElementById("np-time-window").textContent = `${curr.time} (${curr.rem})`;
+      document.getElementById("np-event-id").textContent = `eventId: ${curr.eventId}`;
+      document.getElementById("np-progress").style.width = `${curr.progress}%`;
+
+      const trackLabel = ch.audioTracks[state.audioTrackIdx];
+      document.getElementById("np-audio-badge").textContent = `Audio: ${trackLabel}`;
+      document.getElementById("btn-audio-lbl").textContent = trackLabel.split(" ")[0] + " " + (trackLabel.split(" ")[1] || "");
+
+      document.getElementById("np-sub-badge").textContent = state.subtitlesOn ? "Subtitles: DVB-SUB [EN]" : "Subtitles: OFF";
+      document.getElementById("btn-sub-lbl").textContent = state.subtitlesOn ? "ON" : "OFF";
+
+      document.getElementById("btn-ts-lbl").textContent = state.timeshiftPaused ? "Resume Live (Buffered)" : "Pause Live (Timeshift)";
+      document.getElementById("np-dvr-status").textContent = state.timeshiftPaused
+        ? "⏸ Timeshift Paused (-00:42 behind live)"
+        : "● Timeshift Ring: 14m buffered";
+      document.getElementById("np-dvr-status").style.color = state.timeshiftPaused ? "var(--amber)" : "var(--green)";
+
+      document.getElementById("btn-rec-lbl").textContent = state.dvrScheduled ? "Series Scheduled ✓" : "Record Series";
+
+      // Update Right-Hand Architectural Inspector
+      document.getElementById("ci-provider-data").textContent =
+        `{"tvh_uuid":"${ch.uuid}","htsp_ch_id":${ch.htspId},"profile":"htsp-pass"}`;
+      document.getElementById("ci-htsp-sub").textContent =
+        `subscriptionId=${14 + state.activeChannelIdx} • channelId=${ch.htspId} • weight=150`;
+    }
+
+    function cycleAudioTrack() {
+      const ch = CHANNELS[state.activeChannelIdx];
+      state.audioTrackIdx = (state.audioTrackIdx + 1) % ch.audioTracks.length;
+      updateNowPlaying();
+    }
+
+    function toggleSubtitles() {
+      state.subtitlesOn = !state.subtitlesOn;
+      updateNowPlaying();
+    }
+
+    function toggleTimeshiftPause() {
+      state.timeshiftPaused = !state.timeshiftPaused;
+      updateNowPlaying();
+    }
+
+    function scheduleDvrRecord() {
+      state.dvrScheduled = !state.dvrScheduled;
+      updateNowPlaying();
+    }
+
+    function showTifOverlay(visible, title = "", sub = "", showSpinner = true) {
+      const overlay = document.getElementById("tif-overlay");
+      if (!visible) {
+        overlay.classList.remove("visible");
+        return;
+      }
+      document.getElementById("tif-overlay-title").textContent = title;
+      document.getElementById("tif-overlay-sub").textContent = sub;
+      document.getElementById("tif-overlay-spinner").style.display = showSpinner ? "block" : "none";
+      overlay.classList.add("visible");
+    }
+
+    // =========================================================================
+    // SURFACE 2: LEANBACK SETUP WIZARD LOGIC
+    // =========================================================================
+    function renderWizardStep() {
+      const pane = document.getElementById("wiz-actions-pane");
+      const crumb = document.getElementById("wiz-crumb");
+      const title = document.getElementById("wiz-title");
+      const desc = document.getElementById("wiz-desc");
+
+      [1, 2, 3].forEach(n => {
+        const el = document.getElementById(`wiz-ind-${n}`);
+        el.classList.remove("active", "done");
+        if (n < state.wizardStep) el.classList.add("done");
+        if (n === state.wizardStep) el.classList.add("active");
+      });
+
+      if (state.wizardStep === 1) {
+        crumb.textContent = "STEP 1 OF 3 • NSD DISCOVERY & AUTH";
+        title.textContent = "Connect to Tvheadend Server";
+        desc.innerHTML = "Discovers local <code>_htsp._tcp</code> servers via Android <code>NsdManager</code> or connects manually over LAN port <code>9982</code>. Credentials are stored via Android Keystore.";
+        pane.innerHTML = `
+          <div class="action-group-label">Discovered LAN Servers (_htsp._tcp)</div>
+          <div class="lb-action-card focusable is-focused" data-focus-group="setup" onclick="advanceWizard(2)">
+            <div>
+              <div class="lb-action-title">tvheadend-nas.local (Tvheadend 4.3-2180)</div>
+              <div class="lb-action-sub">192.168.1.42 • HTSP :9982 • HTTP :9981 • 4 DVB-T2 Tuners</div>
+            </div>
+            <span class="status-pill ok">REACHABLE</span>
+          </div>
+
+          <div class="action-group-label">Authentication &amp; Manual Endpoint</div>
+          <div class="lb-action-card focusable" data-focus-group="setup">
+            <div>
+              <div class="lb-action-title">Host / IP &amp; HTSP Port</div>
+              <div class="lb-action-sub">Direct TCP socket for low-latency muxpkt streaming</div>
+            </div>
+            <span class="lb-input-mock">192.168.1.42:9982</span>
+          </div>
+
+          <div class="lb-action-card focusable" data-focus-group="setup">
+            <div>
+              <div class="lb-action-title">HTSP Credentials (SHA-1 Challenge)</div>
+              <div class="lb-action-sub">EncryptedSharedPreferences • Never written to TvContract</div>
+            </div>
+            <span class="lb-input-mock">tv_livingroom • ••••••••</span>
+          </div>
+
+          <button class="lb-primary-btn focusable" data-focus-group="setup" onclick="advanceWizard(2)">
+            <span>Authenticate &amp; Fetch Server Capabilities</span>
+            <span>Next →</span>
+          </button>
+        `;
+      } else if (state.wizardStep === 2) {
+        crumb.textContent = "STEP 2 OF 3 • CHANNEL TAGS & PROFILE";
+        title.textContent = "Filter Channels & Stream Profile";
+        desc.innerHTML = "Select Tvheadend channel tags to publish into Android <code>TvContract.Channels</code> and choose the default Media3 streaming profile.";
+
+        const allTags = [
+          { name: "HD Channels", count: "64 ch" },
+          { name: "UK Freeview", count: "142 ch" },
+          { name: "News & Docs", count: "18 ch" },
+          { name: "Radio / Audio", count: "32 ch" }
+        ];
+
+        pane.innerHTML = `
+          <div class="action-group-label">Tvheadend Channel Tags (142 Total Matched)</div>
+          <div class="tag-grid">
+            ${allTags.map((t, i) => {
+              const sel = state.selectedTags.includes(t.name);
+              return `
+                <div class="tag-toggle-card focusable ${i === 0 ? 'is-focused' : ''} ${sel ? 'selected' : ''}"
+                     data-focus-group="setup"
+                     onclick="toggleWizardTag('${t.name}')">
+                  <div>
+                    <div style="font-size:14px; font-weight:600;">${t.name}</div>
+                    <div style="font-size:11px; color:var(--muted);">${t.count}</div>
+                  </div>
+                  <div class="check-box">${sel ? '✓' : ''}</div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+
+          <div class="action-group-label">Streaming Profile</div>
+          <div class="lb-action-card focusable" data-focus-group="setup" onclick="cycleWizardProfile()">
+            <div>
+              <div class="lb-action-title">Active Stream Profile</div>
+              <div class="lb-action-sub">Direct HTSP elementary packets (fastest zap) vs HTTP pass</div>
+            </div>
+            <span class="lb-input-mock">${state.selectedProfile}</span>
+          </div>
+
+          <div style="display:flex; gap:12px;">
+            <button class="tv-chip-btn focusable" data-focus-group="setup" style="padding:14px 18px;" onclick="advanceWizard(1)">← Back</button>
+            <button class="lb-primary-btn focusable" data-focus-group="setup" style="flex:1; margin-top:0;" onclick="advanceWizard(3)">
+              <span>Import 142 Channels &amp; 7-Day EPG</span>
+              <span>Sync Now →</span>
+            </button>
+          </div>
+        `;
+      } else {
+        crumb.textContent = "STEP 3 OF 3 • TVCONTRACT BATCH UPSERT";
+        title.textContent = "Channel & EPG Sync Complete";
+        desc.innerHTML = "Batched <code>ContentProviderOperation</code> write completed without blocking UI thread. Channels are now live in Android TV Live Channels.";
+        pane.innerHTML = `
+          <div class="lb-action-card" style="border-color: rgba(16, 185, 129, 0.45); background: rgba(16, 185, 129, 0.08);">
+            <div>
+              <div class="lb-action-title" style="color: var(--green);">✓ 142 Channels &amp; 18,940 EPG Programs Synced</div>
+              <div class="lb-action-sub">Batch upsert time: 3.4s • Channel logos cached via /imagecache/</div>
+            </div>
+            <span class="status-pill ok">RESULT_OK</span>
+          </div>
+
+          <div class="lb-action-card">
+            <div>
+              <div class="lb-action-title">Periodic Background EPG Worker</div>
+              <div class="lb-action-sub">WorkManager scheduled every 6 hours on unmetered LAN</div>
+            </div>
+            <span class="lb-input-mock">ENABLED</span>
+          </div>
+
+          <div style="display:flex; gap:12px;">
+            <button class="tv-chip-btn focusable" data-focus-group="setup" style="padding:14px 18px;" onclick="advanceWizard(1)">Reconfigure</button>
+            <button class="lb-primary-btn focusable is-focused" data-focus-group="setup" style="flex:1; margin-top:0;" onclick="switchSurface('view-live')">
+              <span>Launch System Live TV Guide</span>
+              <span>Open Live TV →</span>
+            </button>
+          </div>
+        `;
+      }
+    }
+
+    function advanceWizard(step) {
+      state.wizardStep = step;
+      renderWizardStep();
+    }
+
+    function toggleWizardTag(tagName) {
+      if (state.selectedTags.includes(tagName)) {
+        state.selectedTags = state.selectedTags.filter(t => t !== tagName);
+      } else {
+        state.selectedTags.push(tagName);
+      }
+      renderWizardStep();
+    }
+
+    function cycleWizardProfile() {
+      const profiles = ["htsp (Native Demux)", "pass (HTTP MPEG-TS)", "matroska (Transcode 720p)"];
+      const next = (profiles.indexOf(state.selectedProfile) + 1) % profiles.length;
+      state.selectedProfile = profiles[next];
+      renderWizardStep();
+    }
+
+    // =========================================================================
+    // SURFACE 3: SETTINGS & DIAGNOSTICS LOGIC
+    // =========================================================================
+    function selectSettingsTab(el, tab) {
+      state.settingsTab = tab;
+      document.querySelectorAll(".settings-nav-item").forEach(i => i.classList.remove("active"));
+      el.classList.add("active");
+      renderSettingsPane();
+    }
+
+    function renderSettingsPane() {
+      const pane = document.getElementById("settings-content-pane");
+
+      if (state.settingsTab === "diagnostics") {
+        pane.innerHTML = `
+          <div class="diag-metrics-grid">
+            <div class="metric-tile">
+              <div class="metric-label">Published Channels</div>
+              <div class="metric-value">142</div>
+              <div class="metric-sub">100% mapped to TvContract</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-label">EPG Window</div>
+              <div class="metric-value">18,940</div>
+              <div class="metric-sub">7 days forward • 24h retention</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-label">Avg Zap Time</div>
+              <div class="metric-value">410 ms</div>
+              <div class="metric-sub">Target ≤ 2,000 ms</div>
+            </div>
+            <div class="metric-tile">
+              <div class="metric-label">HTSP Socket</div>
+              <div class="metric-value" style="color: var(--green);">ACTIVE</div>
+              <div class="metric-sub">192.168.1.42:9982</div>
+            </div>
+          </div>
+
+          <div class="settings-section-card">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+              <div>
+                <div style="font-size:15px; font-weight:700;">EPG &amp; Channel Synchronization</div>
+                <div style="font-size:12px; color:var(--muted);">Last completed: ${state.lastSyncTime} • Idempotent UUID upsert</div>
+              </div>
+              <button class="lb-primary-btn focusable is-focused" data-focus-group="settings" style="margin-top:0; padding:10px 18px; font-size:13px;" onclick="triggerManualEpgSync()">
+                <span>${state.syncInProgress ? 'Syncing Batch...' : '↻ Sync EPG Now'}</span>
+              </button>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <div style="font-size:13px; font-weight:600;">Real-Time HTSP Event Push (enableAsyncMetadata)</div>
+                <div style="font-size:11px; color:var(--muted);">Applies live schedule shifts (eventUpdate / eventDelete) immediately</div>
+              </div>
+              <span class="status-pill ok">ENABLED</span>
+            </div>
+
+            <div class="setting-row">
+              <div>
+                <div style="font-size:13px; font-weight:600;">Timeshift Disk Ring Buffer</div>
+                <div style="font-size:11px; color:var(--muted);">Local cache for onTimeShiftPause() &amp; onTimeShiftSeekTo()</div>
+              </div>
+              <span class="lb-input-mock">512 MB (Local Cache)</span>
+            </div>
+          </div>
+        `;
+      } else if (state.settingsTab === "playback") {
+        pane.innerHTML = `
+          <div class="settings-section-card">
+            <div style="font-size:15px; font-weight:700;">Media3 / ExoPlayer &amp; Codec Guardrails</div>
+            <div class="setting-row">
+              <div>
+                <div style="font-size:13px; font-weight:600;">Default Tvheadend Stream Profile</div>
+                <div style="font-size:11px; color:var(--muted);">Controls HTSP subscribe() profile parameter</div>
+              </div>
+              <span class="lb-input-mock">htsp-pass</span>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div style="font-size:13px; font-weight:600;">Interlaced Broadcast Handling (1080i50 / 576i)</div>
+                <div style="font-size:11px; color:var(--muted);">Forces MediaCodec hardware deinterlacing on Amlogic / MediaTek SoCs</div>
+              </div>
+              <span class="status-pill ok">HW DEINTERLACE</span>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div style="font-size:13px; font-weight:600;">Audio Passthrough (AC-3 / E-AC-3)</div>
+                <div style="font-size:11px; color:var(--muted);">Routes Dolby Digital surround directly to HDMI ARC/eARC</div>
+              </div>
+              <span class="lb-input-mock">AUTO (IEC61937)</span>
+            </div>
+          </div>
+        `;
+      } else {
+        pane.innerHTML = `
+          <div class="settings-section-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <div style="font-size:15px; font-weight:700;">HTSP Binary Protocol Trace (Port 9982)</div>
+              <span class="status-pill info">HTSP v34</span>
+            </div>
+            <div class="log-console">
+[16:02:11.014] &gt;&gt; HTSP hello {htspversion: 34, clientname: "android-tvheadend-tif"}
+[16:02:11.028] &lt;&lt; HTSP serverinfo {servername: "Tvheadend", serverversion: "4.3-2180", apiversion: 34}
+[16:02:11.041] &gt;&gt; HTSP authenticate {username: "tv_livingroom", digest: "[REDACTED_SHA1]"}
+[16:02:11.055] &lt;&lt; HTSP auth_ok {noaccess: 0}
+[16:02:11.102] &gt;&gt; HTSP enableAsyncMetadata {epg: 1, lastUpdate: 1732201200}
+[16:02:14.410] &lt;&lt; HTSP initialSyncCompleted {channels: 142, events: 18940}
+[16:14:02.881] &gt;&gt; Session.onTune(content://android.media.tv/channel/101)
+[16:14:02.889] &gt;&gt; HTSP subscribe {channelId: 101, subscriptionId: 14, weight: 150, profile: "htsp-pass"}
+[16:14:03.291] &lt;&lt; HTSP subscriptionStart {streams: [H264 1080i50, EAC3 6ch, DVBSUB en]}
+[16:14:03.298] &gt;&gt; Session.notifyVideoAvailable() [Elapsed: 417ms]
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function triggerManualEpgSync() {
+      if (state.syncInProgress) return;
+      state.syncInProgress = true;
+      renderSettingsPane();
+      setTimeout(() => {
+        state.syncInProgress = false;
+        state.lastSyncTime = "Just now (18,940 events upserted)";
+        renderSettingsPane();
+      }, 900);
+    }
+
+    // =========================================================================
+    // TIF EDGE-CASE & LIFECYCLE SIMULATOR
+    // =========================================================================
+    function simulateTifState(mode) {
+      document.querySelectorAll(".sim-btn").forEach(b => b.classList.remove("active"));
+      document.getElementById(`sim-${mode}`).classList.add("active");
+
+      const pill = document.getElementById("session-state-pill");
+      const htspPill = document.getElementById("htsp-conn-pill");
+      const playerContract = document.getElementById("ci-player-state");
+
+      if (state.activeSurface !== "view-live") {
+        switchSurface("view-live");
+      }
+
+      if (mode === "normal") {
+        showTifOverlay(false);
+        htspPill.className = "status-pill ok";
+        htspPill.innerHTML = `<span class="dot"></span>HTSP :9982 CONNECTED`;
+        pill.className = "status-pill ok";
+        pill.innerHTML = `<span class="dot"></span>VIDEO_AVAILABLE (1080i50 → 50p)`;
+        playerContract.textContent = "STATE_READY • HtspDataSource → TsExtractor → Surface";
+      } else if (mode === "tuning") {
+        showTifOverlay(true, "Tuning HTSP Subscription...", "VIDEO_UNAVAILABLE_REASON_TUNING • Waiting for IDR Keyframe", true);
+        pill.className = "status-pill warn";
+        pill.innerHTML = `<span class="dot"></span>REASON_TUNING`;
+        playerContract.textContent = "STATE_BUFFERING • Awaiting HTSP muxpkt keyframe";
+      } else if (mode === "weak") {
+        showTifOverlay(true, "LAN / Tuner Signal Interrupted", "VIDEO_UNAVAILABLE_REASON_WEAK_SIGNAL • Exponential backoff reconnect (2s)...", true);
+        htspPill.className = "status-pill err";
+        htspPill.innerHTML = `<span class="dot"></span>HTSP RECONNECTING`;
+        pill.className = "status-pill err";
+        pill.innerHTML = `<span class="dot"></span>REASON_WEAK_SIGNAL`;
+        playerContract.textContent = "STATE_IDLE • Retry backoff attempt #2 (no session crash)";
+      } else if (mode === "interlace") {
+        showTifOverlay(false);
+        htspPill.className = "status-pill ok";
+        htspPill.innerHTML = `<span class="dot"></span>HTSP :9982 CONNECTED`;
+        pill.className = "status-pill info";
+        pill.innerHTML = `<span class="dot"></span>HW_DEINTERLACE ACTIVE (50fps)`;
+        playerContract.textContent = "STATE_READY • MediaCodec.video-deinterlace=1 (1080i50)";
+      }
+    }
+
+    // =========================================================================
+    // 10-FOOT D-PAD NAVIGATION ENGINE
+    // =========================================================================
+    function getActiveFocusables() {
+      return Array.from(document.querySelectorAll(`#${state.activeSurface} .focusable`));
+    }
+
+    function setFocus(el) {
+      document.querySelectorAll(".focusable").forEach(item => item.classList.remove("is-focused"));
+      if (el) {
+        el.classList.add("is-focused");
+        el.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+      }
+    }
+
+    function handleDpad(dir) {
+      const items = getActiveFocusables();
+      if (!items.length) return;
+
+      let currentIdx = items.findIndex(el => el.classList.contains("is-focused"));
+      if (currentIdx === -1) currentIdx = 0;
+
+      if (dir === "OK") {
+        items[currentIdx].click();
+        return;
+      }
+
+      if (dir === "DOWN" || dir === "RIGHT") {
+        const nextIdx = (currentIdx + 1) % items.length;
+        setFocus(items[nextIdx]);
+      } else if (dir === "UP" || dir === "LEFT") {
+        const prevIdx = (currentIdx - 1 + items.length) % items.length;
+        setFocus(items[prevIdx]);
+      }
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowUp") { e.preventDefault(); handleDpad("UP"); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); handleDpad("DOWN"); }
+      else if (e.key === "ArrowLeft") { e.preventDefault(); handleDpad("LEFT"); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); handleDpad("RIGHT"); }
+      else if (e.key === "Enter") { e.preventDefault(); handleDpad("OK"); }
+    });
+
+    init();
+  </script>
+</body>
+</html>

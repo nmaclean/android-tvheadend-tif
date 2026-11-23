@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LiveTv
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -131,25 +132,26 @@ class ScanningInputsActivity : FragmentActivity() {
         items: List<InputItem>,
         onInputClick: (InputItem) -> Unit
     ) {
-        var showClearAllDialog by remember { mutableStateOf(false) }
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
 
-        if (showClearAllDialog) {
+        var showResetConfigDialog by remember { mutableStateOf(false) }
+
+        if (showResetConfigDialog) {
             AlertDialog(
-                onDismissRequest = { showClearAllDialog = false },
-                title = { Text("Clear All TIF Channels & EPG?", color = MidnightCyanTokens.TextPrimary) },
-                text = { Text("This will delete registered TV Input Framework (TIF) channels and EPG programs across all inputs (Tvheadend and IPTV). Your saved server credentials, preferences, and allowlists will be preserved.", color = MidnightCyanTokens.TextSecondary) },
+                onDismissRequest = { showResetConfigDialog = false },
+                title = { Text("Clear All Channels, EPG & Config?", color = MidnightCyanTokens.TextPrimary) },
+                text = { Text("This will delete all registered channels, EPG programs, and reset saved server credentials, preferences, and allowlists cleanly.", color = MidnightCyanTokens.TextSecondary) },
                 confirmButton = {
                     Button(
                         onClick = {
-                            showClearAllDialog = false
+                            showResetConfigDialog = false
                             scope.launch {
                                 val scanManager = com.nmaclean.tvheadend.iptv.scan.SourceScanManager(context)
-                                val res = scanManager.clearAllTifInputs()
+                                val res = scanManager.resetAllDataAndSettings()
                                 android.widget.Toast.makeText(
                                     context,
-                                    "Cleared ${res.clearedChannels} TIF channels, ${res.clearedPrograms} EPG programs, and ${res.clearedLogos} logos",
+                                    "Full reset complete: Deleted ${res.clearedChannels} channels and reset saved configuration.",
                                     android.widget.Toast.LENGTH_LONG
                                 ).show()
                                 loadInputs()
@@ -157,11 +159,11 @@ class ScanningInputsActivity : FragmentActivity() {
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679))
                     ) {
-                        Text("Confirm Clear All", color = Color.White)
+                        Text("Confirm Full Reset", color = Color.White)
                     }
                 },
                 dismissButton = {
-                    androidx.compose.material3.OutlinedButton(onClick = { showClearAllDialog = false }) {
+                    androidx.compose.material3.OutlinedButton(onClick = { showResetConfigDialog = false }) {
                         Text("Cancel", color = MidnightCyanTokens.TextPrimary)
                     }
                 },
@@ -197,23 +199,7 @@ class ScanningInputsActivity : FragmentActivity() {
                     )
                 }
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    var isClearBtnFocused by remember { mutableStateOf(false) }
-                    Button(
-                        onClick = { showClearAllDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679)),
-                        modifier = Modifier
-                            .onFocusChanged { isClearBtnFocused = it.isFocused }
-                            .focusCyanBorder(isClearBtnFocused)
-                    ) {
-                        Text("Clear All TIF Inputs", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-
-                    TvClockHeader()
-                }
+                TvClockHeader()
             }
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -236,10 +222,76 @@ class ScanningInputsActivity : FragmentActivity() {
                         .fillMaxSize()
                         .focusRestorer()
                 ) {
+                    item(key = "reset_all_config_card") {
+                        ResetAllConfigCard(onClick = { showResetConfigDialog = true })
+                    }
                     items(items, key = { it.inputInfo.id }) { item ->
                         InputSourceCard(item = item, onClick = { onInputClick(item) })
                     }
                 }
+            }
+        }
+    }
+
+    @kotlin.OptIn(ExperimentalTvMaterial3Api::class)
+    @Composable
+    private fun ResetAllConfigCard(
+        onClick: () -> Unit
+    ) {
+        var isFocused by remember { mutableStateOf(false) }
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(132.dp)
+                .clip(RoundedCornerShape(MidnightCyanTokens.CardCornerRadius))
+                .background(if (isFocused) Color(0xFF4A1A24) else Color(0xFF2E1218))
+                .focusCyanBorder(isFocused = isFocused)
+                .onFocusChanged { isFocused = it.isFocused }
+                .clickable(onClick = onClick)
+                .padding(18.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = "Clear All Channels, EPG & Config",
+                    tint = Color(0xFFFF5252),
+                    modifier = Modifier.size(28.dp)
+                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color(0xFFCF6679).copy(alpha = 0.2f))
+                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = "Reset All",
+                        color = Color(0xFFFF5252),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Column {
+                Text(
+                    text = "Clear All Channels, EPG & Config",
+                    color = MidnightCyanTokens.TextPrimary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Purge channels, guide & reset settings",
+                    color = MidnightCyanTokens.TextSecondary,
+                    fontSize = 12.sp
+                )
             }
         }
     }

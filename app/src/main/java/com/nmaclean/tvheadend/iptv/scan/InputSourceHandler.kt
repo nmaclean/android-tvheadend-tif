@@ -116,14 +116,22 @@ class IptvSourceHandler : InputSourceHandler {
         var deletedPrograms = 0
         var deletedLogos = 0
         try {
-            val inputId = try { TvContract.buildInputId(componentName) } catch (_: Throwable) { "" }
-            val channelsUri = if (inputId.isNotEmpty()) try { TvContract.buildChannelsUriForInput(inputId) } catch (_: Throwable) { null } else null
+            val projection = arrayOf(
+                TvContract.Channels._ID,
+                TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID,
+                TvContract.Channels.COLUMN_INPUT_ID
+            )
+            context.contentResolver.query(TvContract.Channels.CONTENT_URI, projection, null, null, null)?.use { cursor ->
+                val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
+                val providerIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
+                val inputIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INPUT_ID)
 
-            if (channelsUri != null) {
-                context.contentResolver.query(channelsUri, arrayOf(TvContract.Channels._ID), null, null, null)?.use { cursor ->
-                    val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
-                    while (cursor.moveToNext()) {
-                        val rowId = cursor.getLong(idCol)
+                while (cursor.moveToNext()) {
+                    val rowId = cursor.getLong(idCol)
+                    val providerId = if (providerIdCol >= 0) cursor.getString(providerIdCol) ?: "" else ""
+                    val inputId = if (inputIdCol >= 0) cursor.getString(inputIdCol) ?: "" else ""
+
+                    if (providerId.startsWith("iptv:") || inputId.contains("IptvTvInputService")) {
                         try {
                             val pCount = context.contentResolver.delete(TvContract.buildProgramsUriForChannel(rowId), null, null)
                             deletedPrograms += pCount.coerceAtLeast(0)

@@ -425,9 +425,6 @@ class TvheadendInputService : TvInputService() {
                 return true
             }
 
-            notifyContentAllowed()
-            notifyVideoAvailable()
-
             TuneTelemetryTracker.shared.onTuneRequested(resolvedStreamKey ?: uri.lastPathSegment ?: uri.toString())
 
             tuneJob?.cancel()

@@ -16,7 +16,7 @@ class TifChannelObserver(
     private val contentResolver: ContentResolver,
     private val tag: String = "TifChannelObserver",
     private val observePrograms: Boolean = false,
-    private val debounceMs: Long = 250L,
+    private val debounceMs: Long = 1000L,
     private val onChangeCallback: () -> Unit
 ) : ContentObserver(Handler(Looper.getMainLooper())) {
 

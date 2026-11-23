@@ -47,6 +47,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -388,8 +390,6 @@ class TvPlayerActivity : FragmentActivity() {
                                 } catch (_: Exception) {}
                             }
                         }
-                        val scheduledIds = DvrRepository.scheduledEventIds.collectAsState()
-                        val seriesTitles = DvrRepository.seriesTitles.collectAsState()
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -398,10 +398,7 @@ class TvPlayerActivity : FragmentActivity() {
                             GuideScreen(
                                 channels = guideChannelsState.value,
                                 currentEpg = guideCurrentEpgState.value,
-                                guidePrograms = guideProgramsState.value,
                                 windowStartMs = guideWindowStartState.longValue,
-                                scheduledEventIds = scheduledIds.value,
-                                seriesTitles = seriesTitles.value,
                                 onTuneChannel = { selectedChannel ->
                                     epgChannelSelected = true
                                     guideProgramModalState.value = null
@@ -409,7 +406,7 @@ class TvPlayerActivity : FragmentActivity() {
                                     tuneToSelectedChannel(selectedChannel)
                                 },
                                 onScheduleProgram = { ch, prog ->
-                                    guideProgramModalState.value = ch to prog
+                                    guideProgramModalState.value = Pair(ch, prog)
                                 },
                                 gridFocusRequester = gridFocusRequester
                             )
@@ -426,8 +423,9 @@ class TvPlayerActivity : FragmentActivity() {
                                     title = prog.title,
                                     startTimeMs = prog.startTimeMs
                                 )
-                                val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in scheduledIds.value)
-                                val hasSeries = prog.title.trim().lowercase() in seriesTitles.value
+                                val dvrState by DvrRepository.dvrState.collectAsState()
+                                val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in dvrState.scheduledEventIds)
+                                val hasSeries = prog.title.trim().lowercase() in dvrState.seriesTitles
                                 ProgramDetailsModal(
                                     channel = ch,
                                     program = prog,
@@ -542,7 +540,14 @@ class TvPlayerActivity : FragmentActivity() {
     }
 
     private fun resolveInputIdForChannel(channelId: Long, fallbackInputId: String = ""): String {
-        if (fallbackInputId.isNotEmpty()) return fallbackInputId
+        val tvInputManager = getSystemService(TV_INPUT_SERVICE) as? TvInputManager
+        val availableInputs = tvInputManager?.tvInputList ?: emptyList()
+
+        if (fallbackInputId.isNotEmpty()) {
+            val matched = availableInputs.firstOrNull { it.id == fallbackInputId }
+            if (matched != null) return matched.id
+        }
+
         var foundInputId = ""
         if (channelId > 0L) {
             try {
@@ -560,8 +565,20 @@ class TvPlayerActivity : FragmentActivity() {
                 }
             } catch (_: Throwable) {}
         }
-        if (foundInputId.isNotEmpty()) return foundInputId
-        return TvContract.buildInputId(ComponentName(this, TvheadendInputService::class.java))
+
+        if (foundInputId.isNotEmpty()) {
+            val matched = availableInputs.firstOrNull { it.id == foundInputId }
+            if (matched != null) return matched.id
+        }
+
+        val isIptv = fallbackInputId.contains("IptvTvInputService") || foundInputId.contains("IptvTvInputService")
+        val targetClass = if (isIptv) com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java.name else TvheadendInputService::class.java.name
+        val matchedByClass = availableInputs.firstOrNull { it.serviceInfo.name == targetClass || it.id.endsWith(targetClass) }
+        if (matchedByClass != null) return matchedByClass.id
+
+        return try {
+            TvContract.buildInputId(ComponentName(this, if (isIptv) com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java else TvheadendInputService::class.java))
+        } catch (_: Exception) { "" }
     }
 
     private fun handleTuneIntent(intent: Intent?) {
@@ -1212,11 +1229,11 @@ class TvPlayerActivity : FragmentActivity() {
 
         when (keyCode) {
             KeyEvent.KEYCODE_CAPTIONS -> {
-                showTrackSelectionDialog(TvTrackInfo.TYPE_SUBTITLE)
+                showAudioOrSubtitlePicker()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK -> {
-                showTrackSelectionDialog(TvTrackInfo.TYPE_AUDIO)
+                showAudioOrSubtitlePicker()
                 return true
             }
             KeyEvent.KEYCODE_CHANNEL_UP -> {

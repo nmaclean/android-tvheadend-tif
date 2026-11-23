@@ -174,31 +174,17 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
             val nowMs = System.currentTimeMillis()
             val programsMap = EpgRepository.getAllProgramsInWindow(ctx, nowMs, nowMs + 1000L)
 
-            // Pre-load logos in background with downsampling
-            val logoMap = mutableMapOf<Long, Bitmap>()
-            val logoOptions = BitmapFactory.Options().apply { inSampleSize = 2 }
-            for (ch in uniqueChannels) {
-                try {
-                    val logoUri = TvContract.buildChannelLogoUri(ch.id)
-                    resolver.openInputStream(logoUri)?.use { input ->
-                        val bmp = BitmapFactory.decodeStream(input, null, logoOptions)
-                        if (bmp != null) {
-                            logoMap[ch.id] = bmp
-                        }
-                    }
-                } catch (ignored: Exception) {}
-            }
-
             val cardItems = uniqueChannels.map { ch ->
                 val progs = programsMap[ch.id]
                 val currentTitle = progs?.firstOrNull { nowMs in it.startTimeMs..it.endTimeMs }?.title
                     ?: "No Program Information"
-                ChannelCardData(ch, currentTitle, logoMap[ch.id])
+                val logoUri = if (ch.icon.isNotBlank()) ch.icon else TvContract.buildChannelLogoUri(ch.id).toString()
+                ChannelCardData(ch, currentTitle, logoUri = logoUri)
             }
 
             withContext(Dispatchers.Main) {
                 mAdapter.clear()
-                cardItems.forEach { mAdapter.add(it) }
+                mAdapter.addAll(0, cardItems)
             }
 
             // Background EPG sync check if database has 0 program entries
@@ -210,11 +196,12 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
                         val progs = updatedProgs[ch.id]
                         val currentTitle = progs?.firstOrNull { nowMs in it.startTimeMs..it.endTimeMs }?.title
                             ?: "No Program Information"
-                        ChannelCardData(ch, currentTitle, logoMap[ch.id])
+                        val logoUri = if (ch.icon.isNotBlank()) ch.icon else TvContract.buildChannelLogoUri(ch.id).toString()
+                        ChannelCardData(ch, currentTitle, logoUri = logoUri)
                     }
                     withContext(Dispatchers.Main) {
                         mAdapter.clear()
-                        refreshedCardItems.forEach { mAdapter.add(it) }
+                        mAdapter.addAll(0, refreshedCardItems)
                     }
                 } catch (ignored: Exception) {}
             }

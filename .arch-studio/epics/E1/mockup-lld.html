@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E1 · HTSP Core &amp; TIF Sync — TVheadend TIF UI Mockup</title>
+  <style>
+    :root {
+      --bg-app: #090d16;
+      --bg-panel: #101726;
+      --bg-card: #162033;
+      --bg-card-hover: #1d2a42;
+      --bg-input: #0c1220;
+      --border: #25334f;
+      --border-subtle: #1b263d;
+      --text-primary: #eaf1fc;
+      --text-secondary: #9fb0cc;
+      --text-muted: #6c7f9e;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --focus-ring: #60a5fa;
+      --ok: #10b981;
+      --ok-soft: rgba(16, 185, 129, 0.15);
+      --warn: #f59e0b;
+      --warn-soft: rgba(245, 158, 11, 0.15);
+      --err: #ef4444;
+      --err-soft: rgba(239, 68, 68, 0.16);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.45;
+      overflow: hidden;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    select:focus-visible,
+    .nav-item:focus-visible,
+    .entity-card:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .app-shell {
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      grid-template-columns: 244px 1fr;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0 16px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      color: var(--focus-ring);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 12px;
+      display: grid;
+      place-items: center;
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 14px;
+      white-space: nowrap;
+    }
+
+    .brand-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .state-switcher {
+      display: inline-flex;
+      align-items: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .state-lbl {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      color: var(--text-muted);
+      padding: 0 7px;
+    }
+
+    .state-btn {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .state-btn[aria-pressed="true"] {
+      background: var(--accent-soft);
+      color: var(--focus-ring);
+      border-color: rgba(96, 165, 250, 0.45);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .pill-ok {
+      color: var(--ok);
+      background: var(--ok-soft);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .pill-warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .pill-err {
+      color: var(--err);
+      background: var(--err-soft);
+      border-color: rgba(239, 68, 68, 0.45);
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 6px 11px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: #39507a;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      border-color: var(--accent-hover);
+    }
+
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 11.5px;
+    }
+
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow-y: auto;
+    }
+
+    .nav-label {
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      padding: 8px 10px 4px;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .nav-item {
+      width: 100%;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      text-align: left;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-card);
+      color: var(--text-primary);
+    }
+
+    .nav-item[aria-current="page"] {
+      background: var(--accent-soft);
+      color: var(--focus-ring);
+      border-color: rgba(96, 165, 250, 0.4);
+      font-weight: 600;
+    }
+
+    .nav-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: var(--bg-input);
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .sidebar-meta {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+      margin-top: 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .workspace {
+      overflow-y: auto;
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .mode-banner {
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 12.5px;
+    }
+
+    .mode-banner.loading {
+      background: var(--warn-soft);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: #fde68a;
+    }
+
+    .mode-banner.error {
+      background: var(--err-soft);
+      border-color: rgba(239, 68, 68, 0.45);
+      color: #fecaca;
+    }
+
+    .mode-banner.empty {
+      background: var(--bg-card);
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .input-box, .select-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      font-size: 12.5px;
+      color: var(--text-primary);
+    }
+
+    .split-view {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+      gap: 12px;
+    }
+
+    .entity-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .entity-card:hover {
+      background: var(--bg-card-hover);
+      border-color: #3d5480;
+    }
+
+    .entity-card.selected {
+      border-color: var(--focus-ring);
+      background: var(--bg-card-hover);
+      box-shadow: 0 0 0 1px var(--focus-ring);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-code {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--focus-ring);
+      background: var(--accent-soft);
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+
+    .card-title {
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .card-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .card-foot {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .kv-grid {
+      display: grid;
+      grid-template-columns: 112px 1fr;
+      gap: 6px 10px;
+      font-size: 12px;
+    }
+
+    .kv-key {
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    .kv-val {
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+
+    .list-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .list-row {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 56px;
+      right: 0;
+      bottom: 0;
+      width: 380px;
+      max-width: 100vw;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      padding: 18px;
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      z-index: 40;
+      overflow-y: auto;
+    }
+
+    .drawer.open {
+      display: flex;
+    }
+
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--focus-ring);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12.5px;
+      font-weight: 500;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      z-index: 60;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 960px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+        grid-template-rows: 56px auto 1fr;
+        height: auto;
+        min-height: 100vh;
+        overflow: auto;
+      }
+      html, body {
+        overflow: auto;
+      }
+      .sidebar {
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        padding: 8px 12px;
+      }
+      .nav-list {
+        flex-direction: row;
+        overflow-x: auto;
+      }
+      .nav-item {
+        width: auto;
+        white-space: nowrap;
+      }
+      .nav-label, .sidebar-meta {
+        display: none;
+      }
+      .split-view {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">E1</div>
+        <div>
+          <div class="brand-title">HTSP Core &amp; TIF Sync</div>
+          <div class="brand-sub">nmaclean/android-tvheadend-tif · Epic E1</div>
+        </div>
+      </div>
+
+      <div class="topbar-controls">
+        <div class="state-switcher" role="group" aria-label="Simulated UI State">
+          <span class="state-lbl">STATE</span>
+          <button class="state-btn" data-mode="nominal" aria-pressed="true">Nominal</button>
+          <button class="state-btn" data-mode="loading" aria-pressed="false">Loading / Syncing</button>
+          <button class="state-btn" data-mode="error" aria-pressed="false">Error / Offline</button>
+          <button class="state-btn" data-mode="empty" aria-pressed="false">Empty</button>
+        </div>
+
+        <span class="pill pill-ok" id="pool-pill">Pool · READY</span>
+        <button class="btn btn-sm" id="btn-drawer">Diagnostics Drawer</button>
+      </div>
+    </header>
+
+    <nav class="sidebar" aria-label="Epic E1 Views">
+      <div>
+        <div class="nav-label">E1 Workspace Views</div>
+        <div class="nav-list">
+          <button class="nav-item" data-view="registry" aria-current="page">
+            <span>Channel Registry</span>
+            <span class="nav-count" id="cnt-channels">0</span>
+          </button>
+          <button class="nav-item" data-view="sync">
+            <span>HTSP &amp; TIF Sync</span>
+            <span class="nav-count" id="cnt-jobs">0</span>
+          </button>
+          <button class="nav-item" data-view="repos">
+            <span>EPG &amp; DVR Repos</span>
+            <span class="nav-count" id="cnt-repos">0</span>
+          </button>
+          <button class="nav-item" data-view="account">
+            <span>Account &amp; Service</span>
+            <span class="nav-count">HTSP</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sidebar-meta">
+        <div>Service: TvheadendInputService</div>
+        <div id="side-conn-count">Pool Sockets: 2 / 4</div>
+        <div id="side-last-sync">Last Sync: 12s ago</div>
+      </div>
+    </nav>
+
+    <main class="workspace">
+      <div id="mode-banner" class="mode-banner loading" style="display:none;"></div>
+      <div id="view-root"></div>
+    </main>
+  </div>
+
+  <aside class="drawer" id="diag-drawer" aria-label="E1 Connection & Worker Diagnostics">
+    <div class="panel-head">
+      <span>E1 Connection &amp; Sync Drawer</span>
+      <button class="btn btn-sm" id="btn-close-drawer">Close</button>
+    </div>
+    <div class="card-sub">
+      Live simulated controls for <code>HtspConnectionPool</code>, <code>TvhSyncManager</code>, and <code>TifChannelObserver</code>.
+    </div>
+    <div class="kv-grid">
+      <span class="kv-key">Endpoint</span><span class="kv-val">192.168.1.20:9982</span>
+      <span class="kv-key">Protocol</span><span class="kv-val">HTSP (Htsmsg)</span>
+      <span class="kv-key">TIF Input</span><span class="kv-val">TvheadendInputService</span>
+      <span class="kv-key">Sync Worker</span><span class="kv-val">TvhSyncWorker</span>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <button class="btn btn-primary btn-sm" id="drawer-run-sync">Run TvhSyncManager</button>
+      <button class="btn btn-sm" id="drawer-cycle-state">Cycle UI State</button>
+    </div>
+    <div class="list-stack" id="drawer-event-log"></div>
+  </aside>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      const uiState = {
+        view: "registry",
+        mode: "nominal",
+        filterText: "",
+        tifFilter: "ALL",
+        selectedChannelId: "tvh-1",
+        drawerOpen: false,
+        channels: [
+          {
+            id: "tvh-1",
+            lcn: "1",
+            name: "BBC One HD",
+            service: "DVB-T2 / Mux 101",
+            tifPublished: true,
+            htspChannelId: 1001,
+            epgCount: 148
+          },
+          {
+            id: "tvh-2",
+            lcn: "2",
+            name: "BBC Two HD",
+            service: "DVB-T2 / Mux 102",
+            tifPublished: true,
+            htspChannelId: 1002,
+            epgCount: 142
+          },
+          {
+            id: "tvh-3",
+            lcn: "4",
+            name: "Channel 4 HD",
+            service: "DVB-T2 / Mux 104",
+            tifPublished: true,
+            htspChannelId: 1004,
+            epgCount: 136
+          },
+          {
+            id: "tvh-4",
+            lcn: "7",
+            name: "BBC Three HD",
+            service: "DVB-T2 / Mux 107",
+            tifPublished: false,
+            htspChannelId: 1007,
+            epgCount: 94
+          }
+        ],
+        syncJobs: [
+          { id: "job-1", name: "ChannelRegistry & TIF Observer", target: "TifChannelObserver", status: "COMPLETED", lastRun: "12s ago" },
+          { id: "job-2", name: "EpgRepository Guide Batch", target: "EpgRepository", status: "COMPLETED", lastRun: "12s ago" },
+          { id: "job-3", name: "DvrRepository Recordings Index", target: "DvrRepository", status: "COMPLETED", lastRun: "18s ago" },
+          { id: "job-4", name: "BackgroundSyncStrategy Poll", target: "TvhSyncWorker", status: "SCHEDULED", lastRun: "Every 30m" }
+        ],
+        repoSummary: [
+          { id: "repo-1", name: "EpgRepository", detail: "476 program entries indexed across 4 Tvheadend channels", state: "READY" },
+          { id: "repo-2", name: "DvrRepository", detail: "3 completed & 1 scheduled recording items synced via HTSP", state: "READY" },
+          { id: "repo-3", name: "InputChannelRepository", detail: "TIF channel rows mapped to TvheadendInputService", state: "SYNCED" }
+        ],
+        account: {
+          accountName: "tvheadend@192.168.1.20",
+          host: "192.168.1.20",
+          port: "9982",
+          syncAdapterEnabled: true,
+          autoStartService: true
+        },
+        logs: [
+          "HtspConnectionPool: connected to 192.168.1.20:9982",
+          "ChannelRegistry: loaded 4 channels into registry",
+          "TifChannelObserver: TIF channel rows verified"
+        ]
+      };
+
+      const viewRoot = document.getElementById("view-root");
+      const modeBanner = document.getElementById("mode-banner");
+      const drawerEl = document.getElementById("diag-drawer");
+      const toastEl = document.getElementById("toast");
+      let toastTimer = null;
+
+      function notify(msg) {
+        uiState.logs.unshift(msg);
+        if (uiState.logs.length > 8) uiState.logs.pop();
+        renderDrawerLog();
+        toastEl.textContent = msg;
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2300);
+      }
+
+      function syncBadges() {
+        const visibleCh = uiState.mode === "empty" ? 0 : uiState.channels.length;
+        document.getElementById("cnt-channels").textContent = String(visibleCh);
+        document.getElementById("cnt-jobs").textContent = String(uiState.mode === "empty" ? 0 : uiState.syncJobs.length);
+        document.getElementById("cnt-repos").textContent = String(uiState.mode === "empty" ? 0 : uiState.repoSummary.length);
+        document.getElementById("side-conn-count").textContent =
+          uiState.mode === "error" ? "Pool Sockets: 0 / 4 (RETRY)" : "Pool Sockets: 2 / 4";
+        document.getElementById("side-last-sync").textContent =
+          uiState.mode === "loading" ? "Last Sync: In progress..." : "Last Sync: 12s ago";
+
+        const pill = document.getElementById("pool-pill");
+        pill.className = "pill";
+        if (uiState.mode === "loading") {
+          pill.classList.add("pill-warn");
+          pill.textContent = "Syncing · TvhSyncManager";
+        } else if (uiState.mode === "error") {
+          pill.classList.add("pill-err");
+          pill.textContent = "Offline · HtspConnectionPool";
+        } else if (uiState.mode === "empty") {
+          pill.textContent = "Empty · 0 Records";
+        } else {
+          pill.classList.add("pill-ok");
+          pill.textContent = "Pool · CONNECTED";
+        }
+      }
+
+      function renderBanner() {
+        modeBanner.style.display = "none";
+        modeBanner.className = "mode-banner";
+        if (uiState.mode === "loading") {
+          modeBanner.style.display = "flex";
+          modeBanner.classList.add("loading");
+          modeBanner.innerHTML = `
+            <span>Syncing channels, EPG, and DVR via <code>TvhSyncManager</code> &amp; <code>TvhSyncWorker</code>...</span>
+            <button class="btn btn-sm" id="btn-finish-loading">Mark Synced</button>
+          `;
+          document.getElementById("btn-finish-loading").onclick = () => {
+            setMode("nominal");
+            notify("TvhSyncManager completed sync cycle");
+          };
+        } else if (uiState.mode === "error") {
+          modeBanner.style.display = "flex";
+          modeBanner.classList.add("error");
+          modeBanner.innerHTML = `
+            <span>HTSP connection lost (<code>HtspConnectionState.DISCONNECTED</code>) — TIF channel sync paused.</span>
+            <button class="btn btn-sm" id="btn-recover-error">Reconnect Pool</button>
+          `;
+          document.getElementById("btn-recover-error").onclick = () => {
+            setMode("nominal");
+            notify("HtspConnectionPool re-established connection");
+          };
+        } else if (uiState.mode === "empty") {
+          modeBanner.style.display = "flex";
+          modeBanner.classList.add("empty");
+          modeBanner.innerHTML = `
+            <span>Empty state active — no E1 registry or sync records displayed.</span>
+            <button class="btn btn-sm" id="btn-restore-empty">Load Sample Registry</button>
+          `;
+          document.getElementById("btn-restore-empty").onclick = () => {
+            setMode("nominal");
+            notify("Loaded sample ChannelRegistry & sync records");
+          };
+        }
+      }
+
+      function filteredRegistry() {
+        if (uiState.mode === "empty") return [];
+        return uiState.channels.filter(ch => {
+          const matchesTif =
+            uiState.tifFilter === "ALL" ||
+            (uiState.tifFilter === "PUBLISHED" && ch.tifPublished) ||
+            (uiState.tifFilter === "UNPUBLISHED" && !ch.tifPublished);
+          const q = uiState.filterText.trim().toLowerCase();
+          const matchesQuery = !q ||
+            ch.name.toLowerCase().includes(q) ||
+            ch.lcn.toLowerCase().includes(q) ||
+            ch.service.toLowerCase().includes(q);
+          return matchesTif && matchesQuery;
+        });
+      }
+
+      function renderRegistryView() {
+        const items = filteredRegistry();
+        const active = uiState.channels.find(c => c.id === uiState.selectedChannelId) || items[0] || null;
+
+        viewRoot.innerHTML = `
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <input class="input-box" id="reg-search" type="search" placeholder="Search LCN, channel, mux..." value="${uiState.filterText}" />
+              <select class="select-box" id="reg-tif-filter" aria-label="Filter by TIF status">
+                <option value="ALL" ${uiState.tifFilter === "ALL" ? "selected" : ""}>All Registry Channels</option>
+                <option value="PUBLISHED" ${uiState.tifFilter === "PUBLISHED" ? "selected" : ""}>TIF Published</option>
+                <option value="UNPUBLISHED" ${uiState.tifFilter === "UNPUBLISHED" ? "selected" : ""}>Not in TIF</option>
+              </select>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-sync-registry">Sync ChannelRegistry</button>
+          </div>
+
+          <div class="split-view">
+            <div class="cards-grid">
+              ${items.length === 0 ? `
+                <div class="panel" style="grid-column: 1 / -1;">
+                  <div class="panel-head"><span>No ChannelRegistry Entries</span></div>
+                  <div class="card-sub">Change filters or switch UI state to Nominal to inspect Tvheadend channels.</div>
+                </div>
+              ` : items.map(ch => `
+                <div
+                  class="entity-card ${active && active.id === ch.id ? "selected" : ""}"
+                  data-cid="${ch.id}"
+                  tabindex="0"
+                  role="button"
+                >
+                  <div class="card-top">
+                    <span class="card-code">LCN ${ch.lcn}</span>
+                    <span class="pill ${ch.tifPublished ? "pill-ok" : "pill-warn"}">${ch.tifPublished ? "TIF ACTIVE" : "PENDING"}</span>
+                  </div>
+                  <div class="card-title">${ch.name}</div>
+                  <div class="card-sub">${ch.service}</div>
+                  <div class="card-foot">
+                    <span>HTSP #${ch.htspChannelId}</span>
+                    <span>${ch.epgCount} EPG</span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+
+            <aside class="panel" aria-label="Selected Channel Details">
+              <div class="panel-head">
+                <span>Registry &amp; TIF Binding</span>
+                ${active ? `<span class="pill ${active.tifPublished ? "pill-ok" : "pill-warn"}">${active.tifPublished ? "Published" : "Unpublished"}</span>` : ""}
+              </div>
+              ${active ? `
+                <div>
+                  <div class="card-title">${active.lcn} · ${active.name}</div>
+                  <div class="card-sub">${active.service}</div>
+                </div>
+                <div class="kv-grid">
+                  <span class="kv-key">HTSP ID</span><span class="kv-val">${active.htspChannelId}</span>
+                  <span class="kv-key">EPG Items</span><span class="kv-val">${active.epgCount}</span>
+                  <span class="kv-key">Input</span><span class="kv-val">TvheadendInputService</span>
+                  <span class="kv-key">Observer</span><span class="kv-val">TifChannelObserver</span>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn btn-primary btn-sm" id="btn-toggle-ch-tif">
+                    ${active.tifPublished ? "Unpublish from TIF" : "Publish to TIF"}
+                  </button>
+                  <button class="btn btn-sm" id="btn-refresh-ch-epg">Refresh EPG</button>
+                </div>
+              ` : `
+                <div class="card-sub">Select a channel card to inspect HTSP and TIF binding.</div>
+              `}
+            </aside>
+          </div>
+        `;
+
+        document.getElementById("reg-search").addEventListener("input", (e) => {
+          uiState.filterText = e.target.value;
+          renderView();
+        });
+
+        document.getElementById("reg-tif-filter").addEventListener("change", (e) => {
+          uiState.tifFilter = e.target.value;
+          renderView();
+        });
+
+        document.getElementById("btn-sync-registry").addEventListener("click", () => {
+          setMode("loading");
+          notify("Requested ChannelRegistry & TIF sync");
+        });
+
+        document.querySelectorAll(".entity-card").forEach(card => {
+          const pick = () => {
+            uiState.selectedChannelId = card.getAttribute("data-cid");
+            renderView();
+          };
+          card.addEventListener("click", pick);
+          card.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              pick();
+            }
+          });
+        });
+
+        const toggleBtn = document.getElementById("btn-toggle-ch-tif");
+        if (toggleBtn && active) {
+          toggleBtn.addEventListener("click", () => {
+            active.tifPublished = !active.tifPublished;
+            renderView();
+            notify(`${active.name}: TIF ${active.tifPublished ? "published" : "unpublished"}`);
+          });
+        }
+
+        const epgBtn = document.getElementById("btn-refresh-ch-epg");
+        if (epgBtn && active) {
+          epgBtn.addEventListener("click", () => {
+            active.epgCount += 12;
+            renderView();
+            notify(`Updated EPG count for ${active.name} (${active.epgCount} entries)`);
+          });
+        }
+      }
+
+      function renderSyncView() {
+        const jobs = uiState.mode === "empty" ? [] : uiState.syncJobs;
+        viewRoot.innerHTML = `
+          <div class="toolbar">
+            <div class="toolbar-group">
+              <span class="pill">Manager: TvhSyncManager</span>
+              <span class="pill">Worker: TvhSyncWorker</span>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btn-run-all-jobs">Run Sync Now</button>
+          </div>
+
+          <div class="list-stack">
+            ${jobs.length === 0 ? `
+              <div class="panel"><div class="card-sub">No sync jobs available in Empty mode.</div></div>
+            ` : jobs.map(j => `
+              <div class="list-row">
+                <div>
+                  <div class="card-title">${j.name}</div>
+                  <div class="card-sub">Component: <code>${j.target}</code> · Cadence/Last: ${j.lastRun}</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="pill ${j.status === "COMPLETED" ? "pill-ok" : "pill-warn"}">${j.status}</span>
+                  <button class="btn btn-sm" data-run-job="${j.id}">Trigger</button>
+                </div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+
+        document.getElementById("btn-run-all-jobs").addEventListener("click", () => {
+          setMode("loading");
+          notify("Triggered full TvhSyncManager + TvhSyncWorker run");
+        });
+
+        document.querySelectorAll("[data-run-job]").forEach(btn => {
+          btn.addEventListener("click", () => {
+            const job = uiState.syncJobs.find(x => x.id === btn.getAttribute("data-run-job"));
+            if (job) {
+              job.status = "COMPLETED";
+              job.lastRun = "Just now";
+              renderView();
+              notify(`Completed ${job.name}`);
+            }
+          });
+        });
+      }
+
+      function renderReposView() {
+        const repos = uiState.mode === "empty" ? [] : uiState.repoSummary;
+        viewRoot.innerHTML = `
+          <div class="cards-grid">
+            ${repos.length === 0 ? `
+              <div class="panel" style="grid-column: 1 / -1;"><div class="card-sub">No repository metrics in Empty mode.</div></div>
+            ` : repos.map(r => `
+              <div class="entity-card">
+                <div class="card-top">
+                  <span class="card-code">${r.name}</span>
+                  <span class="pill pill-ok">${r.state}</span>
+                </div>
+                <div class="card-sub">${r.detail}</div>
+              </div>
+            `).join("")}
+          </div>
+        `;
+      }
+
+      function renderAccountView() {
+        viewRoot.innerHTML = `
+          <div class="panel">
+            <div class="panel-head">
+              <span>TvhAccountService &amp; SyncService Configuration</span>
+              <span class="pill pill-ok">ACCOUNT BOUND</span>
+            </div>
+            <div class="kv-grid">
+              <span class="kv-key">Account</span><span class="kv-val">${uiState.account.accountName}</span>
+              <span class="kv-key">HTSP Host</span><span class="kv-val">${uiState.account.host}:${uiState.account.port}</span>
+              <span class="kv-key">SyncAdapter</span><span class="kv-val">${uiState.account.syncAdapterEnabled ? "Enabled (SyncService)" : "Disabled"}</span>
+              <span class="kv-key">TIF Service</span><span class="kv-val">TvheadendInputService</span>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn btn-primary btn-sm" id="btn-toggle-syncadapter">
+                ${uiState.account.syncAdapterEnabled ? "Pause SyncAdapter" : "Enable SyncAdapter"}
+              </button>
+              <button class="btn btn-sm" id="btn-test-htsp">Verify HTSP Pool</button>
+            </div>
+          </div>
+        `;
+
+        document.getElementById("btn-toggle-syncadapter").addEventListener("click", () => {
+          uiState.account.syncAdapterEnabled = !uiState.account.syncAdapterEnabled;
+          renderView();
+          notify(`SyncService ${uiState.account.syncAdapterEnabled ? "enabled" : "paused"}`);
+        });
+
+        document.getElementById("btn-test-htsp").addEventListener("click", () => {
+          setMode("nominal");
+          notify("HtspConnectionPool check passed (192.168.1.20:9982)");
+        });
+      }
+
+      function renderDrawerLog() {
+        const logWrap = document.getElementById("drawer-event-log");
+        if (!logWrap) return;
+        logWrap.innerHTML = uiState.logs.map(entry => `
+          <div class="list-row" style="padding:8px 10px;">
+            <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-secondary);">${entry}</span>
+          </div>
+        `).join("");
+      }
+
+      function renderView() {
+        renderBanner();
+        if (uiState.view === "registry") renderRegistryView();
+        else if (uiState.view === "sync") renderSyncView();
+        else if (uiState.view === "repos") renderReposView();
+        else if (uiState.view === "account") renderAccountView();
+      }
+
+      function setView(nextView) {
+        uiState.view = nextView;
+        document.querySelectorAll(".nav-item").forEach(btn => {
+          btn.setAttribute("aria-current", btn.getAttribute("data-view") === nextView ? "page" : "false");
+        });
+        renderView();
+      }
+
+      function setMode(nextMode) {
+        uiState.mode = nextMode;
+        document.querySelectorAll(".state-btn").forEach(btn => {
+          btn.setAttribute("aria-pressed", btn.getAttribute("data-mode") === nextMode ? "true" : "false");
+        });
+        syncBadges();
+        renderView();
+      }
+
+      document.querySelectorAll(".nav-item").forEach(btn => {
+        btn.addEventListener("click", () => setView(btn.getAttribute("data-view")));
+      });
+
+      document.querySelectorAll(".state-btn").forEach(btn => {
+        btn.addEventListener("click", () => setMode(btn.getAttribute("data-mode")));
+      });
+
+      document.getElementById("btn-drawer").addEventListener("click", () => {
+        uiState.drawerOpen = !uiState.drawerOpen;
+        drawerEl.classList.toggle("open", uiState.drawerOpen);
+      });
+
+      document.getElementById("btn-close-drawer").addEventListener("click", () => {
+        uiState.drawerOpen = false;
+        drawerEl.classList.remove("open");
+      });
+
+      document.getElementById("drawer-run-sync").addEventListener("click", () => {
+        setMode("loading");
+        notify("Drawer triggered TvhSyncManager run");
+      });
+
+      document.getElementById("drawer-cycle-state").addEventListener("click", () => {
+        const order = ["nominal", "loading", "error", "empty"];
+        const next = order[(order.indexOf(uiState.mode) + 1) % order.length];
+        setMode(next);
+        notify(`Switched UI state to ${next.toUpperCase()}`);
+      });
+
+      renderDrawerLog();
+      syncBadges();
+      renderView();
+    })();
+  </script>
+</body>
+</html>

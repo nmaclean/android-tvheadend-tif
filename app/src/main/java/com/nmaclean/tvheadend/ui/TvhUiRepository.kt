@@ -53,13 +53,13 @@ object TvhUiRepository {
         val cardFocusedHex: Long,
         val accentHex: Long
     ) {
-        SPORT("SPORT", 0xFF0F2624, 0xFF173835, 0xFF34D399),
-        NEWS("NEWS", 0xFF241520, 0xFF331F2E, 0xFFF87171),
-        MOVIES("MOVIES", 0xFF1C162E, 0xFF292042, 0xFFC084FC),
-        KIDS("KIDS", 0xFF241C12, 0xFF33281A, 0xFFFBBF24),
-        DRAMA("ENTERTAINMENT", 0xFF141E36, 0xFF1E2B4D, 0xFF60A5FA),
-        DOCUMENTARY("FACTUAL", 0xFF112330, 0xFF1A3345, 0xFF38BDF8),
-        GENERAL("", 0xFF141C2B, 0xFF1D283E, 0xFF00E5FF)
+        SPORT("SPORT", 0xFF0B1B18, 0xFF122E2A, 0xFF34D399),
+        NEWS("NEWS", 0xFF1C0D18, 0xFF2B1425, 0xFFF87171),
+        MOVIES("MOVIES", 0xFF150F24, 0xFF211738, 0xFFC084FC),
+        KIDS("KIDS", 0xFF1F160C, 0xFF2E2112, 0xFFFBBF24),
+        DRAMA("ENTERTAINMENT", 0xFF0F1726, 0xFF19253B, 0xFF60A5FA),
+        DOCUMENTARY("FACTUAL", 0xFF0C1924, 0xFF14293B, 0xFF38BDF8),
+        GENERAL("", 0xFF0E1624, 0xFF172338, 0xFF00E5FF)
     }
 
     fun classifyEpgGenre(
@@ -304,7 +304,7 @@ object TvhUiRepository {
             context = context,
             channels = channels,
             windowStartMs = now - 30 * 60_000L,
-            windowEndMs = now + 12 * 60 * 60_000L,
+            windowEndMs = now + 2 * 60 * 60_000L,
             forceRefresh = forceRefresh
         )
         val result = deriveCurrentEpgFromWindow(channels, windowMap, now)

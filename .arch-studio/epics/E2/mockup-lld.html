@@ -1,0 +1,1668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tvheadend TIF — E2 Interactive UI Mockup</title>
+  <style>
+    :root {
+      --bg-canvas: #090d16;
+      --bg-surface: #111827;
+      --bg-elevated: #172133;
+      --bg-card: #131c2e;
+      --bg-card-hover: #1b2840;
+      --bg-pill: rgba(56, 189, 248, 0.12);
+      --border-subtle: rgba(148, 163, 184, 0.16);
+      --border-strong: rgba(148, 163, 184, 0.32);
+      --focus-ring: #38bdf8;
+      --focus-glow: rgba(56, 189, 248, 0.28);
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent-primary: #38bdf8;
+      --accent-secondary: #818cf8;
+      --status-live: #ef4444;
+      --status-live-bg: rgba(239, 68, 68, 0.16);
+      --status-ok: #22c55e;
+      --status-ok-bg: rgba(34, 197, 94, 0.14);
+      --status-warn: #f59e0b;
+      --status-warn-bg: rgba(245, 158, 11, 0.16);
+      --status-err: #f87171;
+      --status-err-bg: rgba(248, 113, 113, 0.16);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --radius-pill: 999px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --transition-fast: 140ms ease;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.45;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button, input, select {
+      font-family: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid transparent;
+      background: transparent;
+      transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+    button:focus-visible,
+    [tabindex="0"]:focus-visible,
+    input:focus-visible,
+    select:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+      box-shadow: 0 0 0 4px var(--focus-glow);
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      background:
+        radial-gradient(circle at 85% 0%, rgba(56, 189, 248, 0.08), transparent 42%),
+        radial-gradient(circle at 10% 100%, rgba(129, 140, 248, 0.07), transparent 45%),
+        var(--bg-canvas);
+    }
+
+    /* Top Control & State Bar */
+    .top-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 18px;
+      background: rgba(17, 24, 39, 0.92);
+      border-bottom: 1px solid var(--border-subtle);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .brand-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .brand-mark {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      color: #06101d;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 12px;
+      display: grid;
+      place-items: center;
+      letter-spacing: -0.04em;
+    }
+
+    .brand-title {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.01em;
+    }
+
+    .mono-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: var(--radius-pill);
+      background: var(--bg-pill);
+      color: var(--accent-primary);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+      white-space: nowrap;
+    }
+
+    .mono-badge.muted {
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--text-secondary);
+      border-color: var(--border-subtle);
+    }
+
+    .state-switcher {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      background: var(--bg-canvas);
+      padding: 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .state-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .state-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      border: 1px solid transparent;
+    }
+
+    .state-btn:hover {
+      color: var(--text-primary);
+      background: var(--bg-surface);
+    }
+
+    .state-btn.active {
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px var(--focus-glow);
+    }
+
+    /* Main Workspace with Left TV Rail + Screen Canvas */
+    .workspace {
+      display: grid;
+      grid-template-columns: 228px 1fr;
+      min-height: calc(100vh - 90px);
+    }
+
+    @media (max-width: 860px) {
+      .workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tv-rail {
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-subtle);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    @media (max-width: 860px) {
+      .tv-rail {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+        padding: 10px 14px;
+      }
+    }
+
+    .rail-section-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      padding: 0 8px 8px;
+    }
+
+    .nav-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    @media (max-width: 860px) {
+      .nav-list {
+        flex-direction: row;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 9px 11px;
+      border-radius: var(--radius-md);
+      color: var(--text-secondary);
+      text-align: left;
+      font-weight: 500;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+
+    .nav-item:hover {
+      color: var(--text-primary);
+      background: var(--bg-elevated);
+    }
+
+    .nav-item.active {
+      color: var(--text-primary);
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(56, 189, 248, 0.04));
+      border-color: rgba(56, 189, 248, 0.45);
+      box-shadow: inset 3px 0 0 var(--accent-primary);
+    }
+
+    .nav-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      padding: 1px 7px;
+      border-radius: var(--radius-pill);
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-secondary);
+    }
+
+    .nav-item.active .nav-count {
+      background: rgba(56, 189, 248, 0.22);
+      color: var(--accent-primary);
+    }
+
+    .rail-footer {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tuner-status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 0 4px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      background: var(--status-ok);
+    }
+
+    .status-dot.syncing {
+      background: var(--accent-primary);
+      animation: pulse 1.2s infinite;
+    }
+
+    .status-dot.error {
+      background: var(--status-err);
+    }
+
+    .status-dot.empty {
+      background: var(--status-warn);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+
+    /* Screen Area */
+    .screen-host {
+      padding: 18px 22px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-width: 1440px;
+      width: 100%;
+    }
+
+    .screen-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .screen-heading-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .screen-title {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .screen-subtitle {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .toolbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 7px 12px;
+      font-size: 13px;
+      min-width: 190px;
+      color: var(--text-primary);
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .filter-select {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 7px 10px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+    }
+
+    .btn {
+      padding: 7px 12px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border-strong);
+      background: var(--bg-elevated);
+      color: var(--text-primary);
+    }
+
+    .btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-primary);
+    }
+
+    .btn.primary {
+      background: var(--accent-primary);
+      color: #05111f;
+      border-color: var(--accent-primary);
+    }
+
+    .btn.primary:hover {
+      filter: brightness(1.08);
+    }
+
+    .btn.ghost {
+      background: transparent;
+      border-color: var(--border-subtle);
+      color: var(--text-secondary);
+    }
+
+    .btn.ghost.active {
+      border-color: var(--accent-primary);
+      color: var(--accent-primary);
+      background: var(--bg-pill);
+    }
+
+    /* Channel Grid Cards */
+    .channel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+      gap: 14px;
+    }
+
+    .channel-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 12px;
+      text-align: left;
+      position: relative;
+    }
+
+    .channel-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-strong);
+      transform: translateY(-1px);
+    }
+
+    .channel-card.selected {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px var(--focus-glow);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .ch-num-badge {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      background: rgba(56, 189, 248, 0.14);
+      color: var(--accent-primary);
+      border: 1px solid rgba(56, 189, 248, 0.28);
+    }
+
+    .pill {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: var(--radius-pill);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .pill.hd {
+      background: rgba(129, 140, 248, 0.16);
+      color: #a5b4fc;
+      border: 1px solid rgba(129, 140, 248, 0.35);
+    }
+
+    .pill.sd {
+      background: rgba(148, 163, 184, 0.14);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .pill.fav {
+      background: var(--status-warn-bg);
+      color: var(--status-warn);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .pill.live {
+      background: var(--status-live-bg);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+
+    .ch-name {
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    .ch-mux {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .now-next-box {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .now-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .now-meta {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .progress-track {
+      height: 4px;
+      border-radius: var(--radius-pill);
+      background: rgba(148, 163, 184, 0.18);
+      overflow: hidden;
+      margin-top: 3px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: var(--radius-pill);
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* EPG Timeline Grid */
+    .epg-wrapper {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      overflow-x: auto;
+    }
+
+    .epg-table {
+      width: 100%;
+      min-width: 780px;
+      border-collapse: collapse;
+    }
+
+    .epg-table th {
+      background: var(--bg-elevated);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+    }
+
+    .epg-table td {
+      padding: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      border-right: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    .epg-ch-cell {
+      width: 175px;
+      background: rgba(19, 28, 46, 0.65);
+    }
+
+    .epg-slot-btn {
+      width: 100%;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .epg-slot-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--accent-primary);
+    }
+
+    .epg-slot-btn.current {
+      border-color: rgba(56, 189, 248, 0.5);
+      background: rgba(56, 189, 248, 0.08);
+    }
+
+    .epg-slot-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .epg-slot-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+    }
+
+    /* Live Preview Stage */
+    .live-layout {
+      display: grid;
+      grid-template-columns: 1.55fr 1fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 960px) {
+      .live-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .player-stage {
+      background: #050811;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 330px;
+      position: relative;
+    }
+
+    .player-viewport {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background:
+        linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(15, 23, 42, 0.85)),
+        repeating-linear-gradient(
+          0deg,
+          rgba(148, 163, 184, 0.03) 0px,
+          rgba(148, 163, 184, 0.03) 1px,
+          transparent 1px,
+          transparent 4px
+        );
+    }
+
+    .player-osd {
+      background: rgba(9, 13, 22, 0.9);
+      border-top: 1px solid var(--border-subtle);
+      padding: 12px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .switcher-list {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .switcher-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-md);
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      text-align: left;
+    }
+
+    .switcher-row:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-strong);
+    }
+
+    .switcher-row.active {
+      border-color: var(--accent-primary);
+      background: rgba(56, 189, 248, 0.1);
+    }
+
+    /* State Banners & Skeletons */
+    .state-banner {
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .state-banner.loading {
+      background: rgba(56, 189, 248, 0.08);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .state-banner.error {
+      background: var(--status-err-bg);
+      border-color: rgba(248, 113, 113, 0.45);
+    }
+
+    .skeleton-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(265px, 1fr));
+      gap: 14px;
+    }
+
+    .skeleton-card {
+      height: 176px;
+      border-radius: var(--radius-lg);
+      background: linear-gradient(90deg, #111827 25%, #1c283d 50%, #111827 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border: 1px solid var(--border-subtle);
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .empty-state {
+      background: var(--bg-surface);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 36px 20px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .empty-title {
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .empty-copy {
+      color: var(--text-secondary);
+      max-width: 440px;
+      font-size: 13px;
+    }
+
+    /* Inspector Drawer */
+    .drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 7, 18, 0.72);
+      display: none;
+      justify-content: flex-end;
+      z-index: 50;
+    }
+
+    .drawer-backdrop.open {
+      display: flex;
+    }
+
+    .drawer-panel {
+      width: min(430px, 100vw);
+      height: 100%;
+      background: var(--bg-surface);
+      border-left: 1px solid var(--border-strong);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    .drawer-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .meta-cell {
+      background: var(--bg-canvas);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 9px 11px;
+    }
+
+    .meta-label {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .meta-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-primary);
+      margin-top: 2px;
+    }
+
+    /* Footer & Toast */
+    .bottom-bar {
+      padding: 8px 18px;
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .toast-region {
+      position: fixed;
+      right: 18px;
+      bottom: 44px;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 360px;
+    }
+
+    .toast-item {
+      background: var(--bg-elevated);
+      border: 1px solid var(--accent-primary);
+      color: var(--text-primary);
+      padding: 10px 14px;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="top-bar">
+      <div class="brand-cluster">
+        <div class="brand-mark" aria-hidden="true">TVH</div>
+        <span class="brand-title">android-tvheadend-tif</span>
+        <span class="mono-badge">EPIC E2 · CHANNEL &amp; EPG</span>
+        <span id="host-badge" class="mono-badge muted">tvh.lan:9982 · HTSP</span>
+      </div>
+
+      <div class="state-switcher" role="group" aria-label="Simulated UI State">
+        <span class="state-label">State</span>
+        <button class="state-btn active" data-state="nominal">Nominal</button>
+        <button class="state-btn" data-state="loading">Loading / Syncing</button>
+        <button class="state-btn" data-state="error">Error / Offline</button>
+        <button class="state-btn" data-state="empty">Empty</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="tv-rail" aria-label="Epic E2 Navigation">
+        <div>
+          <div class="rail-section-title">E2 Views</div>
+          <nav class="nav-list">
+            <button class="nav-item active" data-view="grid">
+              <span>Channel Grid</span>
+              <span class="nav-count" id="count-grid">6</span>
+            </button>
+            <button class="nav-item" data-view="epg">
+              <span>EPG Guide</span>
+              <span class="nav-count" id="count-epg">24h</span>
+            </button>
+            <button class="nav-item" data-view="live">
+              <span>Live Preview</span>
+              <span class="nav-count" id="count-live">CH 101</span>
+            </button>
+          </nav>
+
+          <div class="rail-section-title" style="margin-top: 18px;">Quick Filters</div>
+          <div class="nav-list">
+            <button class="btn ghost active" id="btn-all-fav" data-fav-filter="all">All Channels</button>
+            <button class="btn ghost" id="btn-only-fav" data-fav-filter="fav">Favorites Only</button>
+          </div>
+        </div>
+
+        <div class="rail-footer">
+          <div class="tuner-status-row">
+            <span><span id="rail-dot" class="status-dot"></span><span id="rail-state-text">TIF Sync Ready</span></span>
+            <span class="mono-badge muted" id="rail-dvr-count">0 DVR</span>
+          </div>
+          <button class="btn" id="btn-trigger-sync">Trigger EPG Sync</button>
+        </div>
+      </aside>
+
+      <main class="screen-host" id="screen-host" aria-live="polite"></main>
+    </div>
+
+    <footer class="bottom-bar">
+      <span id="footer-status">View: Channel Grid · State: Nominal · Select any card or program to inspect</span>
+      <span id="footer-metrics">HTSP v35 · TIF Channel Provider Active</span>
+    </footer>
+  </div>
+
+  <div class="drawer-backdrop" id="drawer-backdrop" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+    <div class="drawer-panel" id="drawer-panel">
+      <div id="drawer-content"></div>
+      <div style="display: flex; gap: 8px; justify-content: flex-end; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+        <button class="btn ghost" id="btn-close-drawer">Close</button>
+        <button class="btn primary" id="btn-drawer-tune">Tune Channel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-region" id="toast-region" aria-live="polite"></div>
+
+  <script>
+    const INITIAL_CHANNELS = [
+      {
+        id: 'ch-101',
+        number: '101',
+        name: 'BBC One HD',
+        mux: 'DVB-T2 · Mux C46 · 674.0 MHz',
+        quality: 'HD',
+        favorite: true,
+        activeChannel: true,
+        now: { title: 'Evening News & Weather', start: '22:00', end: '22:30', progress: 60, category: 'News' },
+        next: { title: 'Match of the Day Highlights', start: '22:30', end: '23:25', category: 'Sport' },
+        slots: [
+          { time: '21:00–22:00', title: 'The Traitors UK', current: false, rec: false },
+          { time: '22:00–22:30', title: 'Evening News & Weather', current: true, rec: false },
+          { time: '22:30–23:25', title: 'Match of the Day Highlights', current: false, rec: true }
+        ]
+      },
+      {
+        id: 'ch-102',
+        number: '102',
+        name: 'BBC Two HD',
+        mux: 'DVB-T2 · Mux C46 · 674.0 MHz',
+        quality: 'HD',
+        favorite: true,
+        activeChannel: false,
+        now: { title: 'University Challenge', start: '22:00', end: '22:30', progress: 60, category: 'Quiz' },
+        next: { title: 'Later... with Jools Holland', start: '22:30', end: '23:30', category: 'Music' },
+        slots: [
+          { time: '21:00–22:00', title: 'Horizon: Deep Ocean', current: false, rec: false },
+          { time: '22:00–22:30', title: 'University Challenge', current: true, rec: false },
+          { time: '22:30–23:30', title: 'Later... with Jools Holland', current: false, rec: false }
+        ]
+      },
+      {
+        id: 'ch-103',
+        number: '103',
+        name: 'STV HD',
+        mux: 'DVB-T2 · Mux C43 · 650.0 MHz',
+        quality: 'HD',
+        favorite: false,
+        activeChannel: false,
+        now: { title: 'Scotland Tonight', start: '22:10', end: '22:40', progress: 45, category: 'Current Affairs' },
+        next: { title: 'News at Ten', start: '22:40', end: '23:10', category: 'News' },
+        slots: [
+          { time: '21:00–22:10', title: 'Crime Drama: Shetland', current: false, rec: true },
+          { time: '22:10–22:40', title: 'Scotland Tonight', current: true, rec: false },
+          { time: '22:40–23:10', title: 'News at Ten', current: false, rec: false }
+        ]
+      },
+      {
+        id: 'ch-104',
+        number: '104',
+        name: 'Channel 4 HD',
+        mux: 'DVB-T2 · Mux C46 · 674.0 MHz',
+        quality: 'HD',
+        favorite: true,
+        activeChannel: false,
+        now: { title: 'Gogglebox', start: '22:00', end: '23:00', progress: 50, category: 'Entertainment' },
+        next: { title: '8 Out of 10 Cats Does Countdown', start: '23:00', end: '23:55', category: 'Comedy' },
+        slots: [
+          { time: '21:00–22:00', title: '24 Hours in A&E', current: false, rec: false },
+          { time: '22:00–23:00', title: 'Gogglebox', current: true, rec: true },
+          { time: '23:00–23:55', title: '8 Out of 10 Cats Does Countdown', current: false, rec: false }
+        ]
+      },
+      {
+        id: 'ch-105',
+        number: '105',
+        name: 'Channel 5',
+        mux: 'DVB-T2 · Mux C44 · 658.0 MHz',
+        quality: 'SD',
+        favorite: false,
+        activeChannel: false,
+        now: { title: 'Engineering Giants', start: '22:00', end: '23:00', progress: 50, category: 'Documentary' },
+        next: { title: 'Can’t Pay? We’ll Take It Away', start: '23:00', end: '00:00', category: 'Factual' },
+        slots: [
+          { time: '21:00–22:00', title: 'All Creatures Great and Small', current: false, rec: false },
+          { time: '22:00–23:00', title: 'Engineering Giants', current: true, rec: false },
+          { time: '23:00–00:00', title: 'Can’t Pay? We’ll Take It Away', current: false, rec: false }
+        ]
+      },
+      {
+        id: 'ch-106',
+        number: '106',
+        name: 'BBC Four HD',
+        mux: 'DVB-T2 · Mux C46 · 674.0 MHz',
+        quality: 'HD',
+        favorite: false,
+        activeChannel: false,
+        now: { title: 'Storyville: Arctic Drift', start: '22:00', end: '23:30', progress: 33, category: 'Documentary' },
+        next: { title: 'Top of the Pops: 1991', start: '23:30', end: '00:05', category: 'Music' },
+        slots: [
+          { time: '21:00–22:00', title: 'Art of Architecture', current: false, rec: false },
+          { time: '22:00–23:30', title: 'Storyville: Arctic Drift', current: true, rec: false },
+          { time: '23:30–00:05', title: 'Top of the Pops: 1991', current: false, rec: false }
+        ]
+      }
+    ];
+
+    const state = {
+      view: 'grid',
+      uiState: 'nominal',
+      favFilter: 'all',
+      qualityFilter: 'all',
+      search: '',
+      channels: structuredClone(INITIAL_CHANNELS),
+      selectedChannelId: 'ch-101',
+      drawerChannelId: null,
+      recordedKeys: new Set(['ch-101|22:30–23:25', 'ch-104|22:00–23:00']),
+      osdVisible: true
+    };
+
+    const screenHost = document.getElementById('screen-host');
+    const drawerBackdrop = document.getElementById('drawer-backdrop');
+    const drawerContent = document.getElementById('drawer-content');
+    const toastRegion = document.getElementById('toast-region');
+
+    function showToast(msg) {
+      const el = document.createElement('div');
+      el.className = 'toast-item';
+      el.textContent = msg;
+      toastRegion.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transition = 'opacity 220ms ease';
+        setTimeout(() => el.remove(), 240);
+      }, 2400);
+    }
+
+    function getFilteredChannels() {
+      return state.channels.filter((ch) => {
+        if (state.favFilter === 'fav' && !ch.favorite) return false;
+        if (state.qualityFilter !== 'all' && ch.quality !== state.qualityFilter) return false;
+        if (state.search.trim()) {
+          const q = state.search.trim().toLowerCase();
+          const matchNum = ch.number.toLowerCase().includes(q);
+          const matchName = ch.name.toLowerCase().includes(q);
+          const matchNow = ch.now.title.toLowerCase().includes(q);
+          if (!matchNum && !matchName && !matchNow) return false;
+        }
+        return true;
+      });
+    }
+
+    function syncChrome() {
+      document.querySelectorAll('.state-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.state === state.uiState);
+      });
+      document.querySelectorAll('.nav-item').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.view === state.view);
+      });
+      document.getElementById('btn-all-fav').classList.toggle('active', state.favFilter === 'all');
+      document.getElementById('btn-only-fav').classList.toggle('active', state.favFilter === 'fav');
+
+      const activeCh = state.channels.find((c) => c.activeChannel) || state.channels[0];
+      document.getElementById('count-grid').textContent = String(getFilteredChannels().length);
+      document.getElementById('count-live').textContent = `CH ${activeCh ? activeCh.number : '--'}`;
+      document.getElementById('rail-dvr-count').textContent = `${state.recordedKeys.size} DVR`;
+
+      const dot = document.getElementById('rail-dot');
+      const railText = document.getElementById('rail-state-text');
+      const hostBadge = document.getElementById('host-badge');
+
+      dot.className = 'status-dot';
+      if (state.uiState === 'nominal') {
+        railText.textContent = 'TIF Sync Ready';
+        hostBadge.textContent = 'tvh.lan:9982 · HTSP';
+      } else if (state.uiState === 'loading') {
+        dot.classList.add('syncing');
+        railText.textContent = 'Syncing EPG & Grid...';
+        hostBadge.textContent = 'tvh.lan:9982 · SYNCING';
+      } else if (state.uiState === 'error') {
+        dot.classList.add('error');
+        railText.textContent = 'HTSP Disconnected';
+        hostBadge.textContent = 'tvh.lan:9982 · OFFLINE';
+      } else {
+        dot.classList.add('empty');
+        railText.textContent = '0 Channels Indexed';
+        hostBadge.textContent = 'tvh.lan:9982 · EMPTY';
+      }
+
+      const viewLabels = { grid: 'Channel Grid', epg: 'EPG Guide', live: 'Live Preview' };
+      const stateLabels = {
+        nominal: 'Nominal',
+        loading: 'Loading / Syncing',
+        error: 'Error / Offline',
+        empty: 'Empty'
+      };
+      document.getElementById('footer-status').textContent =
+        `View: ${viewLabels[state.view]} · State: ${stateLabels[state.uiState]} · Selected: CH ${state.selectedChannelId.replace('ch-', '')}`;
+    }
+
+    function renderStateBanner() {
+      if (state.uiState === 'loading') {
+        return `
+          <div class="state-banner loading">
+            <div>
+              <strong>Syncing Tvheadend Channel &amp; EPG Table</strong>
+              <div class="screen-subtitle">Polling HTSP events and updating Android TV TIF channel rows...</div>
+            </div>
+            <span class="mono-badge">SYNC 68%</span>
+          </div>
+        `;
+      }
+      if (state.uiState === 'error') {
+        return `
+          <div class="state-banner error">
+            <div>
+              <strong>HTSP Connection Lost — Showing Cached TIF Snapshot</strong>
+              <div class="screen-subtitle">Socket timeout on tcp://tvh.lan:9982. Live tuning and new DVR timers are paused.</div>
+            </div>
+            <button class="btn primary" id="banner-retry-btn">Reconnect HTSP</button>
+          </div>
+        `;
+      }
+      return '';
+    }
+
+    function renderGridView(channels) {
+      if (state.uiState === 'loading') {
+        return `
+          ${renderStateBanner()}
+          <div class="skeleton-grid">
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+            <div class="skeleton-card"></div>
+          </div>
+        `;
+      }
+
+      if (state.uiState === 'empty' || channels.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-title">${state.uiState === 'empty' ? 'No Channels in Tvheadend TIF Store' : 'No Matching Channels'}</div>
+            <div class="empty-copy">
+              ${state.uiState === 'empty'
+                ? 'Run a channel & EPG sync or reset filters to populate channels from your Tvheadend backend.'
+                : 'Adjust your search query, favorite toggle, or HD/SD filter to view available channels.'}
+            </div>
+            <div style="display: flex; gap: 8px; margin-top: 6px;">
+              <button class="btn primary" id="empty-reset-btn">Reset Filters &amp; Restore</button>
+            </div>
+          </div>
+        `;
+      }
+
+      const cardsHtml = channels.map((ch) => {
+        const isSelected = ch.id === state.selectedChannelId;
+        return `
+          <article class="channel-card ${isSelected ? 'selected' : ''}" tabindex="0" data-ch-id="${ch.id}">
+            <div>
+              <div class="card-top">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span class="ch-num-badge">${ch.number}</span>
+                  ${ch.activeChannel ? '<span class="pill live">TUNED</span>' : ''}
+                </div>
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  ${ch.favorite ? '<span class="pill fav">FAV</span>' : ''}
+                  <span class="pill ${ch.quality === 'HD' ? 'hd' : 'sd'}">${ch.quality}</span>
+                </div>
+              </div>
+              <div class="ch-name">${ch.name}</div>
+              <div class="ch-mux">${ch.mux}</div>
+            </div>
+
+            <div class="now-next-box">
+              <div class="now-title">${ch.now.title}</div>
+              <div class="now-meta">
+                <span>${ch.now.category}</span>
+                <span>${ch.now.start}–${ch.now.end}</span>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width: ${ch.now.progress}%;"></div>
+              </div>
+              <div class="now-meta" style="margin-top: 4px; color: var(--text-muted);">
+                <span>Next: ${ch.next.title}</span>
+                <span>${ch.next.start}</span>
+              </div>
+            </div>
+
+            <div class="card-footer">
+              <button class="btn ghost card-fav-btn" data-fav-id="${ch.id}">
+                ${ch.favorite ? '★ Favorited' : '☆ Favorite'}
+              </button>
+              <button class="btn card-inspect-btn" data-inspect-id="${ch.id}">Details &amp; Tune</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      return `${renderStateBanner()}<div class="channel-grid">${cardsHtml}</div>`;
+    }
+
+    function renderEpgView(channels) {
+      if (state.uiState === 'loading') {
+        return `${renderStateBanner()}<div class="skeleton-card" style="height: 280px;"></div>`;
+      }
+      if (state.uiState === 'empty' || channels.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-title">EPG Timeline Unavailable</div>
+            <div class="empty-copy">No EPG events are available for the active filter or empty channel table.</div>
+            <button class="btn primary" id="empty-reset-btn">Reset Filters &amp; Restore</button>
+          </div>
+        `;
+      }
+
+      const rowsHtml = channels.map((ch) => {
+        const cellsHtml = ch.slots.map((slot) => {
+          const recKey = `${ch.id}|${slot.time}`;
+          const isRecorded = state.recordedKeys.has(recKey);
+          return `
+            <td>
+              <button class="epg-slot-btn ${slot.current ? 'current' : ''}" data-slot-ch="${ch.id}" data-slot-time="${slot.time}" data-slot-title="${slot.title}">
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                  <span class="epg-slot-time">${slot.time}</span>
+                  ${isRecorded ? '<span class="pill live">DVR</span>' : (slot.current ? '<span class="pill hd">NOW</span>' : '')}
+                </div>
+                <div class="epg-slot-title">${slot.title}</div>
+              </button>
+            </td>
+          `;
+        }).join('');
+
+        return `
+          <tr>
+            <td class="epg-ch-cell">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="ch-num-badge">${ch.number}</span>
+                <div>
+                  <div style="font-weight: 700; font-size: 13px;">${ch.name}</div>
+                  <div class="ch-mux">${ch.quality}</div>
+                </div>
+              </div>
+            </td>
+            ${cellsHtml}
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        ${renderStateBanner()}
+        <div class="epg-wrapper">
+          <table class="epg-table">
+            <thead>
+              <tr>
+                <th>Channel</th>
+                <th>21:00 Slot</th>
+                <th>22:00 Live Slot</th>
+                <th>22:30+ Upcoming</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderLiveView(channels) {
+      if (state.uiState === 'loading') {
+        return `${renderStateBanner()}<div class="skeleton-card" style="height: 320px;"></div>`;
+      }
+      if (state.uiState === 'empty' || channels.length === 0) {
+        return `
+          <div class="empty-state">
+            <div class="empty-title">No Live Stream Source</div>
+            <div class="empty-copy">Select or restore a channel to preview live Tvheadend stream metadata and OSD controls.</div>
+            <button class="btn primary" id="empty-reset-btn">Reset Filters &amp; Restore</button>
+          </div>
+        `;
+      }
+
+      const current = channels.find((c) => c.id === state.selectedChannelId)
+        || channels.find((c) => c.activeChannel)
+        || channels[0];
+
+      const switcherRows = channels.map((ch) => `
+        <button class="switcher-row ${ch.id === current.id ? 'active' : ''}" data-switch-id="${ch.id}">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="ch-num-badge">${ch.number}</span>
+              <strong>${ch.name}</strong>
+            </div>
+            <div class="ch-mux" style="margin-top: 3px;">${ch.now.title}</div>
+          </div>
+          <span class="pill ${ch.quality === 'HD' ? 'hd' : 'sd'}">${ch.quality}</span>
+        </button>
+      `).join('');
+
+      return `
+        ${renderStateBanner()}
+        <div class="live-layout">
+          <section class="player-stage" aria-label="Live Stream Preview">
+            <div class="player-viewport">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <span class="pill live">● LIVE STREAM</span>
+                <span class="mono-badge">${current.mux}</span>
+              </div>
+              <div style="margin: 28px 0;">
+                <div class="mono-badge muted" style="margin-bottom: 8px;">CH ${current.number} · ${current.quality}</div>
+                <h3 style="font-size: 22px; font-weight: 700;">${current.name}</h3>
+                <p style="color: var(--text-secondary); margin-top: 4px;">${current.now.title} (${current.now.start}–${current.now.end})</p>
+              </div>
+              <div class="progress-track">
+                <div class="progress-fill" style="width: ${current.now.progress}%;"></div>
+              </div>
+            </div>
+            ${state.osdVisible ? `
+              <div class="player-osd">
+                <span class="mono-badge muted">OSD ACTIVE · Audio: ENG AC3 5.1</span>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn" id="osd-record-btn">Toggle Timer</button>
+                  <button class="btn" id="osd-toggle-btn">Hide OSD</button>
+                </div>
+              </div>
+            ` : `
+              <div class="player-osd">
+                <span class="mono-badge muted">OSD Hidden</span>
+                <button class="btn" id="osd-toggle-btn">Show OSD</button>
+              </div>
+            `}
+          </section>
+
+          <aside class="switcher-list" aria-label="Channel Zap List">
+            <div style="font-weight: 700; font-size: 13px; padding: 2px 4px;">Channel Zap List</div>
+            ${switcherRows}
+          </aside>
+        </div>
+      `;
+    }
+
+    function renderScreen() {
+      const channels = getFilteredChannels();
+      const titles = {
+        grid: { title: 'Channel Grid', sub: 'Browse Tvheadend channels, now/next EPG progress, and favorites' },
+        epg: { title: 'EPG Timeline Guide', sub: 'Select any program slot to schedule or cancel a DVR recording' },
+        live: { title: 'Live Stream Preview', sub: 'Inspect active channel tuning, OSD controls, and quick channel zap' }
+      };
+      const meta = titles[state.view];
+
+      let bodyHtml = '';
+      if (state.view === 'grid') bodyHtml = renderGridView(channels);
+      if (state.view === 'epg') bodyHtml = renderEpgView(channels);
+      if (state.view === 'live') bodyHtml = renderLiveView(channels);
+
+      screenHost.innerHTML = `
+        <div class="screen-header">
+          <div class="screen-heading-group">
+            <h1 class="screen-title">${meta.title}</h1>
+            <span class="screen-subtitle">${meta.sub}</span>
+          </div>
+          <div class="toolbar-controls">
+            <input
+              id="channel-search"
+              class="search-input"
+              type="search"
+              placeholder="Filter channel or show..."
+              value="${state.search.replace(/"/g, '&quot;')}"
+              aria-label="Filter channel or show"
+            />
+            <select id="quality-filter" class="filter-select" aria-label="Filter stream quality">
+              <option value="all" ${state.qualityFilter === 'all' ? 'selected' : ''}>ALL QUALITIES</option>
+              <option value="HD" ${state.qualityFilter === 'HD' ? 'selected' : ''}>HD ONLY</option>
+              <option value="SD" ${state.qualityFilter === 'SD' ? 'selected' : ''}>SD ONLY</option>
+            </select>
+          </div>
+        </div>
+        ${bodyHtml}
+      `;
+
+      bindDynamicEvents();
+      syncChrome();
+    }
+
+    function openDrawer(channelId) {
+      const ch = state.channels.find((c) => c.id === channelId);
+      if (!ch) return;
+      state.drawerChannelId = ch.id;
+      drawerContent.innerHTML = `
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span class="ch-num-badge">CH ${ch.number}</span>
+            <span class="pill ${ch.quality === 'HD' ? 'hd' : 'sd'}">${ch.quality}</span>
+          </div>
+          <h2 id="drawer-title" style="font-size: 20px; font-weight: 700; margin-top: 10px;">${ch.name}</h2>
+          <p class="screen-subtitle" style="margin-top: 4px;">Now playing: <strong>${ch.now.title}</strong> (${ch.now.start}–${ch.now.end})</p>
+
+          <div class="drawer-meta-grid">
+            <div class="meta-cell">
+              <div class="meta-label">Transport Mux</div>
+              <div class="meta-val">${ch.mux}</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-label">Favorite Status</div>
+              <div class="meta-val">${ch.favorite ? 'Pinned Favorite' : 'Standard'}</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-label">Up Next</div>
+              <div class="meta-val">${ch.next.title}</div>
+            </div>
+            <div class="meta-cell">
+              <div class="meta-label">Next Start</div>
+              <div class="meta-val">${ch.next.start}</div>
+            </div>
+          </div>
+        </div>
+      `;
+      drawerBackdrop.classList.add('open');
+    }
+
+    function closeDrawer() {
+      drawerBackdrop.classList.remove('open');
+      state.drawerChannelId = null;
+    }
+
+    function tuneChannel(channelId) {
+      if (state.uiState === 'error') {
+        showToast('Cannot tune while HTSP is offline. Reconnect first.');
+        return;
+      }
+      state.channels.forEach((c) => {
+        c.activeChannel = c.id === channelId;
+      });
+      state.selectedChannelId = channelId;
+      const ch = state.channels.find((c) => c.id === channelId);
+      showToast(`Tuned to CH ${ch.number} · ${ch.name}`);
+      renderScreen();
+    }
+
+    function bindDynamicEvents() {
+      const searchEl = document.getElementById('channel-search');
+      if (searchEl) {
+        searchEl.addEventListener('input', (e) => {
+          state.search = e.target.value;
+          renderScreen();
+        });
+      }
+
+      const qualEl = document.getElementById('quality-filter');
+      if (qualEl) {
+        qualEl.addEventListener('change', (e) => {
+          state.qualityFilter = e.target.value;
+          renderScreen();
+        });
+      }
+
+      const retryBtn = document.getElementById('banner-retry-btn');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          state.uiState = 'nominal';
+          showToast('Reconnected to Tvheadend HTSP');
+          renderScreen();
+        });
+      }
+
+      const emptyResetBtn = document.getElementById('empty-reset-btn');
+      if (emptyResetBtn) {
+        emptyResetBtn.addEventListener('click', () => {
+          state.uiState = 'nominal';
+          state.favFilter = 'all';
+          state.qualityFilter = 'all';
+          state.search = '';
+          state.channels = structuredClone(INITIAL_CHANNELS);
+          showToast('Channel table restored to nominal state');
+          renderScreen();
+        });
+      }
+
+      document.querySelectorAll('.channel-card').forEach((card) => {
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          state.selectedChannelId = card.dataset.chId;
+          renderScreen();
+        });
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            state.selectedChannelId = card.dataset.chId;
+            renderScreen();
+          }
+        });
+      });
+
+      document.querySelectorAll('.card-fav-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const ch = state.channels.find((c) => c.id === btn.dataset.favId);
+          if (!ch) return;
+          ch.favorite = !ch.favorite;
+          showToast(`${ch.name} ${ch.favorite ? 'added to' : 'removed from'} favorites`);
+          renderScreen();
+        });
+      });
+
+      document.querySelectorAll('.card-inspect-btn').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openDrawer(btn.dataset.inspectId);
+        });
+      });
+
+      document.querySelectorAll('.epg-slot-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const key = `${btn.dataset.slotCh}|${btn.dataset.slotTime}`;
+          const title = btn.dataset.slotTitle;
+          if (state.recordedKeys.has(key)) {
+            state.recordedKeys.delete(key);
+            showToast(`Cancelled DVR timer: ${title}`);
+          } else {
+            state.recordedKeys.add(key);
+            showToast(`Scheduled DVR timer: ${title}`);
+          }
+          renderScreen();
+        });
+      });
+
+      document.querySelectorAll('.switcher-row').forEach((row) => {
+        row.addEventListener('click', () => {
+          tuneChannel(row.dataset.switchId);
+        });
+      });
+
+      const osdToggle = document.getElementById('osd-toggle-btn');
+      if (osdToggle) {
+        osdToggle.addEventListener('click', () => {
+          state.osdVisible = !state.osdVisible;
+          renderScreen();
+        });
+      }
+
+      const osdRec = document.getElementById('osd-record-btn');
+      if (osdRec) {
+        osdRec.addEventListener('click', () => {
+          const ch = state.channels.find((c) => c.id === state.selectedChannelId) || state.channels[0];
+          const key = `${ch.id}|${ch.now.start}–${ch.now.end}`;
+          if (state.recordedKeys.has(key)) {
+            state.recordedKeys.delete(key);
+            showToast(`Stopped timer for ${ch.now.title}`);
+          } else {
+            state.recordedKeys.add(key);
+            showToast(`Recording ${ch.now.title} on ${ch.name}`);
+          }
+          renderScreen();
+        });
+      }
+    }
+
+    document.querySelectorAll('.state-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.uiState = btn.dataset.state;
+        renderScreen();
+      });
+    });
+
+    document.querySelectorAll('.nav-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.view = btn.dataset.view;
+        renderScreen();
+      });
+    });
+
+    document.getElementById('btn-all-fav').addEventListener('click', () => {
+      state.favFilter = 'all';
+      renderScreen();
+    });
+
+    document.getElementById('btn-only-fav').addEventListener('click', () => {
+      state.favFilter = 'fav';
+      renderScreen();
+    });
+
+    document.getElementById('btn-trigger-sync').addEventListener('click', () => {
+      state.uiState = 'loading';
+      showToast('Started EPG & TIF channel sync');
+      renderScreen();
+      setTimeout(() => {
+        if (state.uiState === 'loading') {
+          state.uiState = 'nominal';
+          showToast('EPG & channel sync completed');
+          renderScreen();
+        }
+      }, 1100);
+    });
+
+    document.getElementById('btn-close-drawer').addEventListener('click', closeDrawer);
+    drawerBackdrop.addEventListener('click', (e) => {
+      if (e.target === drawerBackdrop) closeDrawer();
+    });
+    document.getElementById('btn-drawer-tune').addEventListener('click', () => {
+      if (state.drawerChannelId) {
+        const id = state.drawerChannelId;
+        closeDrawer();
+        tuneChannel(id);
+      }
+    });
+
+    renderScreen();
+  </script>
+</body>
+</html>

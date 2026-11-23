@@ -109,15 +109,22 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         }
 
         if (Htsmsg.tryDecodeMuxPkt(msgBuffer, 0, length, muxPktView)) {
-            if (!waitingForSubscriptionStart) {
-                handleMuxPktView(msgBuffer, muxPktView)
-            }
+            waitingForSubscriptionStart = false
+            handleMuxPktView(msgBuffer, muxPktView)
             return Extractor.RESULT_CONTINUE
         }
 
         @Suppress("UNCHECKED_CAST")
         val msg = Htsmsg.decode(msgBuffer, 0, length) as? Map<String, Any> ?: return Extractor.RESULT_CONTINUE
         val method = msg["method"] as? String
+        val seq = (msg["seq"] as? Number)?.toLong()
+        val subId = (msg["subscriptionId"] as? Number)?.toLong() ?: (msg["subscription"] as? Number)?.toLong()
+        val err = msg["error"] as? String ?: msg["noaccess"]?.let { "noaccess=$it" }
+
+        Log.i(
+            TAG,
+            "=== HTSP FRAME DECODED ($length bytes) === method='$method', seq=$seq, subId=$subId, error=$err, keys=${msg.keys}"
+        )
 
         when (method) {
             "subscriptionStart" -> {
@@ -150,7 +157,15 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 }
             }
             "subscriptionGrace" -> {}
-            "subscriptionStatus" -> {}
+            "subscriptionStatus" -> {
+                val status = msg["status"] as? String
+                val subErr = msg["subscriptionError"] as? String
+                Log.w(TAG, "=== HTSP subscriptionStatus received: status='$status', subscriptionError='$subErr', msg=$msg ===")
+                if (!subErr.isNullOrEmpty() && !subErr.equals("OK", ignoreCase = true) && !subErr.equals("none", ignoreCase = true)) {
+                    Log.e(TAG, "Tvheadend server subscription error: $subErr (status: $status)")
+                    throw IOException("Tvheadend server tuner error: $subErr ($status)")
+                }
+            }
             else -> {
                 if (!waitingForSubscriptionStart && msg.containsKey("stream") && msg.containsKey("payload")) {
                     handleMuxPkt(msg)
@@ -315,7 +330,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             val asc = if (meta != null && meta.isNotEmpty()) meta else buildAacAudioSpecificConfig(sampleRate, channels)
             builder.setInitializationData(listOf(asc))
             hasCsd = true
-            Log.i(TAG, "Configured AAC AudioSpecificConfig CSD for stream $index: $sampleRate Hz, $channels ch, metaSize=${meta?.size ?: 0}, ascHex=[${asc.joinToString { "0x%02X".format(it) }}]")
+            Log.i(TAG, "Configured AAC AudioSpecificConfig CSD for stream $index: $sampleRate Hz, $channels ch, metaSize=${meta?.size ?: 0}")
         } else if (mimeType == MimeTypes.VIDEO_H264 && meta != null && meta.isNotEmpty()) {
             val csdList = parseAnnexBCsd(meta, MimeTypes.VIDEO_H264)
             val initData = if (csdList.isNotEmpty()) {
@@ -597,13 +612,20 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
 
             if (trackType == C.TRACK_TYPE_VIDEO) {
                 if (isKeyframe) {
+                    val wasFirstKeyframe = (hasSeenKeyframe[streamIndex] != true)
                     hasSeenKeyframe[streamIndex] = true
+                    if (wasFirstKeyframe) {
+                        Log.i(TAG, "=== FIRST VIDEO KEYFRAME (I-FRAME) DELIVERED TO EXOPLAYER (stream $streamIndex, $payloadLength bytes) ===")
+                    }
                     if (isDebug) {
                         Log.d(TAG, "TVH_STREAM_DEBUG: [MUXPKT KEYFRAME] Stream $streamIndex ($mimeType) pts=$ptsUs us, dts=$dtsUs us, size=$payloadLength")
                     }
                 } else if (hasSeenKeyframe[streamIndex] != true && droppedPreRollCount < 120) {
                     // Drop orphan pre-keyframe P/B-frames sent by faststart=1 so MediaCodec starts cleanly on an I-frame
                     droppedPreRollCount++
+                    if (droppedPreRollCount % 10 == 1) {
+                        Log.i(TAG, "Dropping pre-keyframe P/B video frame #$droppedPreRollCount ($payloadLength bytes) waiting for first I-frame")
+                    }
                     return
                 }
             } else if (isAudio) {
@@ -665,9 +687,11 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             else -> 0L
         }
 
-        // Hold back pre-video audio packets (calculatedSampleTime < 0) so AudioTrack's MediaClock
+        // Hold back pre-video audio packets so AudioTrack's MediaClock
         // starts in sync with the earliest rendered video frame instead of hundreds of ms in the past.
-        if (isAudio && masterFirstPtsIsVideo && calculatedSampleTime < 0L) {
+        if (isAudio && audioPktCount == 0 && minVideoSampleTimeUs != C.TIME_UNSET &&
+            calculatedSampleTime < minVideoSampleTimeUs && droppedAudioPreRollCount < 60
+        ) {
             droppedAudioPreRollCount++
             return
         }
@@ -696,8 +720,10 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
         if (isAudio) {
             audioPktCount++
             lastAudioSampleTimeUs = sampleTimeUs
-            if (audioPktCount == 1) {
-                Log.i(TAG, "DIAGNOSTIC FIRST AUDIO SAMPLE OUTPUT: pts=$ptsUs us -> sampleTimeUs=$sampleTimeUs us")
+            if (audioPktCount <= 10) {
+                val hexHeader = buffer.copyOfRange(payloadOffset, minOf(buffer.size, payloadOffset + 6))
+                    .joinToString(" ") { "0x%02X".format(it) }
+                Log.i(TAG, "AUDIO MUXPKT #$audioPktCount: stream=$streamIndex, size=$payloadLength, pts=$ptsUs, dts=$dtsUs, sampleTimeUs=$sampleTimeUs, header=[$hexHeader]")
             }
         } else {
             videoPktCount++
@@ -710,13 +736,15 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             }
         }
 
-        if (isAudio && mimeType == MimeTypes.AUDIO_AAC && payloadLength >= 7 && buffer[payloadOffset] == 0xFF.toByte() && (buffer[payloadOffset + 1].toInt() and 0xF6) == 0xF0) {
+        if (isAudio && mimeType == MimeTypes.AUDIO_AAC && payloadLength >= 7 &&
+            (buffer[payloadOffset].toInt() and 0xFF) == 0xFF &&
+            (buffer[payloadOffset + 1].toInt() and 0xF0) == 0xF0) {
             var offset = 0
             var sampleCount = 0
             var lastFrameDurationUs = 21333L
             while (offset + 7 <= payloadLength) {
                 val frameStart = payloadOffset + offset
-                if (buffer[frameStart] != 0xFF.toByte() || (buffer[frameStart + 1].toInt() and 0xF6) != 0xF0) {
+                if ((buffer[frameStart].toInt() and 0xFF) != 0xFF || (buffer[frameStart + 1].toInt() and 0xF0) != 0xF0) {
                     break
                 }
                 val protectionAbsent = (buffer[frameStart + 1].toInt() and 0x01) != 0
@@ -786,7 +814,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 sampleCount++
             }
             if (sampleCount > 0) {
-                val lastCalculated = sampleTimeUs + (sampleCount * lastFrameDurationUs)
+                val lastCalculated = sampleTimeUs + ((sampleCount - 1) * lastFrameDurationUs)
                 lastSampleTimeUsMap[streamIndex] = if (lastSample != null) maxOf(lastCalculated, lastSample) else lastCalculated
             }
             return

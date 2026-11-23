@@ -92,6 +92,19 @@ class SourceScanManager(
             totalLogos += res.clearedLogos
         }
 
+        if (target == ClearTarget.BOTH) {
+            try {
+                val progsDel = context.contentResolver.delete(TvContract.Programs.CONTENT_URI, null, null)
+                totalPrograms += progsDel.coerceAtLeast(0)
+            } catch (_: Exception) {}
+            try {
+                val channelsDel = context.contentResolver.delete(TvContract.Channels.CONTENT_URI, null, null)
+                totalChannels += channelsDel.coerceAtLeast(0)
+            } catch (_: Exception) {}
+        }
+
+        com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
+
         try {
             context.contentResolver.notifyChange(TvContract.Channels.CONTENT_URI, null)
             context.contentResolver.notifyChange(TvContract.Programs.CONTENT_URI, null)
@@ -101,4 +114,26 @@ class SourceScanManager(
     }
 
     suspend fun clearAllTifInputs(): ClearResult = clearTvInputData(ClearTarget.BOTH)
+
+    suspend fun resetAllDataAndSettings(): ClearResult = withContext(Dispatchers.IO) {
+        val clearResult = clearAllTifInputs()
+        try {
+            val settings = com.nmaclean.tvheadend.model.TvhSettings(context)
+            settings.host = ""
+            settings.username = ""
+            settings.password = ""
+            settings.htspPort = com.nmaclean.tvheadend.model.TvhConstants.DEFAULT_HTSP_PORT
+            settings.httpPort = com.nmaclean.tvheadend.model.TvhConstants.DEFAULT_HTTP_PORT
+        } catch (e: Exception) {
+            Log.w(TAG, "Error resetting TvhSettings: ${e.message}")
+        }
+        try {
+            val allowlistRepo = com.nmaclean.tvheadend.iptv.storage.AllowlistRepository(context.filesDir)
+            allowlistRepo.save(emptyList())
+        } catch (e: Exception) {
+            Log.w(TAG, "Error clearing AllowlistRepository: ${e.message}")
+        }
+        com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
+        clearResult
+    }
 }

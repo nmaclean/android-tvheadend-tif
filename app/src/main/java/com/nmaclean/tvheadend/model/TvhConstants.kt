@@ -12,6 +12,8 @@ object TvhConstants {
 
     const val SOCKET_CONNECT_TIMEOUT_MS = 5000
     const val SOCKET_SO_TIMEOUT_MS = 10000
+    const val INITIAL_STREAM_TIMEOUT_MS = 10000
+    const val MID_STREAM_TIMEOUT_MS = 12000
     const val ASYNC_READ_TIMEOUT_MS = 3000
     const val ASYNC_METADATA_TIMEOUT_MS = 6000L
     const val MAX_HTSP_MESSAGE_LENGTH = 16 * 1024 * 1024

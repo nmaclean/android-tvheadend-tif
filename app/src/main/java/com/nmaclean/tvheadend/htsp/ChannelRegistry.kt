@@ -29,7 +29,8 @@ object ChannelRegistry {
 
     fun getChannelById(id: Long): TvhChannel? {
         synchronized(channelMap) {
-            val found = channelMap[id] ?: channelMap.values.firstOrNull { it.uuid == id.toString() }
+            val found = channelMap[id]
+                ?: channelMap.values.firstOrNull { it.uuid == id.toString() || it.id == id || it.number == id.toInt() }
             return if (found != null && isTvheadendChannel(found)) found else null
         }
     }

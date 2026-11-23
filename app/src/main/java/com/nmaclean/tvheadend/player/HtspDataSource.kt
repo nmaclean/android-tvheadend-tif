@@ -11,12 +11,14 @@ import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
 import com.nmaclean.tvheadend.htsp.HtspClient
 import com.nmaclean.tvheadend.htsp.HtspConnectionPool
+import com.nmaclean.tvheadend.model.TvhConstants
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.telemetry.TuneStage
 import com.nmaclean.tvheadend.telemetry.TuneTelemetryTracker
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.SocketException
+import java.net.SocketTimeoutException
 
 /**
  * Custom Media3 ExoPlayer DataSource reading HTSP packet streams directly over TCP from a Tvheadend server.
@@ -43,6 +45,7 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
     private var readCount = 0L
     private var lastStatTimeMs = 0L
     private var lastStatBytes = 0L
+    private var hasSwitchedToStreamingTimeout = false
 
     override fun open(dataSpec: DataSpec): Long {
         transferInitializing(dataSpec)
@@ -68,23 +71,27 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         }
 
         try {
-            val activeClient = HtspConnectionPool.getStreamingClient(context, host, port, user, pass)
+            val activeClient = HtspConnectionPool.getFreshStreamingClient(context, host, port, user, pass)
 
-            // Ensure any prior active stream subscription on this connection is cleanly stopped and buffer flushed
+            // Ensure any prior active stream subscription or lingering socket buffer bytes are cleanly flushed
             if (activeClient.hasActiveSubscription) {
                 try {
                     activeClient.unsubscribe()
                 } catch (e: Exception) {
                     Log.w(TAG, "Error unsubscribing prior stream: ${e.message}")
                 }
+            } else {
+                try {
+                    activeClient.flushInputStream()
+                } catch (_: Exception) {}
             }
 
-            Log.i(TAG, "HTSP connected. Subscribing to channel $channelIdentifier with profile 'htsp'...")
-            var subResult = activeClient.subscribe(channelIdentifier, "htsp", 1500L)
+            Log.i(TAG, "HTSP connected. Subscribing to channel $channelIdentifier with default profile...")
+            var subResult = activeClient.subscribe(channelIdentifier, null, 1500L)
 
             if (subResult == null || subResult["error"] != null) {
-                Log.w(TAG, "Subscription with profile 'htsp' failed or timed out. Retrying with default profile...")
-                subResult = activeClient.subscribe(channelIdentifier, null, 1500L)
+                Log.w(TAG, "Subscription with default profile failed. Retrying with 'htsp' profile...")
+                subResult = activeClient.subscribe(channelIdentifier, "htsp", 1500L)
             }
 
             if (subResult == null || subResult["error"] != null) {
@@ -95,8 +102,11 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
 
             client = activeClient
             subscriptionToken = activeClient.currentSubscriptionToken
-            activeClient.setSoTimeout(0) // Infinite timeout for streaming to prevent SocketTimeoutException during quiet periods or lulls
+            activeClient.setSoTimeout(TvhConstants.INITIAL_STREAM_TIMEOUT_MS)
             opened = true
+            totalBytesRead = 0L
+            readCount = 0L
+            hasSwitchedToStreamingTimeout = false
             TuneTelemetryTracker.shared.recordStage(TuneStage.HTSP_SUBSCRIBED)
 
             transferStarted(dataSpec)
@@ -119,6 +129,13 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         val readStartMs = if (debugEnabled) System.currentTimeMillis() else 0L
         val bytesRead: Int = try {
             stream.read(buffer, offset, length)
+        } catch (e: SocketTimeoutException) {
+            if (opened) {
+                val mode = if (totalBytesRead == 0L) "Initial tuner lock / stream arrival" else "Mid-stream read"
+                Log.w(TAG, "$mode timed out: ${e.message}")
+                throw IOException("Stalled HTSP stream timeout: ${e.message}", e)
+            }
+            -1
         } catch (e: SocketException) {
             if (opened) {
                 Log.w(TAG, "Socket closed or interrupted during read: ${e.message}")
@@ -157,6 +174,21 @@ class HtspDataSource(private val context: Context) : BaseDataSource(true) {
         }
 
         if (bytesRead > 0) {
+            if (totalBytesRead == 0L && bytesRead >= 4) {
+                val b0 = buffer[offset].toInt() and 0xFF
+                val b1 = buffer[offset + 1].toInt() and 0xFF
+                val b2 = buffer[offset + 2].toInt() and 0xFF
+                val b3 = buffer[offset + 3].toInt() and 0xFF
+                val payloadLen = (b0 shl 24) or (b1 shl 16) or (b2 shl 8) or b3
+                Log.i(TAG, "=== FIRST HTSP STREAM PACKET RECEIVED ($bytesRead bytes, first HTSP msg length=$payloadLen bytes) ===")
+                TuneTelemetryTracker.shared.recordStage(TuneStage.FIRST_PACKET)
+            } else if (readCount < 25) {
+                Log.i(TAG, "HTSP stream read #${readCount + 1}: received $bytesRead bytes (total=$totalBytesRead)")
+            }
+            if (!hasSwitchedToStreamingTimeout) {
+                hasSwitchedToStreamingTimeout = true
+                client?.setSoTimeout(TvhConstants.MID_STREAM_TIMEOUT_MS)
+            }
             totalBytesRead += bytesRead
             readCount++
             if (TvhSettings.isStreamingDebugCached) {

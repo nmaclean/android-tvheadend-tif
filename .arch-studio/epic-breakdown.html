@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate 05 — Epic Breakdown | android-tvheadend-tif</title>
+  <style>
+    :root {
+      --bg: #05070d;
+      --surface: #0b101b;
+      --surface-2: #121a2b;
+      --surface-3: #19243b;
+      --border: #24324f;
+      --border-focus: #38bdf8;
+      --text: #f3f6fc;
+      --muted: #8b9bb8;
+      --cyan: #38bdf8;
+      --cyan-bg: rgba(56, 189, 248, 0.12);
+      --green: #10b981;
+      --green-bg: rgba(16, 185, 129, 0.12);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245, 158, 11, 0.12);
+      --red: #f87171;
+      --red-bg: rgba(248, 113, 113, 0.12);
+      --purple: #a78bfa;
+      --purple-bg: rgba(167, 139, 250, 0.12);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.55;
+      padding: 32px 20px 64px;
+    }
+
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    header.doc-header {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--surface-3);
+      color: var(--cyan);
+    }
+
+    .pill.amber {
+      color: var(--amber);
+      background: var(--amber-bg);
+      border-color: rgba(245, 158, 11, 0.35);
+    }
+
+    .pill.purple {
+      color: var(--purple);
+      background: var(--purple-bg);
+      border-color: rgba(167, 139, 250, 0.35);
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 820px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .meta-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .meta-value {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    section.panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px 28px;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      font-size: 19px;
+      font-weight: 650;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-tag {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--cyan);
+      background: var(--cyan-bg);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    p {
+      color: var(--text);
+      margin-bottom: 12px;
+      font-size: 14.5px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .notice {
+      background: var(--amber-bg);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-size: 13.5px;
+      color: var(--text);
+      margin-bottom: 16px;
+    }
+
+    .notice strong {
+      color: var(--amber);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      margin-top: 12px;
+    }
+
+    .subcard {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+
+    .subcard h3 {
+      font-size: 15px;
+      font-weight: 650;
+      margin-bottom: 10px;
+      color: var(--cyan);
+    }
+
+    .subcard.gaps h3 {
+      color: var(--amber);
+    }
+
+    .subcard.assumptions h3 {
+      color: var(--purple);
+    }
+
+    .subcard.next h3 {
+      color: var(--green);
+    }
+
+    ul {
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    li strong {
+      color: var(--text);
+    }
+
+    .epic-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .epic-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+    }
+
+    .epic-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .epic-id {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan);
+      background: var(--cyan-bg);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      padding: 3px 9px;
+      border-radius: 6px;
+    }
+
+    .epic-title {
+      font-size: 17px;
+      font-weight: 700;
+      flex: 1;
+      min-width: 240px;
+    }
+
+    .dep-badge {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 3px 9px;
+      border-radius: 6px;
+    }
+
+    .epic-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .epic-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .epic-block-label {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .epic-block p,
+    .epic-block ul {
+      font-size: 13.5px;
+      margin-bottom: 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 13.5px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+
+    th {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      background: var(--surface-2);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="doc-header">
+      <div class="eyebrow-row">
+        <span class="pill">GATE 05 · EPIC BREAKDOWN</span>
+        <span class="pill amber">MODE: REVERSE ENGINEER EXISTING CODE</span>
+        <span class="pill purple">OUTPUT: epic-breakdown.html</span>
+      </div>
+      <h1>Reverse-Engineered Epic Breakdown: android-tvheadend-tif</h1>
+      <p class="subtitle">
+        Architectural work breakdown into ordered epics with explicit boundaries, dependencies, and clear separation between repository/context evidence, inferred behavior, open gaps, and assumptions.
+      </p>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <div class="meta-label">Target Repository</div>
+          <div class="meta-value">nmaclean/android-tvheadend-tif</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Git Remote URL</div>
+          <div class="meta-value">https://github.com/nmaclean/android-tvheadend-tif.git</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Prior Artifacts Referenced</div>
+          <div class="meta-value">mockup-concept.html (Gate 03), hld.html (Gate 04)</div>
+        </div>
+        <div class="meta-item">
+          <div class="meta-label">Source Code Evidence</div>
+          <div class="meta-value">None pasted / live repo inaccessible here</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel">
+      <h2><span class="section-tag">01</span> Epistemic Baseline &amp; Evidence Separation</h2>
+      <div class="notice">
+        <strong>Evidence Boundary Notice:</strong> No repository source files, commit logs, or pasted snippets were provided in this session, and direct remote Git access is unavailable in this environment. Statements below distinguish <strong>verified context</strong> (repository identifier, remote URL, and Gate 03/04 HTML headers/styles) from <strong>inferred reverse-engineering</strong> (Android TV Input Framework + Tvheadend integration domain) and <strong>open gaps/assumptions</strong> to resolve before Gates 06–08.
+      </div>
+
+      <div class="two-col">
+        <div class="subcard">
+          <h3>Verified &amp; Inferred Existing Behavior</h3>
+          <ul>
+            <li><strong>Verified Repository &amp; Objective:</strong> Target remote is <span class="mono">https://github.com/nmaclean/android-tvheadend-tif.git</span> (<span class="mono">nmaclean/android-tvheadend-tif</span>) with objective to build or reverse-engineer the codebase.</li>
+            <li><strong>Verified Prior Gate Artifacts:</strong> Prior context contains truncated HTML heads/styles for Gate 03 (<span class="mono">mockup-concept.html</span>) and Gate 04 (<span class="mono">hld.html</span>), both styled with a <span class="mono">#05070d</span> dark theme and status tokens (<span class="mono">--cyan</span>, <span class="mono">--green</span>, <span class="mono">--amber</span>, <span class="mono">--red</span>, <span class="mono">--purple</span>).</li>
+            <li><strong>Inferred Domain Capability:</strong> Based on <span class="mono">android-tvheadend-tif</span>, the system is inferred to bridge a <strong>Tvheadend</strong> backend server with Android's <strong>TV Input Framework (TIF)</strong> so live channels, Electronic Program Guide (EPG) metadata, and media streams integrate into Android TV / Google TV live TV channels and program guide surfaces.</li>
+            <li><strong>Inferred Architectural Boundary:</strong> A TIF bridge typically separates server connectivity/EPG ingestion from Android <span class="mono">TvInputService</span> / <span class="mono">TvContract</span> channel &amp; program synchronization and media session/stream playback.</li>
+          </ul>
+        </div>
+
+        <div class="subcard gaps">
+          <h3>Gaps, Assumptions &amp; Next Steps</h3>
+          <ul>
+            <li><strong>Gap — Uninspected Source Tree:</strong> Actual package structure, language (Java/Kotlin), Android SDK/TIF API level, Tvheadend protocol (HTSP vs. HTTP/M3U/XMLTV), and existing implementation completeness are unverified until source files are inspected.</li>
+            <li><strong>Gap — DVR / Timeshift / Auth Scope:</strong> Whether the existing code supports Tvheadend authentication, multiple profiles/tuners, DVR/recordings, timeshift, or channel/tag filtering is unknown.</li>
+            <li><strong>Key Assumption:</strong> Live TV channel registration, EPG sync, and stream playback are the core functional pillars of an Android Tvheadend TIF bridge, while configuration/diagnostics UI and background sync reliability form natural epic boundaries.</li>
+            <li><strong>Immediate Next Step:</strong> Provide the repository tree, manifest/build files, service/provider classes, and full Gate 03/04 content to validate each inferred epic before detailed component/task design in Gates 06–08.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="section-tag">02</span> Ordered Epics (E1–E6)</h2>
+      <p class="muted">
+        Epics are sequenced from foundational platform/connection wiring to channel/EPG sync, playback, user configuration/diagnostics, and operational hardening.
+      </p>
+
+      <div class="epic-list">
+        <article class="epic-card">
+          <div class="epic-top">
+            <span class="epic-id">E1</span>
+            <div class="epic-title">Android TIF Service &amp; Project Foundation</div>
+            <span class="dep-badge">Dependencies: None (Entry Epic)</span>
+          </div>
+          <div class="epic-meta-grid">
+            <div class="epic-block">
+              <div class="epic-block-label">High-Level Scope &amp; Outcomes</div>
+              <p>Establish the Android TV application module, build configuration, permissions, <span class="mono">TvInputService</span> declaration, and baseline reverse-engineered inventory of existing repository components.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Rationale &amp; Boundary</div>
+              <p>Android requires a registered <span class="mono">TvInputService</span> and manifest metadata to participate in TIF. Bounding this first isolates platform wiring and existing code audit from protocol and UI work.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Existing vs. Gap / Assumption</div>
+              <ul>
+                <li><strong>Inferred:</strong> Repo contains a baseline Android TIF project skeleton or partial service implementation.</li>
+                <li><strong>Gap/Assumption:</strong> Target SDK, Kotlin/Java baseline, and current build health are unverified without build/manifest files.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="epic-card">
+          <div class="epic-top">
+            <span class="epic-id">E2</span>
+            <div class="epic-title">Tvheadend Server Connectivity &amp; Session Layer</div>
+            <span class="dep-badge">Dependencies: E1</span>
+          </div>
+          <div class="epic-meta-grid">
+            <div class="epic-block">
+              <div class="epic-block-label">High-Level Scope &amp; Outcomes</div>
+              <p>Manage connection lifecycle, endpoint configuration, credentials/authentication, reachability checks, and streaming profile selection against the Tvheadend server.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Rationale &amp; Boundary</div>
+              <p>Both EPG/channel metadata and media streams depend on a reachable, authenticated Tvheadend connection. Keeping transport/auth separate from <span class="mono">TvContract</span> prevents network concerns from leaking into Android content provider logic.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Existing vs. Gap / Assumption</div>
+              <ul>
+                <li><strong>Inferred:</strong> A client/connector layer communicates with a Tvheadend instance over network APIs or streams.</li>
+                <li><strong>Gap/Assumption:</strong> Protocol choice (HTSP vs. HTTP API), auth handling, and multi-server/profile support require source verification.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="epic-card">
+          <div class="epic-top">
+            <span class="epic-id">E3</span>
+            <div class="epic-title">Channel Lineup &amp; EPG Metadata Synchronization</div>
+            <span class="dep-badge">Dependencies: E1, E2</span>
+          </div>
+          <div class="epic-meta-grid">
+            <div class="epic-block">
+              <div class="epic-block-label">High-Level Scope &amp; Outcomes</div>
+              <p>Map Tvheadend channels, channel tags/groups, logos, and program guide entries into Android's <span class="mono">TvContract</span> tables, handling incremental updates, stale pruning, and scheduled/background refreshes.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Rationale &amp; Boundary</div>
+              <p>Channel and program ingestion has distinct data mapping, idempotency, and scheduling rules from live video decoding, making it a clean domain boundary.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Existing vs. Gap / Assumption</div>
+              <ul>
+                <li><strong>Inferred:</strong> Channels and program guide data are pushed or synced into Android TV's <span class="mono">TvContract</span> provider.</li>
+                <li><strong>Gap/Assumption:</strong> Sync frequency, incremental diffing vs. full refresh, and artwork/logo handling are unconfirmed.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="epic-card">
+          <div class="epic-top">
+            <span class="epic-id">E4</span>
+            <div class="epic-title">TIF Session Media Playback &amp; Stream Control</div>
+            <span class="dep-badge">Dependencies: E1, E2, E3</span>
+          </div>
+          <div class="epic-meta-grid">
+            <div class="epic-block">
+              <div class="epic-block-label">High-Level Scope &amp; Outcomes</div>
+              <p>Implement <span class="mono">TvInputService.Session</span> tune/release/surface binding, stream URI or socket resolution, audio/video track selection, and error/rebuffer handling for live TV tuning.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Rationale &amp; Boundary</div>
+              <p>Live tuning has strict real-time surface, audio focus, and state-transition constraints in Android TIF that should be isolated from metadata batch sync.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Existing vs. Gap / Assumption</div>
+              <ul>
+                <li><strong>Inferred:</strong> At least a basic session/player path tunes a selected channel stream onto a TIF surface.</li>
+                <li><strong>Gap/Assumption:</strong> Supported codecs/containers, timeshift/seek behavior, and tuner-busy error handling are unknown.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="epic-card">
+          <div class="epic-top">
+            <span class="epic-id">E5</span>
+            <div class="epic-title">Setup, Channel Filtering &amp; Diagnostics Experience</div>
+            <span class="dep-badge">Dependencies: E2, E3</span>
+          </div>
+          <div class="epic-meta-grid">
+            <div class="epic-block">
+              <div class="epic-block-label">High-Level Scope &amp; Outcomes</div>
+              <p>Provide TV-remote-friendly setup/configuration screens, connection testing, channel/tag selection or filtering, sync status visibility, and diagnostic logs aligned with Gate 03/04 concepts.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Rationale &amp; Boundary</div>
+              <p>Configuration and troubleshooting workflows serve administrators/viewers outside active playback sessions and should evolve cleanly without coupling UI states to background sync workers.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Existing vs. Gap / Assumption</div>
+              <ul>
+                <li><strong>Verified Context:</strong> Gate 03 (<span class="mono">mockup-concept.html</span>) and Gate 04 (<span class="mono">hld.html</span>) exist in prior context.</li>
+                <li><strong>Gap/Assumption:</strong> Only partial CSS/header snippets of Gates 03–04 were present, and current Android settings/setup UI coverage in the repo is unverified.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+
+        <article class="epic-card">
+          <div class="epic-top">
+            <span class="epic-id">E6</span>
+            <div class="epic-title">Reliability, Background Resilience &amp; Verification</div>
+            <span class="dep-badge">Dependencies: E2, E3, E4, E5</span>
+          </div>
+          <div class="epic-meta-grid">
+            <div class="epic-block">
+              <div class="epic-block-label">High-Level Scope &amp; Outcomes</div>
+              <p>Harden network timeout/retry recovery, boot/connectivity wakeups, large EPG/channel lineup performance, automated unit/integration tests, and reverse-engineering documentation parity.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Rationale &amp; Boundary</div>
+              <p>Grouping cross-cutting hardening and verification as a dedicated epic ensures stability against intermittent LAN/WAN links and large channel lists before release gates.</p>
+            </div>
+            <div class="epic-block">
+              <div class="epic-block-label">Existing vs. Gap / Assumption</div>
+              <ul>
+                <li><strong>Inferred:</strong> Core happy-path wiring precedes edge-case recovery and test coverage.</li>
+                <li><strong>Gap/Assumption:</strong> Existing test suites, CI workflows, and failure telemetry in the repository are not yet inspected.</li>
+              </ul>
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2><span class="section-tag">03</span> Dependency &amp; Boundary Matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Epic</th>
+            <th>Primary Boundary</th>
+            <th>Depends On</th>
+            <th>Primary Gate 06–08 Hand-Off Focus</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">E1</td>
+            <td>Android TV app &amp; <span class="mono">TvInputService</span> shell</td>
+            <td class="mono">None</td>
+            <td>Manifest, service registration, and verified repo file map</td>
+          </tr>
+          <tr>
+            <td class="mono">E2</td>
+            <td>Tvheadend client, auth, profiles &amp; connectivity</td>
+            <td class="mono">E1</td>
+            <td>Connection states, error handling, and stream profile contracts</td>
+          </tr>
+          <tr>
+            <td class="mono">E3</td>
+            <td>Channel &amp; EPG sync into <span class="mono">TvContract</span></td>
+            <td class="mono">E1, E2</td>
+            <td>Sync cadence, metadata mapping, and incremental update rules</td>
+          </tr>
+          <tr>
+            <td class="mono">E4</td>
+            <td>TIF session playback, tracks &amp; stream control</td>
+            <td class="mono">E1, E2, E3</td>
+            <td>Session lifecycle transitions, playback errors, and surface handling</td>
+          </tr>
+          <tr>
+            <td class="mono">E5</td>
+            <td>Setup, channel/tag preferences &amp; diagnostics UI</td>
+            <td class="mono">E2, E3</td>
+            <td>Configuration flows, preference persistence, and status reporting</td>
+          </tr>
+          <tr>
+            <td class="mono">E6</td>
+            <td>Fault tolerance, scale, testing &amp; doc alignment</td>
+            <td class="mono">E2, E3, E4, E5</td>
+            <td>Failure scenarios, test matrix, and gap-closure verification</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+</body>
+</html>

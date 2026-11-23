@@ -98,6 +98,9 @@ class IptvTvInputService : TvInputService() {
 
         override fun onRelease() {
             afrHelper.release(surface, null)
+            player?.removeListener(this)
+            player?.clearVideoSurface()
+            player?.stop()
             player?.release()
             player = null
             surface = null

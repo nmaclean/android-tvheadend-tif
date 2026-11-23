@@ -1,6 +1,7 @@
 package com.nmaclean.tvheadend.sync
 
 import android.content.ComponentName
+import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -11,10 +12,6 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import com.nmaclean.tvheadend.TvheadendInputService
-import com.nmaclean.tvheadend.iptv.storage.AllowlistRepository
-import com.nmaclean.tvheadend.iptv.tif.TifAllowlistSyncer
-import com.nmaclean.tvheadend.iptv.epg.IptvEpgSyncer
-import com.nmaclean.tvheadend.iptv.epg.StreamingXmltvParser
 import com.nmaclean.tvheadend.htsp.ChannelRegistry
 import com.nmaclean.tvheadend.htsp.HtspClient
 import com.nmaclean.tvheadend.model.TvhSettings
@@ -205,12 +202,13 @@ object TvhSyncManager {
             val syncedDbIds = mutableSetOf<Long>()
             var channelCount = 0
             val totalChannels = channels.size
+            val ops = ArrayList<ContentProviderOperation>()
+            val channelsUri = TvContract.buildChannelsUriForInput(inputId)
 
             for (ch in channels) {
                 val streamKey = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
                 val existingDbId = existingChannelsMap[streamKey] ?: existingChannelsMap[ch.id.toString()]
 
-                Log.i(TAG, "Upserting channel #${ch.number}: '${ch.name}' (streamKey=$streamKey, existingDbId=$existingDbId)")
                 val values = ContentValues().apply {
                     put(TvContract.Channels.COLUMN_INPUT_ID, inputId)
                     put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, ch.number.toString())
@@ -225,30 +223,13 @@ object TvhSyncManager {
                 }
 
                 if (existingDbId != null) {
-                    try {
-                        resolver.update(ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, existingDbId), values, null, null)
-                        syncedDbIds.add(existingDbId)
-                        channelCount++
-                        Log.d(TAG, "Updated existing channel #${ch.number} '${ch.name}' (dbId=$existingDbId)")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to update channel dbId=$existingDbId: ${e.message}")
-                    }
+                    val updateUri = ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, existingDbId)
+                    ops.add(ContentProviderOperation.newUpdate(updateUri).withValues(values).build())
+                    syncedDbIds.add(existingDbId)
                 } else {
-                    val insertedUri = resolver.insert(TvContract.Channels.CONTENT_URI, values)
-                    if (insertedUri != null) {
-                        try {
-                            val newId = ContentUris.parseId(insertedUri)
-                            syncedDbIds.add(newId)
-                            channelCount++
-                            Log.d(TAG, "Inserted new channel #${ch.number} '${ch.name}' -> $insertedUri (dbId=$newId)")
-                        } catch (e: Exception) {
-                            channelCount++
-                            Log.d(TAG, "Inserted new channel #${ch.number} '${ch.name}' -> $insertedUri")
-                        }
-                    } else {
-                        Log.w(TAG, "Failed to insert channel #${ch.number} '${ch.name}' into TvProvider")
-                    }
+                    ops.add(ContentProviderOperation.newInsert(channelsUri).withValues(values).build())
                 }
+                channelCount++
 
                 onProgress?.invoke(
                     SyncProgressUpdate(
@@ -272,12 +253,20 @@ object TvhSyncManager {
             // Remove channels that no longer exist on Tvheadend
             val idsToDelete = existingIds.filter { it !in syncedDbIds }
             for (channelDbId in idsToDelete) {
-                try {
-                    resolver.delete(TvContract.buildProgramsUriForChannel(channelDbId), null, null)
-                    resolver.delete(ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, channelDbId), null, null)
-                    Log.i(TAG, "Deleted stale channel dbId=$channelDbId")
-                } catch (e: Exception) {
-                    Log.w(TAG, "Failed to delete stale channel dbId=$channelDbId: ${e.message}")
+                val deleteUri = ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, channelDbId)
+                ops.add(ContentProviderOperation.newDelete(deleteUri).build())
+                ops.add(ContentProviderOperation.newDelete(TvContract.buildProgramsUriForChannel(channelDbId)).build())
+            }
+
+            if (ops.isNotEmpty()) {
+                val chunkSize = 200
+                for (i in ops.indices step chunkSize) {
+                    val chunk = ArrayList(ops.subList(i, minOf(i + chunkSize, ops.size)))
+                    try {
+                        resolver.applyBatch(TvContract.AUTHORITY, chunk)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to apply channel batch operation chunk: ${e.message}")
+                    }
                 }
             }
 
@@ -288,42 +277,6 @@ object TvhSyncManager {
             } catch (_: Throwable) {}
 
             Log.i(TAG, "=== Channel sync complete: $channelCount channels synchronized ===")
-
-            // Sync M3U allowlisted IPTV channels
-            try {
-                val component = ComponentName(context, com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java)
-                val allowlistRepository = AllowlistRepository(context.filesDir)
-                val iptvSyncer = TifAllowlistSyncer(context.contentResolver, component, allowlistRepository)
-                iptvSyncer.sync()
-                Log.i(TAG, "Successfully synced M3U allowlisted IPTV channels during TvhSyncManager sync.")
-            } catch (e: Exception) {
-                Log.e(TAG, "Error syncing M3U allowlist during TvhSyncManager sync", e)
-            }
-
-            // Sync IPTV EPG (XMLTV)
-            try {
-                val allowlistRepository = AllowlistRepository(context.filesDir)
-                val localEpgFile = java.io.File(context.filesDir, "iptv_epg.xml")
-                val inputStream: InputStream? = if (localEpgFile.exists()) {
-                    localEpgFile.inputStream()
-                } else {
-                    try {
-                        context.assets.open("curation/xmltv.xml")
-                    } catch (_: Exception) {
-                        null
-                    }
-                }
-
-                if (inputStream != null) {
-                    val parseResult = inputStream.use { StreamingXmltvParser.parse(it) }
-                    val component = ComponentName(context, TvheadendInputService::class.java)
-                    val epgSyncer = IptvEpgSyncer(context.contentResolver, component, allowlistRepository)
-                    val syncedCount = epgSyncer.syncPrograms(parseResult)
-                    Log.i(TAG, "Successfully synced $syncedCount IPTV EPG programmes.")
-                }
-            } catch (e: Exception) {
-                Log.w(TAG, "IPTV EPG sync skipped or failed gracefully: ${e.message}")
-            }
 
             val (logoCount, programCount) = performEpgAndLogoSyncWithStats(
                 context = context,

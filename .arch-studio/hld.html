@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate 04 — High-Level Design | android-tvheadend-tif</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #101726;
+      --surface-2: #162033;
+      --border: #25334f;
+      --border-soft: #1b263d;
+      --text: #eaf1fc;
+      --muted: #9fb0cc;
+      --faint: #6c7f9e;
+      --accent: #3b82f6;
+      --accent-bright: #60a5fa;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --ok: #10b981;
+      --ok-soft: rgba(16, 185, 129, 0.15);
+      --warn: #f59e0b;
+      --warn-soft: rgba(245, 158, 11, 0.15);
+      --err: #ef4444;
+      --err-soft: rgba(239, 68, 68, 0.16);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.55;
+      padding: 28px 20px 60px;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-bright);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .meta-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .meta-label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--faint);
+      margin-bottom: 3px;
+    }
+
+    .meta-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 15.5px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: rgba(9, 13, 22, 0.72);
+      border: 1px solid var(--border-soft);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #cfe3ff;
+    }
+
+    .subsys-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .card li {
+      margin-bottom: 6px;
+    }
+
+    .fact-tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 7px;
+      border-radius: 999px;
+      align-self: flex-start;
+    }
+
+    .tag-verified {
+      background: var(--ok-soft);
+      color: var(--ok);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .tag-inferred {
+      background: var(--warn-soft);
+      color: var(--warn);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .tag-gap {
+      background: var(--err-soft);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .diagram-wrap {
+      overflow-x: auto;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+
+    .diagram-note {
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tab-btn {
+      background: var(--surface-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      border-color: var(--accent-bright);
+    }
+
+    .tab-btn[aria-selected="true"] {
+      background: var(--accent-soft);
+      color: var(--accent-bright);
+      border-color: var(--accent-bright);
+    }
+
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .item-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .item-card.hidden {
+      display: none;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 999px;
+      align-self: flex-start;
+    }
+
+    .badge-contract {
+      background: var(--accent-soft);
+      color: var(--accent-bright);
+      border: 1px solid rgba(96, 165, 250, 0.35);
+    }
+
+    .badge-flow {
+      background: var(--ok-soft);
+      color: var(--ok);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .badge-adr {
+      background: var(--warn-soft);
+      color: var(--warn);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .guardrails-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .guardrails-grid ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .guardrails-grid li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="eyebrow">Gate 04 — High-Level Design</div>
+      <h1>android-tvheadend-tif: High-Level Design (HLD)</h1>
+      <p class="subtitle">
+        System architecture, runtime topology, protocol/TIF contracts, and architectural guardrails grounded in the <code>nmaclean/android-tvheadend-tif</code> repository archive.
+      </p>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Repository</span>
+          <span class="meta-val">nmaclean/android-tvheadend-tif</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Remote URL</span>
+          <span class="meta-val">https://github.com/nmaclean/android-tvheadend-tif.git</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Role &amp; Gate</span>
+          <span class="meta-val">Principal Software Architect · Gate 04 (hld.html)</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Evidence Basis</span>
+          <span class="meta-val">Archive manifest &amp; prior conversation context (file bodies uninspected)</span>
+        </div>
+      </div>
+    </header>
+
+    <section id="subsystems">
+      <h2>1. System Architecture &amp; Subsystem Overview</h2>
+      <p class="muted">
+        The architecture aligns with Gate 01–03 framing: integrating Tvheadend live TV, EPG, and DVR alongside M3U/XMLTV IPTV sources, TV Input Framework (TIF) publishing, display refresh-rate adaptation, and LAN browser curation. <strong>Verified</strong> items come from the archive entry list; <strong>Inferred</strong> items reflect standard Android TV/HTSP/IPTV role mapping from class names; <strong>Gaps</strong> mark uninspected source/doc details.
+      </p>
+
+      <div class="subsys-grid">
+        <article class="card">
+          <span class="fact-tag tag-verified">Verified Structure · Inferred Roles</span>
+          <h3>HTSP Client &amp; Stream Pipeline</h3>
+          <ul>
+            <li><code>htsp/</code>: <code>Htsmsg.kt</code>, <code>HtspClient.kt</code>, <code>HtspConnectionPool.kt</code>, <code>HtspConnectionState.kt</code>, <code>ChannelRegistry.kt</code>.</li>
+            <li><code>player/</code>: <code>HtspDataSource.kt</code>, <code>HtspDvrDataSource.kt</code>, <code>HtspExtractor.kt</code>, <code>Mp2Decoder.kt</code>, <code>InputPlaybackStrategy.kt</code>, plus <code>telemetry/TuneTelemetryTracker.kt</code>.</li>
+            <li><code>player/afr/</code>: <code>AfrMode.kt</code>, <code>AfrPlayerObserver.kt</code>, <code>AfrSettingsStore.kt</code>, <code>DisplayFrameRateController.kt</code>, <code>FrameRateMatcher.kt</code>, <code>TifAfrSessionHelper.kt</code>.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <span class="fact-tag tag-verified">Verified Structure · Inferred Roles</span>
+          <h3>IPTV, EPG, Curation &amp; TIF Sync</h3>
+          <ul>
+            <li><code>iptv/parser/</code> &amp; <code>iptv/epg/</code>: <code>StreamingM3uParser.kt</code>, <code>StreamingXmltvParser.kt</code>, <code>IptvEpgSyncer.kt</code>, <code>IptvEpgSyncWorker.kt</code>, <code>IptvEpgSettingsStore.kt</code>, <code>IptvEpgModels.kt</code>.</li>
+            <li><code>iptv/scan/</code>, <code>iptv/logo/</code>, <code>iptv/storage/</code>: <code>InputSourceHandler.kt</code>, <code>IptvStreamScanner.kt</code>, <code>SourceScanManager.kt</code>, <code>IptvLogoManager.kt</code>, <code>AllowlistRepository.kt</code>.</li>
+            <li><code>iptv/tif/</code> &amp; <code>iptv/server/</code>: <code>IptvTvInputService.kt</code>, <code>IptvStreamResolver.kt</code>, <code>TifAllowlistSyncer.kt</code>, <code>LanCurationServer.kt</code>, <code>LanNetworkUtils.kt</code>, <code>assets/curation/index.html</code>.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <span class="fact-tag tag-verified">Verified Structure · Inferred Roles</span>
+          <h3>TIF Services, Sync, UI &amp; Updater</h3>
+          <ul>
+            <li>TIF &amp; background sync: <code>TvheadendInputService.kt</code>, <code>TvhAccountService.kt</code>, <code>SyncService.kt</code>, <code>sync/TvhSyncManager.kt</code>, <code>sync/TvhSyncWorker.kt</code>, <code>sync/BackgroundSyncStrategy.kt</code>, <code>sync/DvrRepository.kt</code>, <code>sync/EpgRepository.kt</code>, <code>sync/InputChannelRepository.kt</code>, <code>sync/TifChannelObserver.kt</code>.</li>
+            <li>TV UI &amp; setup: <code>MainActivity.kt</code>, <code>SetupActivity.kt</code>, <code>TvPlayerActivity.kt</code>, <code>DvrPlayerActivity.kt</code>, <code>ChannelGridActivity.kt</code>, <code>GuideScreen.kt</code>, <code>LiveTvScreen.kt</code>, <code>RecordingsScreen.kt</code>, <code>SearchScreen.kt</code>, <code>IptvSetupWizardScreen.kt</code>, <code>M3uCurationScreen.kt</code>.</li>
+            <li>Updates &amp; tests: <code>updater/GitHubUpdateManager.kt</code>, <code>ApkInstaller.kt</code>, <code>SemVerComparator.kt</code>, <code>UpdateInstallReceiver.kt</code>, <code>UpdatePromptDialog.kt</code>, and 30 tests under <code>app/src/test/</code>.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="topology">
+      <h2>2. High-Level Topology Diagram</h2>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1120 330" width="1120" height="330" role="img" aria-label="High-Level Topology Diagram for android-tvheadend-tif">
+          <defs>
+            <marker id="hld-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#60a5fa" />
+            </marker>
+            <marker id="hld-arrow-ok" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+            </marker>
+            <marker id="hld-arrow-warn" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+            </marker>
+          </defs>
+
+          <!-- Android TV Process Boundary -->
+          <rect x="14" y="14" width="676" height="302" rx="12" fill="#162033" stroke="#3b82f6" stroke-width="2" />
+          <text x="28" y="35" fill="#60a5fa" font-family="system-ui, sans-serif" font-size="12.5" font-weight="700">
+            ANDROID TV APP PROCESS (com.nmaclean.tvheadend)
+          </text>
+
+          <!-- Presentation Layer -->
+          <rect x="30" y="48" width="202" height="114" rx="8" fill="#101726" stroke="#25334f" />
+          <text x="42" y="68" fill="#eaf1fc" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Presentation &amp; TV UI</text>
+          <text x="42" y="87" fill="#9fb0cc" font-family="monospace" font-size="10">MainActivity · GuideScreen</text>
+          <text x="42" y="103" fill="#9fb0cc" font-family="monospace" font-size="10">LiveTv · Recordings · Search</text>
+          <text x="42" y="119" fill="#9fb0cc" font-family="monospace" font-size="10">TvPlayer · DvrPlayer + OSD</text>
+          <text x="42" y="135" fill="#9fb0cc" font-family="monospace" font-size="10">IptvSetupWizard · M3uCuration</text>
+          <text x="42" y="151" fill="#9fb0cc" font-family="monospace" font-size="10">TvhSetupFragment · Settings</text>
+
+          <!-- TIF & Sync Layer -->
+          <rect x="250" y="48" width="214" height="114" rx="8" fill="#101726" stroke="#25334f" />
+          <text x="262" y="68" fill="#eaf1fc" font-family="system-ui, sans-serif" font-size="12" font-weight="700">TIF Services &amp; Sync</text>
+          <text x="262" y="87" fill="#9fb0cc" font-family="monospace" font-size="10">TvheadendInputService</text>
+          <text x="262" y="103" fill="#9fb0cc" font-family="monospace" font-size="10">IptvTvInputService · Resolver</text>
+          <text x="262" y="119" fill="#9fb0cc" font-family="monospace" font-size="10">TvhSyncManager · TvhSyncWorker</text>
+          <text x="262" y="135" fill="#9fb0cc" font-family="monospace" font-size="10">IptvEpgSyncer · EpgWorker</text>
+          <text x="262" y="151" fill="#9fb0cc" font-family="monospace" font-size="10">TifAllowlistSyncer · Observer</text>
+
+          <!-- Media & AFR Layer -->
+          <rect x="482" y="48" width="192" height="114" rx="8" fill="#101726" stroke="#25334f" />
+          <text x="494" y="68" fill="#eaf1fc" font-family="system-ui, sans-serif" font-size="12" font-weight="700">HTSP &amp; Media Pipeline</text>
+          <text x="494" y="87" fill="#9fb0cc" font-family="monospace" font-size="10">HtspClient · Pool · Htsmsg</text>
+          <text x="494" y="103" fill="#9fb0cc" font-family="monospace" font-size="10">HtspDataSource · DvrSource</text>
+          <text x="494" y="119" fill="#9fb0cc" font-family="monospace" font-size="10">HtspExtractor · Mp2Decoder</text>
+          <text x="494" y="135" fill="#9fb0cc" font-family="monospace" font-size="10">DisplayFrameRateController</text>
+          <text x="494" y="151" fill="#9fb0cc" font-family="monospace" font-size="10">TuneTelemetryTracker</text>
+
+          <!-- Persistence & Repositories -->
+          <rect x="30" y="182" width="310" height="118" rx="8" fill="#101726" stroke="#25334f" />
+          <text x="42" y="202" fill="#eaf1fc" font-family="system-ui, sans-serif" font-size="12" font-weight="700">Repositories, Stores &amp; Updater</text>
+          <text x="42" y="221" fill="#9fb0cc" font-family="monospace" font-size="10">EpgRepository · DvrRepository · TvhUiRepository</text>
+          <text x="42" y="237" fill="#9fb0cc" font-family="monospace" font-size="10">ChannelRegistry · InputChannelRepository</text>
+          <text x="42" y="253" fill="#9fb0cc" font-family="monospace" font-size="10">AllowlistRepository · IptvLogoManager</text>
+          <text x="42" y="269" fill="#9fb0cc" font-family="monospace" font-size="10">IptvEpgSettingsStore · AfrSettingsStore · Account</text>
+          <text x="42" y="285" fill="#9fb0cc" font-family="monospace" font-size="10">GitHubUpdateManager · ApkInstaller</text>
+
+          <!-- LAN Curation & Stream Parsers -->
+          <rect x="358" y="182" width="316" height="118" rx="8" fill="#101726" stroke="#f59e0b" stroke-dasharray="4 3" />
+          <text x="370" y="202" fill="#f59e0b" font-family="system-ui, sans-serif" font-size="12" font-weight="700">LAN Server &amp; Streaming Parsers</text>
+          <text x="370" y="221" fill="#9fb0cc" font-family="monospace" font-size="10">LanCurationServer · LanNetworkUtils</text>
+          <text x="370" y="237" fill="#9fb0cc" font-family="monospace" font-size="10">assets/curation/index.html</text>
+          <text x="370" y="253" fill="#9fb0cc" font-family="monospace" font-size="10">StreamingM3uParser · StreamingXmltvParser</text>
+          <text x="370" y="269" fill="#9fb0cc" font-family="monospace" font-size="10">InputSourceHandler · IptvStreamScanner</text>
+          <text x="370" y="285" fill="#9fb0cc" font-family="monospace" font-size="10">SourceScanManager</text>
+
+          <!-- Internal Arrows -->
+          <line x1="232" y1="105" x2="250" y2="105" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#hld-arrow)" />
+          <line x1="464" y1="105" x2="482" y2="105" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#hld-arrow)" />
+          <line x1="357" y1="162" x2="210" y2="182" stroke="#10b981" stroke-width="1.5" marker-end="url(#hld-arrow-ok)" />
+          <line x1="410" y1="162" x2="490" y2="182" stroke="#f59e0b" stroke-width="1.5" marker-end="url(#hld-arrow-warn)" />
+
+          <!-- Right Column: External & Platform Boundaries -->
+          <rect x="720" y="14" width="386" height="148" rx="12" fill="#162033" stroke="#10b981" stroke-width="2" />
+          <text x="734" y="35" fill="#10b981" font-family="system-ui, sans-serif" font-size="12.5" font-weight="700">
+            LAN STREAMING &amp; CURATION HOSTS
+          </text>
+          <text x="734" y="56" fill="#eaf1fc" font-family="monospace" font-size="10.5">Tvheadend Server (HTSP live, DVR, EPG)</text>
+          <text x="734" y="76" fill="#9fb0cc" font-family="monospace" font-size="10.5">IPTV M3U Playlists, XMLTV Guides &amp; Logos</text>
+          <text x="734" y="96" fill="#f59e0b" font-family="monospace" font-size="10.5">LAN Web Browser -&gt; LanCurationServer</text>
+          <text x="734" y="120" fill="#6c7f9e" font-family="system-ui, sans-serif" font-size="11.5">
+            Protocols &amp; ports are not fixed in file manifest alone.
+          </text>
+
+          <rect x="720" y="176" width="386" height="140" rx="12" fill="#162033" stroke="#9fb0cc" stroke-width="1.5" stroke-dasharray="5 3" />
+          <text x="734" y="197" fill="#eaf1fc" font-family="system-ui, sans-serif" font-size="12.5" font-weight="700">
+            ANDROID TV PLATFORM &amp; EXTERNAL RELEASES
+          </text>
+          <text x="734" y="218" fill="#9fb0cc" font-family="monospace" font-size="10.5">Android TIF (tv_input.xml, iptv_tv_input.xml)</text>
+          <text x="734" y="238" fill="#9fb0cc" font-family="monospace" font-size="10.5">AccountManager / SyncAdapter / WorkManager</text>
+          <text x="734" y="258" fill="#9fb0cc" font-family="monospace" font-size="10.5">Display Refresh Rate &amp; Codec/Audio Subsystems</text>
+          <text x="734" y="278" fill="#9fb0cc" font-family="monospace" font-size="10.5">GitHub Releases API &amp; APK Installer</text>
+
+          <!-- Cross-boundary Connectors -->
+          <line x1="674" y1="82" x2="720" y2="62" stroke="#60a5fa" stroke-width="1.8" marker-end="url(#hld-arrow)" />
+          <line x1="674" y1="226" x2="720" y2="88" stroke="#f59e0b" stroke-width="1.6" stroke-dasharray="4 2" marker-end="url(#hld-arrow-warn)" />
+          <line x1="464" y1="126" x2="720" y2="220" stroke="#10b981" stroke-width="1.6" marker-end="url(#hld-arrow-ok)" />
+        </svg>
+      </div>
+      <p class="diagram-note">
+        Grounded in verified repository paths under <code>app/src/main/</code> and <code>app/src/main/res/xml/</code>. Exact wire schemas, port numbers, and internal method signatures are not asserted from file contents in this pass.
+      </p>
+    </section>
+
+    <section id="contracts-flows-adrs">
+      <h2>3. Interfaces, Data Flows &amp; Architectural Decisions</h2>
+      <div class="tabs" role="tablist" aria-label="Filter HLD items">
+        <button class="tab-btn" role="tab" aria-selected="true" data-hld-filter="all">All (9)</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-hld-filter="contract">Contracts (3)</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-hld-filter="flow">Data Flows (3)</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-hld-filter="adr">ADRs (3)</button>
+      </div>
+
+      <div class="items-grid" id="hld-grid">
+        <!-- Contracts -->
+        <article class="item-card" data-hld-cat="contract">
+          <span class="badge badge-contract">Interface Contract</span>
+          <h3>Android TIF &amp; Channel Sync</h3>
+          <p class="muted">
+            <code>TvheadendInputService</code> and <code>IptvTvInputService</code> (declared via <code>res/xml/tv_input.xml</code> and <code>res/xml/iptv_tv_input.xml</code>) interact with <code>TifChannelObserver</code>, <code>TifAllowlistSyncer</code>, and <code>InputChannelRepository</code>.
+          </p>
+        </article>
+
+        <article class="item-card" data-hld-cat="contract">
+          <span class="badge badge-contract">Interface Contract</span>
+          <h3>HTSP &amp; Media Extraction</h3>
+          <p class="muted">
+            <code>Htsmsg</code>, <code>HtspClient</code>, <code>HtspConnectionPool</code>, and <code>HtspConnectionState</code> feed <code>HtspDataSource</code>, <code>HtspDvrDataSource</code>, <code>HtspExtractor</code>, and <code>Mp2Decoder</code>, paired with <code>DisplayFrameRateController</code> / <code>FrameRateMatcher</code>.
+          </p>
+        </article>
+
+        <article class="item-card" data-hld-cat="contract">
+          <span class="badge badge-contract">Interface Contract</span>
+          <h3>IPTV Allowlist, EPG &amp; LAN Curation</h3>
+          <p class="muted">
+            <code>AllowlistRepository</code>, <code>IptvEpgSettingsStore</code>, <code>IptvLogoManager</code>, and <code>LanCurationServer</code> (<code>assets/curation/index.html</code>) bridge LAN curation edits with <code>IptvStreamResolver</code> and TIF allowlist sync.
+          </p>
+        </article>
+
+        <!-- Flows -->
+        <article class="item-card" data-hld-cat="flow">
+          <span class="badge badge-flow">Data Flow</span>
+          <h3>HTSP Sync &amp; Live/DVR Playback</h3>
+          <p class="muted">
+            <code>TvhSyncManager</code> / <code>TvhSyncWorker</code> / <code>SyncService</code> populate <code>EpgRepository</code>, <code>DvrRepository</code>, and <code>ChannelRegistry</code>; <code>TvPlayerActivity</code> / <code>DvrPlayerActivity</code> stream media and record <code>TuneTelemetryTracker</code> metrics.
+          </p>
+        </article>
+
+        <article class="item-card" data-hld-cat="flow">
+          <span class="badge badge-flow">Data Flow</span>
+          <h3>M3U / XMLTV Scan &amp; EPG Ingestion</h3>
+          <p class="muted">
+            <code>InputSourceHandler</code>, <code>SourceScanManager</code>, and <code>IptvStreamScanner</code> ingest streams via <code>StreamingM3uParser</code> while <code>IptvEpgSyncer</code> and <code>IptvEpgSyncWorker</code> parse guide feeds via <code>StreamingXmltvParser</code>.
+          </p>
+        </article>
+
+        <article class="item-card" data-hld-cat="flow">
+          <span class="badge badge-flow">Data Flow</span>
+          <h3>GitHub Release Check &amp; APK Install</h3>
+          <p class="muted">
+            <code>GitHubUpdateManager</code> and <code>SemVerComparator</code> evaluate releases, <code>UpdatePromptDialog</code> presents prompts, and <code>ApkInstaller</code> / <code>UpdateInstallReceiver</code> stage updates via <code>res/xml/file_paths.xml</code>.
+          </p>
+        </article>
+
+        <!-- ADRs -->
+        <article class="item-card" data-hld-cat="adr">
+          <span class="badge badge-adr">ADR-01 · Framing</span>
+          <h3>Streaming Parsers &amp; Worker Sync</h3>
+          <p class="muted">
+            Use streaming parsers (<code>StreamingM3uParser</code>, <code>StreamingXmltvParser</code>) and scheduled/background sync (<code>TvhSyncWorker</code>, <code>IptvEpgSyncWorker</code>, <code>BackgroundSyncStrategy</code>) to keep large playlists/guides off the UI thread.
+          </p>
+        </article>
+
+        <article class="item-card" data-hld-cat="adr">
+          <span class="badge badge-adr">ADR-02 · Framing</span>
+          <h3>Dedicated AFR &amp; MP2 Media Modules</h3>
+          <p class="muted">
+            Isolate display refresh-rate matching in <code>player/afr/</code> and custom extraction/MP2 decoding in <code>player/</code> so TV playback behavior can evolve independently from UI screens.
+          </p>
+        </article>
+
+        <article class="item-card" data-hld-cat="adr">
+          <span class="badge badge-adr">ADR-03 · Open Audit</span>
+          <h3>Cross-Input &amp; Split-App Boundaries</h3>
+          <p class="muted">
+            Keep Tvheadend and IPTV input responsibilities explicitly bounded pending reconciliation of <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, <code>docs/boundary-contract-audit.md</code>, and <code>docs/SPLIT-APPS-FEASIBILITY.md</code>.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section id="guardrails">
+      <h2>4. Resilience, Security &amp; Operational Guardrails</h2>
+      <div class="guardrails-grid">
+        <div class="card">
+          <h3>Resilience, Threading &amp; Lifecycle</h3>
+          <ul>
+            <li><strong>Connection State &amp; Pooling:</strong> Model HTSP reconnects and session states through <code>HtspConnectionPool</code> and <code>HtspConnectionState</code> rather than blocking UI/TIF threads.</li>
+            <li><strong>Service &amp; Activity Lifecycle:</strong> Coordinate <code>TvPlayerActivity</code> / <code>DvrPlayerActivity</code>, <code>DisplayFrameRateController</code>, and TIF services so stream tears-downs and refresh-rate changes do not leak resources.</li>
+            <li><strong>Bounded Feed Processing:</strong> Keep M3U/XMLTV parsing and EPG/DVR sync incremental to avoid memory spikes on large channel/guide sets.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Security, Privacy &amp; Operations</h3>
+          <ul>
+            <li><strong>LAN Curation Exposure:</strong> <code>LanCurationServer</code> serves browser curation on the LAN—verify network binding, session/access controls, and server start/stop lifecycle.</li>
+            <li><strong>Credentials &amp; APK Updates:</strong> Protect account/sync credentials (<code>TvhAccountService</code>, settings stores) and restrict APK file sharing via <code>res/xml/file_paths.xml</code> and <code>ApkInstaller</code>.</li>
+            <li><strong>Unit Test Baseline:</strong> Maintain and run the 30 unit tests under <code>app/src/test/</code> alongside <code>.github/workflows/release.yml</code>.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Open Questions Before Epic Breakdown</h3>
+          <ul>
+            <li><strong>Audit &amp; Feasibility Findings:</strong> What exact rules or split-app conclusions are recorded in <code>docs/SPLIT-APPS-FEASIBILITY.md</code>, <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, and <code>docs/boundary-contract-audit.md</code>?</li>
+            <li><strong>Existing Studio Docs:</strong> How do <code>.arch-studio/vision.html</code>, <code>.arch-studio/hld.html</code>, <code>.arch-studio/epic-breakdown.html</code>, and <code>.arch-studio/epics/E1/</code> align with current source code?</li>
+            <li><strong>Build &amp; Runtime Budgets:</strong> What are the configured SDK/dependency versions in <code>app/build.gradle.kts</code> and target tune-latency / sync-cadence budgets?</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const tabs = document.querySelectorAll(".tab-btn");
+      const cards = document.querySelectorAll("#hld-grid .item-card");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const filter = tab.getAttribute("data-hld-filter");
+          tabs.forEach((t) => t.setAttribute("aria-selected", t === tab ? "true" : "false"));
+          cards.forEach((card) => {
+            const cat = card.getAttribute("data-hld-cat");
+            card.classList.toggle("hidden", filter !== "all" && cat !== filter);
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

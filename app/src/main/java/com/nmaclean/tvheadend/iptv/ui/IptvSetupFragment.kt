@@ -217,6 +217,8 @@ class IptvChannelScanFragment : GuidedStepSupportFragment() {
 
     @OptIn(UnstableApi::class)
     private fun startScan() {
+        var lastScanUiUpdateMs = 0L
+
         thread {
             val app = requireContext().applicationContext
             val scanManager = SourceScanManager(app)
@@ -224,9 +226,13 @@ class IptvChannelScanFragment : GuidedStepSupportFragment() {
             CoroutineScope(Dispatchers.Main).launch {
                 scanManager.scanState.collect { state ->
                     if (!isAdded) return@collect
+                    val now = System.currentTimeMillis()
                     when (state) {
                         is ScanState.Scanning -> {
-                            guidanceStylist?.descriptionView?.text = "[${state.progressPercent}%] ${state.step}"
+                            if (now - lastScanUiUpdateMs > 150L || state.progressPercent >= 100) {
+                                lastScanUiUpdateMs = now
+                                guidanceStylist?.descriptionView?.text = "[${state.progressPercent}%] ${state.step}"
+                            }
                         }
                         is ScanState.Completed -> {
                             IptvEpgSyncWorker.schedulePeriodicSync(app)

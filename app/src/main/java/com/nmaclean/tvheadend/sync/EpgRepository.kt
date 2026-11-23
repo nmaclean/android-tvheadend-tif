@@ -9,11 +9,22 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+
 /**
  * Repository for querying Electronic Program Guide (EPG) events for live channels from system TvContract.
  */
 object EpgRepository {
     private const val TAG = "EpgRepository"
+
+    private val _guidePrograms = MutableStateFlow<Map<Long, List<ProgramInfo>>>(emptyMap())
+    val guidePrograms: StateFlow<Map<Long, List<ProgramInfo>>> = _guidePrograms.asStateFlow()
+
+    fun updateGuidePrograms(programs: Map<Long, List<ProgramInfo>>) {
+        _guidePrograms.value = programs
+    }
 
     data class ProgramInfo(
         val eventId: Long,
@@ -165,7 +176,7 @@ object EpgRepository {
      * Blazingly fast parallel windowed query fetching programs across all channels concurrently,
      * using buildProgramsUriForChannel to guarantee 100% compatibility with all TvProviders while executing in milliseconds.
      */
-    fun getAllProgramsInWindow(context: Context, startWindowMs: Long, endWindowMs: Long): Map<Long, List<ProgramInfo>> {
+    suspend fun getAllProgramsInWindow(context: Context, startWindowMs: Long, endWindowMs: Long): Map<Long, List<ProgramInfo>> = kotlinx.coroutines.withContext(Dispatchers.IO) {
         val map = ConcurrentHashMap<Long, MutableList<ProgramInfo>>()
 
         val channelIds = mutableListOf<Long>()
@@ -189,18 +200,16 @@ object EpgRepository {
             Log.e(TAG, "Error querying channels for EPG window", e)
         }
 
-        runBlocking(Dispatchers.IO) {
-            channelIds.map { chId ->
-                async {
-                    val progs = getProgramsForChannel(context, chId, startWindowMs, endWindowMs)
-                    if (progs.isNotEmpty()) {
-                        map[chId] = progs.toMutableList()
-                    }
+        channelIds.map { chId ->
+            async {
+                val progs = getProgramsForChannel(context, chId, startWindowMs, endWindowMs)
+                if (progs.isNotEmpty()) {
+                    map[chId] = progs.toMutableList()
                 }
-            }.awaitAll()
-        }
+            }
+        }.awaitAll()
 
-        return map
+        map
     }
 
     private fun extractEventId(cursor: android.database.Cursor, eventIdCol: Int, dataCol: Int): Long {

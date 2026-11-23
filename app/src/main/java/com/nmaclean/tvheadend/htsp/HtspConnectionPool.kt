@@ -19,13 +19,27 @@ object HtspConnectionPool {
     private const val INITIAL_BACKOFF_MS = 250L
 
     private val poolScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private var activeClient: HtspClient? = null
+    private var streamingClient: HtspClient? = null
+    private var controlClient: HtspClient? = null
 
     fun setStreamingSpeedAsync(speed: Int) {
-        val client = synchronized(this) { activeClient } ?: return
+        val client = synchronized(this) { streamingClient } ?: return
         poolScope.launch {
             client.sendSubscriptionSpeed(speed)
         }
+    }
+
+    @Synchronized
+    fun getFreshStreamingClient(
+        context: Context,
+        host: String,
+        port: Int,
+        user: String,
+        pass: String
+    ): HtspClient {
+        Log.i(TAG, "Bypassing connection reuse: releasing existing socket and establishing fresh streaming connection")
+        releaseStreamingClient()
+        return getStreamingClient(context, host, port, user, pass)
     }
 
     @Synchronized
@@ -37,7 +51,7 @@ object HtspConnectionPool {
         pass: String
     ): HtspClient {
         val targetHost = if (host.equals("localhost", ignoreCase = true)) "127.0.0.1" else host
-        val existing = activeClient
+        val existing = streamingClient
 
         if (existing != null &&
             existing.isConnected &&
@@ -69,7 +83,54 @@ object HtspConnectionPool {
             candidate
         }
 
-        activeClient = client
+        streamingClient = client
+        return client
+    }
+
+    @Synchronized
+    fun getControlClient(
+        context: Context,
+        host: String,
+        port: Int,
+        user: String,
+        pass: String
+    ): HtspClient {
+        val targetHost = if (host.equals("localhost", ignoreCase = true)) "127.0.0.1" else host
+        val existing = controlClient
+
+        if (existing != null &&
+            existing.isConnected &&
+            existing.host == targetHost &&
+            existing.port == port &&
+            existing.authenticatedUser == user
+        ) {
+            Log.i(TAG, "Reusing existing authenticated HTSP control connection to $targetHost:$port for user '$user'")
+            return existing
+        }
+
+        try {
+            existing?.disconnect()
+        } catch (_: Exception) {}
+
+        Log.i(TAG, "Establishing fresh HTSP control connection to $targetHost:$port")
+        val stateLogger = HtspStateLogger(targetHost, port)
+        val client = connectWithBackoff(
+            host = targetHost,
+            port = port,
+            maxAttempts = MAX_CONNECT_ATTEMPTS,
+            initialBackoffMs = INITIAL_BACKOFF_MS,
+            stateLogger = stateLogger,
+            sleeper = { delayMs -> Thread.sleep(delayMs) }
+        ) {
+            val candidate = HtspClient(targetHost, port)
+            if (!candidate.connect(user, pass)) {
+                candidate.disconnect()
+                throw IOException("Failed to connect/authenticate control client to HTSP server at $targetHost:$port")
+            }
+            candidate
+        }
+
+        controlClient = client
         return client
     }
 
@@ -135,8 +196,8 @@ object HtspConnectionPool {
 
     @Synchronized
     fun releaseStreamingClient() {
-        val client = activeClient
-        activeClient = null
+        val client = streamingClient
+        streamingClient = null
         if (client != null) {
             poolScope.launch {
                 try {
@@ -150,24 +211,23 @@ object HtspConnectionPool {
     }
 
     /**
-     * Runs [block] with a short-lived authenticated [HtspClient] for control/metadata/DVR operations,
+     * Runs [block] with a dedicated authenticated HTSP control socket [HtspClient] for DVR operations,
      * keeping the persistent live-streaming socket untouched.
      */
     inline fun <T> withClient(context: Context, tag: String = "HtspConnectionPool", block: (HtspClient) -> T): T? {
         val settings = TvhSettings(context)
         if (settings.host.isBlank()) return null
-        val client = HtspClient(settings.host, settings.htspPort)
-        return try {
-            if (client.connect(settings.username, settings.password)) {
-                block(client)
-            } else {
-                null
-            }
+        val client = try {
+            getControlClient(context, settings.host, settings.htspPort, settings.username, settings.password)
         } catch (e: Exception) {
-            Log.w(tag, "HTSP operation failed: ${e.message}")
+            Log.w(tag, "withClient failed to acquire control client: ${e.message}")
+            return null
+        }
+        return try {
+            block(client)
+        } catch (e: Exception) {
+            Log.w(tag, "withClient execution error: ${e.message}")
             null
-        } finally {
-            client.disconnect()
         }
     }
 

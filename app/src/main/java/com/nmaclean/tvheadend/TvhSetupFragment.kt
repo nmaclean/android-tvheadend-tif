@@ -465,23 +465,29 @@ class TvhSetupResultFragment : GuidedStepSupportFragment() {
         if (syncStarted) return
         syncStarted = true
 
+        var lastProgressUiUpdateMs = 0L
+
         thread {
             val result = TvhSyncManager.performSync(requireContext()) { progress ->
                 if (!isAdded) return@performSync
-                requireActivity().runOnUiThread {
-                    if (!isAdded) return@runOnUiThread
-                    guidanceStylist?.descriptionView?.text = TvhSetupInputValidator.formatProgressSummary(
-                        progress.importedChannels,
-                        progress.totalChannels,
-                        progress.logosLoaded
-                    )
-                    if (progress.currentChannelName.isNotEmpty()) {
-                        syncStatusLineView?.text = "Syncing #${progress.currentChannelNumber} ${progress.currentChannelName}..."
-                    }
-                    progress.latestPreviewItem?.let { item ->
-                        val insertPos = previewAdapter.upsertItem(item)
-                        if (isScanning && insertPos >= 0) {
-                            previewRecyclerView?.scrollToPosition(insertPos)
+                val now = System.currentTimeMillis()
+                if (now - lastProgressUiUpdateMs > 150L || progress.importedChannels == progress.totalChannels) {
+                    lastProgressUiUpdateMs = now
+                    requireActivity().runOnUiThread {
+                        if (!isAdded) return@runOnUiThread
+                        guidanceStylist?.descriptionView?.text = TvhSetupInputValidator.formatProgressSummary(
+                            progress.importedChannels,
+                            progress.totalChannels,
+                            progress.logosLoaded
+                        )
+                        if (progress.currentChannelName.isNotEmpty()) {
+                            syncStatusLineView?.text = "Syncing #${progress.currentChannelNumber} ${progress.currentChannelName}..."
+                        }
+                        progress.latestPreviewItem?.let { item ->
+                            val insertPos = previewAdapter.upsertItem(item)
+                            if (isScanning && insertPos >= 0) {
+                                previewRecyclerView?.scrollToPosition(insertPos)
+                            }
                         }
                     }
                 }

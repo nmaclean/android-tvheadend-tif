@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate 05 — Epic Roadmap &amp; Architecture | nmaclean/android-tvheadend-tif</title>
+  <style>
+    :root {
+      --bg-canvas: #0b0f17;
+      --bg-surface: #121826;
+      --bg-surface-alt: #182032;
+      --bg-elevated: #1e283e;
+      --text-primary: #eef2f8;
+      --text-secondary: #a6b3c8;
+      --text-muted: #74839d;
+      --border-subtle: rgba(166, 179, 200, 0.16);
+      --border-strong: rgba(166, 179, 200, 0.32);
+      --accent-primary: #38bdf8;
+      --accent-primary-soft: rgba(56, 189, 248, 0.14);
+      --accent-secondary: #a78bfa;
+      --accent-secondary-soft: rgba(167, 139, 250, 0.14);
+      --accent-success: #34d399;
+      --accent-success-soft: rgba(52, 211, 153, 0.14);
+      --accent-warning: #fbbf24;
+      --accent-warning-soft: rgba(251, 191, 36, 0.14);
+      --accent-danger: #f87171;
+      --accent-danger-soft: rgba(248, 113, 113, 0.14);
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-card: 0 8px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 28px 22px 64px;
+    }
+
+    header.doc-header {
+      background: linear-gradient(135deg, var(--bg-surface) 0%, var(--bg-surface-alt) 100%);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg);
+      padding: 24px 28px;
+      box-shadow: var(--shadow-card);
+      margin-bottom: 24px;
+    }
+
+    .eyebrow-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      border: 1px solid transparent;
+    }
+
+    .badge-gate {
+      background: var(--accent-primary-soft);
+      color: var(--accent-primary);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+
+    .badge-repo {
+      background: var(--accent-secondary-soft);
+      color: var(--accent-secondary);
+      border-color: rgba(167, 139, 250, 0.35);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+
+    .badge-verified {
+      background: var(--accent-success-soft);
+      color: var(--accent-success);
+      border-color: rgba(52, 211, 153, 0.35);
+    }
+
+    .badge-inferred {
+      background: var(--accent-warning-soft);
+      color: var(--accent-warning);
+      border-color: rgba(251, 191, 36, 0.35);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.25;
+      letter-spacing: -0.015em;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--text-secondary);
+      font-size: 15px;
+      max-width: 920px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 12px;
+      padding-top: 14px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .meta-item {
+      background: rgba(11, 15, 23, 0.45);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .meta-label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+    }
+
+    .meta-value {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      word-break: break-word;
+    }
+
+    section.section-block {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 24px 26px;
+      margin-bottom: 24px;
+      box-shadow: var(--shadow-card);
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      line-height: 1.3;
+      color: var(--text-primary);
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 16px;
+      line-height: 1.35;
+      color: var(--text-primary);
+    }
+
+    p {
+      margin: 0 0 12px;
+      color: var(--text-secondary);
+      font-size: 14.5px;
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-subtle);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #dbeafe;
+    }
+
+    .epistemic-legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin: 14px 0 18px;
+    }
+
+    .epistemic-card {
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .epistemic-card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text-primary);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-top: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      text-align: left;
+    }
+
+    th, td {
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--border-subtle);
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--bg-surface-alt);
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 12.5px;
+      letter-spacing: 0.02em;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(56, 189, 248, 0.03);
+    }
+
+    .diagram-frame {
+      background: #080c14;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      overflow-x: auto;
+      margin-top: 12px;
+    }
+
+    .diagram-frame svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 0 auto;
+    }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 14px 0 18px;
+    }
+
+    .filter-btn {
+      appearance: none;
+      background: var(--bg-surface-alt);
+      color: var(--text-secondary);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      cursor: pointer;
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .filter-btn:hover {
+      color: var(--text-primary);
+      border-color: var(--border-strong);
+    }
+
+    .filter-btn[aria-pressed="true"] {
+      background: var(--accent-primary-soft);
+      color: var(--accent-primary);
+      border-color: rgba(56, 189, 248, 0.5);
+    }
+
+    .epic-panel {
+      background: var(--bg-surface-alt);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+
+    .epic-panel.is-hidden {
+      display: none;
+    }
+
+    .epic-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .epic-title {
+      margin: 0;
+      font-size: 17px;
+      color: var(--text-primary);
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 14px;
+      margin-top: 10px;
+    }
+
+    .subcard {
+      background: rgba(11, 15, 23, 0.5);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+    }
+
+    .subcard-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent-primary);
+      margin-bottom: 8px;
+    }
+
+    ul.clean-list {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+    }
+
+    ul.clean-list li {
+      margin-bottom: 6px;
+    }
+
+    ul.clean-list li:last-child {
+      margin-bottom: 0;
+    }
+
+    blockquote {
+      margin: 14px 0 0;
+      padding: 12px 16px;
+      background: rgba(56, 189, 248, 0.07);
+      border-left: 3px solid var(--accent-primary);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+    }
+
+    hr.section-rule {
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      margin: 18px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="doc-header">
+      <div class="eyebrow-row">
+        <span class="badge badge-gate">Gate 05 — Epic</span>
+        <span class="badge badge-repo">nmaclean/android-tvheadend-tif</span>
+        <span class="badge badge-verified">Archive Manifest Verified (197 entries)</span>
+        <span class="badge badge-inferred">Baseline / Gaps Marked</span>
+      </div>
+      <h1>Epic Roadmap, Dependency Flow &amp; Module Mapping</h1>
+      <p class="subtitle">
+        Architectural epic specification for <code>nmaclean/android-tvheadend-tif</code> grounded in the 197-entry repository archive manifest. Distinguishes verified archive paths and test/studio artifacts from inferred sequencing baseline and uninspected file contents.
+      </p>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Deliverable</span>
+          <span class="meta-value">epic.html (Gate 05)</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Repository</span>
+          <span class="meta-value">nmaclean/android-tvheadend-tif</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Archive Footprint</span>
+          <span class="meta-value">197 entries / 6,818,109 B</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Evidence Posture</span>
+          <span class="meta-value">Manifest + Conversation Context</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="section-block" id="roadmap">
+      <h2>1. Epic Roadmap &amp; Delivery Sequencing</h2>
+      <p>
+        The repository archive shows an Android TV Input Framework (TIF) and Tvheadend client application organized under <code>app/src/main/java/com/nmaclean/tvheadend/</code> with dedicated packages for <code>htsp/</code>, <code>iptv/</code>, <code>player/</code> (including <code>afr/</code>), <code>sync/</code>, <code>telemetry/</code>, <code>ui/</code>, and <code>updater/</code>, alongside unit tests under <code>app/src/test/</code>, architecture studio files under <code>.arch-studio/</code>, and audit/feasibility docs under <code>docs/</code>.
+      </p>
+
+      <div class="epistemic-legend">
+        <div class="epistemic-card">
+          <strong>Verified Fact (Archive Manifest)</strong>
+          Exact file paths, package structure, test suites, studio artifacts (<code>.arch-studio/</code>), and audit docs (<code>docs/</code>) confirmed in the 197-entry archive listing.
+        </div>
+        <div class="epistemic-card">
+          <strong>Inferred Baseline</strong>
+          Incremental epic slicing (<code>E1</code>–<code>E6</code>), dependency ordering, and milestone progression inferred from module boundaries, existing <code>.arch-studio/epics/E1/</code> presence, and TIF/Tvheadend architecture.
+        </div>
+        <div class="epistemic-card">
+          <strong>Uninspected Gap</strong>
+          Exact line-level implementations, contracts, acceptance criteria already written inside uninspected source/studio files, and post-<code>E1</code> epic definitions in <code>.arch-studio/epic-breakdown.html</code>.
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 8%;">Epic</th>
+              <th style="width: 24%;">Slice Name &amp; Focus</th>
+              <th style="width: 14%;">Depends On</th>
+              <th style="width: 26%;">Primary Archive Modules</th>
+              <th style="width: 28%;">Milestone Value &amp; Epistemic Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>E1</strong></td>
+              <td>HTSP Protocol &amp; Core TIF / Tvheadend Spine</td>
+              <td>None (Foundational)</td>
+              <td>
+                <code>htsp/HtspClient.kt</code>, <code>Htsmsg.kt</code>, <code>HtspConnectionPool.kt</code>, <code>ChannelRegistry.kt</code>, <code>TvheadendInputService.kt</code>, <code>TvhSyncManager.kt</code>
+              </td>
+              <td>
+                Establishes core HTSP messaging, channel/sync state, and TIF input service.<br />
+                <span class="badge badge-verified">E1 artifacts present in .arch-studio/epics/E1/</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>E2</strong></td>
+              <td>Media Extraction, Playback, DVR &amp; AFR</td>
+              <td>E1</td>
+              <td>
+                <code>player/HtspExtractor.kt</code>, <code>HtspDataSource.kt</code>, <code>HtspDvrDataSource.kt</code>, <code>Mp2Decoder.kt</code>, <code>player/afr/*</code>, <code>sync/DvrRepository.kt</code>, <code>telemetry/TuneTelemetryTracker.kt</code>
+              </td>
+              <td>
+                Delivers live &amp; DVR streaming, MP2 decoding, display frame-rate matching, and tune telemetry.<br />
+                <span class="badge badge-inferred">Inferred slice from player/dvr/afr modules</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>E3</strong></td>
+              <td>Setup, Discovery, Sync &amp; Core TV UI</td>
+              <td>E1, E2 (partial)</td>
+              <td>
+                <code>SetupActivity.kt</code>, <code>TvhSetupFragment.kt</code>, <code>MainActivity.kt</code>, <code>TvPlayerActivity.kt</code>, <code>DvrPlayerActivity.kt</code>, <code>ui/screens/*</code>, <code>ui/components/*</code>, <code>ui/guide/*</code>
+              </td>
+              <td>
+                Provides end-to-end server setup, EPG/guide browsing, recordings, and live/DVR playback UX.<br />
+                <span class="badge badge-inferred">Inferred slice from ui/ &amp; setup/sync files</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>E4</strong></td>
+              <td>IPTV Ingestion, XMLTV EPG &amp; LAN Curation</td>
+              <td>E1 (TIF patterns)</td>
+              <td>
+                <code>iptv/tif/*</code>, <code>iptv/parser/StreamingM3uParser.kt</code>, <code>iptv/epg/*</code>, <code>iptv/scan/*</code>, <code>iptv/server/LanCurationServer.kt</code>, <code>assets/curation/index.html</code>, <code>ui/settings/M3uCuration*</code>
+              </td>
+              <td>
+                Enables M3U/XMLTV IPTV sources, allowlist sync, LAN curation web UI, and IPTV setup wizard.<br />
+                <span class="badge badge-inferred">Inferred slice from iptv/ &amp; curation assets</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>E5</strong></td>
+              <td>Cross-Input TIF Harmony, Boundary &amp; Split-App Readiness</td>
+              <td>E1, E3, E4</td>
+              <td>
+                <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, <code>docs/boundary-contract-audit.md</code>, <code>docs/SPLIT-APPS-FEASIBILITY.md</code>, <code>InputChannelRepository.kt</code>, <code>TifChannelObserver.kt</code>
+              </td>
+              <td>
+                Hardens multi-input TIF coexistence, module boundaries, and split-app architecture decisions.<br />
+                <span class="badge badge-inferred">Inferred from docs/ audit &amp; feasibility files</span>
+              </td>
+            </tr>
+            <tr>
+              <td><strong>E6</strong></td>
+              <td>Self-Update Delivery &amp; Release Automation</td>
+              <td>E3, E5 (stabilized build)</td>
+              <td>
+                <code>updater/GitHubUpdateManager.kt</code>, <code>ApkInstaller.kt</code>, <code>SemVerComparator.kt</code>, <code>UpdatePromptDialog.kt</code>, <code>.github/workflows/release.yml</code>, <code>app/build.gradle.kts</code>
+              </td>
+              <td>
+                Automates release workflows and in-app GitHub release checking, SemVer comparison, and APK install.<br />
+                <span class="badge badge-inferred">Inferred from updater/ &amp; release workflow</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section-block" id="diagram">
+      <h2>2. Epic Dependency &amp; Flow Diagram</h2>
+      <p>
+        Visualizes the sequenced flow from <code>E1</code> (HTSP + TIF core) through media playback/DVR (<code>E2</code>), TV/guide/player UI (<code>E3</code>), parallel/converging IPTV &amp; LAN curation (<code>E4</code>), cross-input/boundary hardening (<code>E5</code>), and release/updater delivery (<code>E6</code>).
+      </p>
+
+      <div class="diagram-frame">
+        <svg viewBox="0 0 1120 330" width="1120" height="330" role="img" aria-label="Epic dependency and flow diagram for nmaclean/android-tvheadend-tif">
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#38bdf8" />
+            </marker>
+            <marker id="arrow-alt" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#a78bfa" />
+            </marker>
+            <marker id="arrow-warn" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1.2 L 9 5 L 0 8.8 z" fill="#fbbf24" />
+            </marker>
+          </defs>
+
+          <!-- Background -->
+          <rect x="0" y="0" width="1120" height="330" rx="10" fill="#0b101b" />
+
+          <!-- Column Headers / Rollout Phases -->
+          <text x="26" y="26" fill="#74839d" font-size="11" font-family="ui-monospace, monospace" font-weight="700">PHASE 1: FOUNDATION</text>
+          <text x="306" y="26" fill="#74839d" font-size="11" font-family="ui-monospace, monospace" font-weight="700">PHASE 2: MEDIA &amp; SOURCES</text>
+          <text x="586" y="26" fill="#74839d" font-size="11" font-family="ui-monospace, monospace" font-weight="700">PHASE 3: TV UX &amp; HARMONY</text>
+          <text x="866" y="26" fill="#74839d" font-size="11" font-family="ui-monospace, monospace" font-weight="700">PHASE 4: RELEASE &amp; OPS</text>
+
+          <!-- E1 Node (Top Left) -->
+          <rect x="24" y="42" width="236" height="106" rx="8" fill="#132238" stroke="#38bdf8" stroke-width="1.8" />
+          <text x="38" y="64" fill="#38bdf8" font-size="13" font-family="ui-monospace, monospace" font-weight="700">E1: HTSP &amp; TIF CORE</text>
+          <text x="38" y="83" fill="#eef2f8" font-size="11.5" font-family="sans-serif">HtspClient, Htsmsg, Pool</text>
+          <text x="38" y="100" fill="#a6b3c8" font-size="11" font-family="sans-serif">TvheadendInputService, Registry</text>
+          <text x="38" y="117" fill="#a6b3c8" font-size="11" font-family="sans-serif">TvhSyncManager, Epg/Input Repo</text>
+          <text x="38" y="136" fill="#34d399" font-size="10.5" font-family="ui-monospace, monospace">Verified .arch-studio/epics/E1</text>
+
+          <!-- E2 Node (Top Mid-Left) -->
+          <rect x="304" y="42" width="236" height="106" rx="8" fill="#161d35" stroke="#a78bfa" stroke-width="1.6" />
+          <text x="318" y="64" fill="#a78bfa" font-size="13" font-family="ui-monospace, monospace" font-weight="700">E2: PLAYBACK, DVR &amp; AFR</text>
+          <text x="318" y="83" fill="#eef2f8" font-size="11.5" font-family="sans-serif">HtspExtractor, DataSource</text>
+          <text x="318" y="100" fill="#a6b3c8" font-size="11" font-family="sans-serif">Mp2Decoder, player/afr/*</text>
+          <text x="318" y="117" fill="#a6b3c8" font-size="11" font-family="sans-serif">DvrRepository, TuneTelemetry</text>
+          <text x="318" y="136" fill="#fbbf24" font-size="10.5" font-family="ui-monospace, monospace">Inferred media/DVR slice</text>
+
+          <!-- E3 Node (Top Mid-Right) -->
+          <rect x="584" y="42" width="236" height="106" rx="8" fill="#132a28" stroke="#34d399" stroke-width="1.6" />
+          <text x="598" y="64" fill="#34d399" font-size="13" font-family="ui-monospace, monospace" font-weight="700">E3: SETUP &amp; TV UX</text>
+          <text x="598" y="83" fill="#eef2f8" font-size="11.5" font-family="sans-serif">MainActivity, Tv/DvrPlayer</text>
+          <text x="598" y="100" fill="#a6b3c8" font-size="11" font-family="sans-serif">SetupActivity, TvhSetupFragment</text>
+          <text x="598" y="117" fill="#a6b3c8" font-size="11" font-family="sans-serif">ui/screens/*, components, guide</text>
+          <text x="598" y="136" fill="#fbbf24" font-size="10.5" font-family="ui-monospace, monospace">Inferred TV/guide/player slice</text>
+
+          <!-- E6 Node (Top Right) -->
+          <rect x="864" y="42" width="232" height="106" rx="8" fill="#271d26" stroke="#fbbf24" stroke-width="1.6" />
+          <text x="878" y="64" fill="#fbbf24" font-size="13" font-family="ui-monospace, monospace" font-weight="700">E6: UPDATER &amp; RELEASE</text>
+          <text x="878" y="83" fill="#eef2f8" font-size="11.5" font-family="sans-serif">GitHubUpdateManager</text>
+          <text x="878" y="100" fill="#a6b3c8" font-size="11" font-family="sans-serif">ApkInstaller, SemVerComparator</text>
+          <text x="878" y="117" fill="#a6b3c8" font-size="11" font-family="sans-serif">.github/workflows/release.yml</text>
+          <text x="878" y="136" fill="#fbbf24" font-size="10.5" font-family="ui-monospace, monospace">Inferred release/updater slice</text>
+
+          <!-- E4 Node (Bottom Mid-Left) -->
+          <rect x="304" y="184" width="236" height="114" rx="8" fill="#182236" stroke="#38bdf8" stroke-width="1.6" />
+          <text x="318" y="206" fill="#38bdf8" font-size="13" font-family="ui-monospace, monospace" font-weight="700">E4: IPTV &amp; LAN CURATION</text>
+          <text x="318" y="225" fill="#eef2f8" font-size="11.5" font-family="sans-serif">IptvTvInputService, M3U/XMLTV</text>
+          <text x="318" y="242" fill="#a6b3c8" font-size="11" font-family="sans-serif">LanCurationServer, AllowlistRepo</text>
+          <text x="318" y="259" fill="#a6b3c8" font-size="11" font-family="sans-serif">M3uCuration*, IptvSetupWizard</text>
+          <text x="318" y="278" fill="#fbbf24" font-size="10.5" font-family="ui-monospace, monospace">Inferred IPTV/LAN slice</text>
+
+          <!-- E5 Node (Bottom Mid-Right) -->
+          <rect x="584" y="184" width="236" height="114" rx="8" fill="#211b36" stroke="#a78bfa" stroke-width="1.6" />
+          <text x="598" y="206" fill="#a78bfa" font-size="13" font-family="ui-monospace, monospace" font-weight="700">E5: TIF &amp; BOUNDARY AUDIT</text>
+          <text x="598" y="225" fill="#eef2f8" font-size="11.5" font-family="sans-serif">TIF-CROSS-INPUT-AUDIT.md</text>
+          <text x="598" y="242" fill="#a6b3c8" font-size="11" font-family="sans-serif">boundary-contract-audit.md</text>
+          <text x="598" y="259" fill="#a6b3c8" font-size="11" font-family="sans-serif">SPLIT-APPS-FEASIBILITY.md</text>
+          <text x="598" y="278" fill="#fbbf24" font-size="10.5" font-family="ui-monospace, monospace">Inferred harmony/split slice</text>
+
+          <!-- Shared Studio & Test Touchpoints Strip (Bottom Right) -->
+          <rect x="864" y="184" width="232" height="114" rx="8" fill="#121826" stroke="#64748b" stroke-dasharray="5 3" stroke-width="1.4" />
+          <text x="878" y="206" fill="#eef2f8" font-size="12.5" font-family="ui-monospace, monospace" font-weight="700">GATE 06 HANDOFF INPUTS</text>
+          <text x="878" y="225" fill="#a6b3c8" font-size="11" font-family="sans-serif">.arch-studio/vision.html, hld.html</text>
+          <text x="878" y="242" fill="#a6b3c8" font-size="11" font-family="sans-serif">.arch-studio/mockup-concept.html</text>
+          <text x="878" y="259" fill="#a6b3c8" font-size="11" font-family="sans-serif">app/src/test/* (30 unit test files)</text>
+          <text x="878" y="278" fill="#38bdf8" font-size="10.5" font-family="ui-monospace, monospace">Feeds UX Mockup &amp; LLD</text>
+
+          <!-- Arrows -->
+          <!-- E1 -> E2 -->
+          <line x1="260" y1="86" x2="300" y2="86" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)" />
+          <!-- E1 -> E4 -->
+          <path d="M 142 148 L 142 241 L 300 241" fill="none" stroke="#38bdf8" stroke-width="1.8" marker-end="url(#arrow)" />
+          <!-- E2 -> E3 -->
+          <line x1="540" y1="86" x2="580" y2="86" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrow-alt)" />
+          <!-- E3 -> E6 -->
+          <line x1="820" y1="86" x2="860" y2="86" stroke="#fbbf24" stroke-width="1.8" marker-end="url(#arrow-warn)" />
+          <!-- E4 -> E5 -->
+          <line x1="540" y1="241" x2="580" y2="241" stroke="#38bdf8" stroke-width="1.8" marker-end="url(#arrow)" />
+          <!-- E3 -> E5 -->
+          <path d="M 702 148 L 702 180" fill="none" stroke="#a78bfa" stroke-width="1.8" marker-end="url(#arrow-alt)" />
+          <!-- E5 -> E6 -->
+          <path d="M 820 241 L 844 241 L 844 114 L 860 114" fill="none" stroke="#fbbf24" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow-warn)" />
+          <!-- E5 -> Gate 06 Handoff -->
+          <line x1="820" y1="256" x2="860" y2="256" stroke="#38bdf8" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrow)" />
+        </svg>
+      </div>
+    </section>
+
+    <section class="section-block" id="scope-mapping">
+      <h2>3. Epic Scope, Acceptance Criteria &amp; Module Mapping</h2>
+      <p>
+        Use the filter tabs below to inspect each epic's scope, module touchpoints, inferred acceptance criteria, and verified vs. uninspected details.
+      </p>
+
+      <div class="filter-bar" role="tablist" aria-label="Filter epics">
+        <button type="button" class="filter-btn" data-filter="all" aria-pressed="true">All Epics (6)</button>
+        <button type="button" class="filter-btn" data-filter="E1" aria-pressed="false">E1: HTSP &amp; TIF Core</button>
+        <button type="button" class="filter-btn" data-filter="E2" aria-pressed="false">E2: Playback, DVR &amp; AFR</button>
+        <button type="button" class="filter-btn" data-filter="E3" aria-pressed="false">E3: Setup &amp; TV UX</button>
+        <button type="button" class="filter-btn" data-filter="E4" aria-pressed="false">E4: IPTV &amp; LAN Curation</button>
+        <button type="button" class="filter-btn" data-filter="E5" aria-pressed="false">E5: TIF &amp; Boundary Audit</button>
+        <button type="button" class="filter-btn" data-filter="E6" aria-pressed="false">E6: Updater &amp; Release</button>
+      </div>
+
+      <!-- E1 -->
+      <article class="epic-panel" data-epic="E1">
+        <div class="epic-header">
+          <h3 class="epic-title">E1 — HTSP Protocol &amp; Core TIF / Tvheadend Spine</h3>
+          <span class="badge badge-verified">Verified E1 Studio Artifacts Present</span>
+        </div>
+        <p>
+          <strong>Verified Archive Scope:</strong> <code>.arch-studio/epics/E1/TASKS.md</code>, <code>.arch-studio/epics/E1/lld.html</code>, and <code>.arch-studio/epics/E1/mockup-lld.html</code> exist in the archive alongside core HTSP, TIF service, model, and sync modules.
+        </p>
+        <div class="two-col">
+          <div class="subcard">
+            <div class="subcard-title">Module &amp; Test Touchpoints</div>
+            <ul class="clean-list">
+              <li>HTSP client/protocol: <code>htsp/HtspClient.kt</code>, <code>Htsmsg.kt</code>, <code>HtspConnectionPool.kt</code>, <code>HtspConnectionState.kt</code>, <code>ChannelRegistry.kt</code>.</li>
+              <li>TIF &amp; sync spine: <code>TvheadendInputService.kt</code>, <code>SyncService.kt</code>, <code>TvhAccountService.kt</code>, <code>sync/TvhSyncManager.kt</code>, <code>sync/TvhSyncWorker.kt</code>, <code>sync/EpgRepository.kt</code>, <code>sync/InputChannelRepository.kt</code>, <code>sync/TifChannelObserver.kt</code>.</li>
+              <li>Models &amp; tests: <code>model/TvhChannel.kt</code>, <code>model/TvhConstants.kt</code>, <code>model/ChannelCapabilities.kt</code>, <code>ChannelRegistryTest.kt</code>, <code>HtsmsgTest.kt</code>, <code>HtspConnectionStateTest.kt</code>, <code>TvhSyncManagerTest.kt</code>, <code>TifChannelObserverTest.kt</code>.</li>
+            </ul>
+          </div>
+          <div class="subcard">
+            <div class="subcard-title">Acceptance Criteria (Inferred) &amp; Gaps</div>
+            <ul class="clean-list">
+              <li><em>Inferred AC:</em> HTSP message framing/decoding, connection state transitions, channel registry lookup, and TIF channel/EPG sync pass unit tests and expose channels to Android TIF.</li>
+              <li><em>Uninspected Gap:</em> Exact task checklist in <code>.arch-studio/epics/E1/TASKS.md</code> and wire/state contracts in <code>.arch-studio/epics/E1/lld.html</code> were not read directly.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- E2 -->
+      <article class="epic-panel" data-epic="E2">
+        <div class="epic-header">
+          <h3 class="epic-title">E2 — Media Extraction, Playback, DVR &amp; AFR</h3>
+          <span class="badge badge-inferred">Inferred Slice from Archive Modules</span>
+        </div>
+        <p>
+          <strong>Verified Archive Scope:</strong> Media extraction, data sources, MP2 audio decoding, Auto Frame Rate (AFR) matching, DVR repository state, and tune telemetry live in dedicated packages.
+        </p>
+        <div class="two-col">
+          <div class="subcard">
+            <div class="subcard-title">Module &amp; Test Touchpoints</div>
+            <ul class="clean-list">
+              <li>Extractor &amp; sources: <code>player/HtspExtractor.kt</code>, <code>player/HtspDataSource.kt</code>, <code>player/HtspDvrDataSource.kt</code>, <code>player/Mp2Decoder.kt</code>, <code>playback/InputPlaybackStrategy.kt</code>.</li>
+              <li>AFR &amp; telemetry: <code>player/afr/AfrMode.kt</code>, <code>AfrPlayerObserver.kt</code>, <code>AfrSettingsStore.kt</code>, <code>DisplayFrameRateController.kt</code>, <code>FrameRateMatcher.kt</code>, <code>TifAfrSessionHelper.kt</code>, <code>telemetry/TuneTelemetryTracker.kt</code>.</li>
+              <li>DVR &amp; tests: <code>sync/DvrRepository.kt</code>, <code>model/TvhDvrModels.kt</code>, <code>HtspExtractorTest.kt</code>, <code>Mp2DecoderTest.kt</code>, <code>FrameRateMatcherTest.kt</code>, <code>DvrRepositoryTest.kt</code>, <code>TuneTelemetryTrackerTest.kt</code>.</li>
+            </ul>
+          </div>
+          <div class="subcard">
+            <div class="subcard-title">Acceptance Criteria (Inferred) &amp; Gaps</div>
+            <ul class="clean-list">
+              <li><em>Inferred AC:</em> Live and DVR streams extract cleanly, MP2 frames decode, display frame-rate matching selects valid rates, DVR state updates accurately, and tune metrics record channel transitions.</li>
+              <li><em>Uninspected Gap:</em> Specific extractor codecs, Media3/ExoPlayer versions in <code>app/build.gradle.kts</code>, and telemetry thresholds remain uninspected.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- E3 -->
+      <article class="epic-panel" data-epic="E3">
+        <div class="epic-header">
+          <h3 class="epic-title">E3 — Setup, Discovery, Sync &amp; Core TV UX</h3>
+          <span class="badge badge-inferred">Inferred Slice from Archive Modules</span>
+        </div>
+        <p>
+          <strong>Verified Archive Scope:</strong> Combines legacy/Leanback/Compose TV UI screens, setup flows, EPG guide views, player overlays, themes, and Android TV layout/drawable resources.
+        </p>
+        <div class="two-col">
+          <div class="subcard">
+            <div class="subcard-title">Module &amp; Test Touchpoints</div>
+            <ul class="clean-list">
+              <li>Setup &amp; settings: <code>SetupActivity.kt</code>, <code>TvhSetupFragment.kt</code>, <code>TvhSetupInputValidator.kt</code>, <code>SettingsFragment.kt</code>, <code>ui/GeneralSettingsActivity.kt</code>, <code>ui/InputManagerActivity.kt</code>, <code>ui/ScanningInputsActivity.kt</code>, <code>model/TvhSettings.kt</code>, <code>TvhGeneralSettings.kt</code>, <code>TvhTifSettings.kt</code>.</li>
+              <li>Main, guide &amp; players: <code>ui/MainActivity.kt</code>, <code>HomeFragment.kt</code>, <code>ChannelGridActivity.kt</code>, <code>ChannelGuideFragment.kt</code>, <code>TvPlayerActivity.kt</code>, <code>DvrPlayerActivity.kt</code>, <code>ui/TvhUiRepository.kt</code>, <code>ui/guide/EpgTimelineOverlayFragment.kt</code>.</li>
+              <li>Screens, components, presenters &amp; tests: <code>ui/screens/GuideScreen.kt</code>, <code>LiveTvScreen.kt</code>, <code>RecordingsScreen.kt</code>, <code>SearchScreen.kt</code>; <code>ui/components/*</code>; <code>ui/presenter/*</code>; <code>ui/theme/TvTheme.kt</code>; <code>TvPlayerActivityChannelSyncTest.kt</code>, <code>TvhUiRepositoryTest.kt</code>, <code>TvhSetupInputValidatorTest.kt</code>.</li>
+            </ul>
+          </div>
+          <div class="subcard">
+            <div class="subcard-title">Acceptance Criteria (Inferred) &amp; Gaps</div>
+            <ul class="clean-list">
+              <li><em>Inferred AC:</em> Server input validation, channel scanning, EPG timeline/guide navigation, recording lists, track/OSD overlays, and player channel sync work on TV D-pad navigation.</li>
+              <li><em>Uninspected Gap:</em> Coexistence rules between fragment/XML screens and Compose screens (<code>ui/screens/*</code>) and visual reference parity (<code>docs/reference/*</code>) require file inspection.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- E4 -->
+      <article class="epic-panel" data-epic="E4">
+        <div class="epic-header">
+          <h3 class="epic-title">E4 — IPTV Ingestion, XMLTV EPG &amp; LAN Curation</h3>
+          <span class="badge badge-inferred">Inferred Slice from Archive Modules</span>
+        </div>
+        <p>
+          <strong>Verified Archive Scope:</strong> Dedicated IPTV subsystem under <code>iptv/</code> (<code>epg</code>, <code>logo</code>, <code>model</code>, <code>parser</code>, <code>scan</code>, <code>server</code>, <code>storage</code>, <code>tif</code>, <code>ui</code>), web curation asset, and IPTV settings UI.
+        </p>
+        <div class="two-col">
+          <div class="subcard">
+            <div class="subcard-title">Module &amp; Test Touchpoints</div>
+            <ul class="clean-list">
+              <li>IPTV TIF &amp; streams: <code>iptv/tif/IptvTvInputService.kt</code>, <code>IptvStreamResolver.kt</code>, <code>TifAllowlistSyncer.kt</code>, <code>iptv/parser/StreamingM3uParser.kt</code>, <code>iptv/scan/*</code>, <code>iptv/logo/IptvLogoManager.kt</code>, <code>iptv/storage/AllowlistRepository.kt</code>, <code>iptv/model/IptvAllowlistModels.kt</code>.</li>
+              <li>IPTV EPG &amp; LAN server: <code>iptv/epg/IptvEpgModels.kt</code>, <code>IptvEpgSettingsStore.kt</code>, <code>IptvEpgSyncWorker.kt</code>, <code>IptvEpgSyncer.kt</code>, <code>StreamingXmltvParser.kt</code>, <code>iptv/server/LanCurationServer.kt</code>, <code>LanNetworkUtils.kt</code>, <code>assets/curation/index.html</code>.</li>
+              <li>IPTV UI &amp; 12 unit tests: <code>iptv/ui/IptvSetupFragment.kt</code>, <code>ui/settings/IptvSetupWizardActivity.kt</code>, <code>IptvSetupWizardScreen.kt</code>, <code>M3uCurationActivity.kt</code>, <code>M3uCurationScreen.kt</code>, <code>M3uCurationViewModel.kt</code>, plus <code>iptv/*Test.kt</code> under <code>app/src/test/</code>.</li>
+            </ul>
+          </div>
+          <div class="subcard">
+            <div class="subcard-title">Acceptance Criteria (Inferred) &amp; Gaps</div>
+            <ul class="clean-list">
+              <li><em>Inferred AC:</em> Streaming M3U and XMLTV parsers handle large feeds, allowlist curation syncs to TIF, LAN curation endpoints serve web curation UI safely on local networks, and IPTV setup wizard completes.</li>
+              <li><em>Uninspected Gap:</em> HTTP server binding/auth/CORS behavior in <code>LanCurationServer.kt</code> and stream resolution edge cases in <code>IptvStreamResolver.kt</code> were not inspected.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- E5 -->
+      <article class="epic-panel" data-epic="E5">
+        <div class="epic-header">
+          <h3 class="epic-title">E5 — Cross-Input TIF Harmony, Boundary &amp; Split-App Readiness</h3>
+          <span class="badge badge-inferred">Inferred Slice from Archive Docs</span>
+        </div>
+        <p>
+          <strong>Verified Archive Scope:</strong> Three architectural audit/feasibility documents exist in <code>docs/</code>: <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, <code>docs/boundary-contract-audit.md</code>, and <code>docs/SPLIT-APPS-FEASIBILITY.md</code>.
+        </p>
+        <div class="two-col">
+          <div class="subcard">
+            <div class="subcard-title">Module &amp; Doc Touchpoints</div>
+            <ul class="clean-list">
+              <li>Audit &amp; feasibility docs: <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, <code>docs/boundary-contract-audit.md</code>, <code>docs/SPLIT-APPS-FEASIBILITY.md</code>.</li>
+              <li>Cross-input &amp; sync touchpoints: <code>TvheadendInputService.kt</code>, <code>iptv/tif/IptvTvInputService.kt</code>, <code>sync/InputChannelRepository.kt</code>, <code>sync/TifChannelObserver.kt</code>, <code>AndroidManifest.xml</code>.</li>
+            </ul>
+          </div>
+          <div class="subcard">
+            <div class="subcard-title">Acceptance Criteria (Inferred) &amp; Gaps</div>
+            <ul class="clean-list">
+              <li><em>Inferred AC:</em> Tvheadend and IPTV TIF inputs do not collide on channel/program/session state, module boundaries remain clean, and split-app vs. single-app trade-offs are resolved.</li>
+              <li><em>Uninspected Gap:</em> Specific audit findings, open boundary violations, and split-app recommendations inside those three <code>docs/</code> markdown files have not yet been read.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <!-- E6 -->
+      <article class="epic-panel" data-epic="E6">
+        <div class="epic-header">
+          <h3 class="epic-title">E6 — Self-Update Delivery &amp; Release Automation</h3>
+          <span class="badge badge-inferred">Inferred Slice from Archive Modules</span>
+        </div>
+        <p>
+          <strong>Verified Archive Scope:</strong> GitHub release self-update classes under <code>updater/</code>, release workflow under <code>.github/workflows/release.yml</code>, and Gradle/manifest build configuration.
+        </p>
+        <div class="two-col">
+          <div class="subcard">
+            <div class="subcard-title">Module &amp; CI Touchpoints</div>
+            <ul class="clean-list">
+              <li>Updater components: <code>updater/GitHubUpdateManager.kt</code>, <code>ApkInstaller.kt</code>, <code>SemVerComparator.kt</code>, <code>UpdateInstallReceiver.kt</code>, <code>UpdatePromptDialog.kt</code>.</li>
+              <li>Release &amp; build files: <code>.github/workflows/release.yml</code>, <code>app/build.gradle.kts</code>, <code>build.gradle.kts</code>, <code>app/src/main/AndroidManifest.xml</code>, <code>res/xml/file_paths.xml</code>.</li>
+              <li>Updater tests: <code>updater/GitHubUpdateManagerTest.kt</code>, <code>updater/SemVerComparatorTest.kt</code>.</li>
+            </ul>
+          </div>
+          <div class="subcard">
+            <div class="subcard-title">Acceptance Criteria (Inferred) &amp; Gaps</div>
+            <ul class="clean-list">
+              <li><em>Inferred AC:</em> Semantic versions compare accurately, update prompts trigger on newer releases, APK installation respects Android permissions/file paths, and CI release pipeline builds cleanly.</li>
+              <li><em>Uninspected Gap:</em> Signing/release secrets, minSdk/targetSdk/compileSdk values in <code>app/build.gradle.kts</code>, and workflow steps in <code>.github/workflows/release.yml</code> were not read.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section class="section-block" id="risks-handoff">
+      <h2>4. Risks, Cut-Lines &amp; Handoff to Gate 06</h2>
+
+      <h3>Sequencing Risks &amp; Cut-Lines</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 24%;">Risk / Cut-Line Area</th>
+              <th style="width: 16%;">Type</th>
+              <th style="width: 32%;">Impact on Rollout</th>
+              <th style="width: 28%;">Mitigation / Deferral Option</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Dual TIF Services (HTSP + IPTV)</strong></td>
+              <td><span class="badge badge-inferred">Architectural Risk</span></td>
+              <td>Shared repositories, observers, or TIF content providers could conflict across Tvheadend and IPTV inputs.</td>
+              <td>Sequence <code>E1</code> first, isolate IPTV data/sync paths in <code>E4</code>, and resolve cross-input findings in <code>E5</code> before broad release.</td>
+            </tr>
+            <tr>
+              <td><strong>Legacy + Compose UI Coexistence</strong></td>
+              <td><span class="badge badge-inferred">UI / State Risk</span></td>
+              <td>Fragment/XML views and newer Compose screens (<code>ui/screens/*</code>, <code>ui/settings/*</code>) may duplicate state or navigation flows.</td>
+              <td>Cut-line non-essential UI polish behind core playback and setup; consolidate screen ownership in <code>E3</code> and <code>.arch-studio/mockup-lld.html</code>.</td>
+            </tr>
+            <tr>
+              <td><strong>LAN Curation Server &amp; External Feeds</strong></td>
+              <td><span class="badge badge-inferred">Scope / Cut-Line</span></td>
+              <td><code>LanCurationServer.kt</code>, M3U/XMLTV ingestion, and logo/EPG workers add network and parsing surface area.</td>
+              <td>Treat <code>E4</code> as an independent feature slice that can be deferred or feature-flagged if core HTSP/TIF playback needs stabilization first.</td>
+            </tr>
+            <tr>
+              <td><strong>Split-App Feasibility vs. Monolith</strong></td>
+              <td><span class="badge badge-inferred">Boundary Cut-Line</span></td>
+              <td>Splitting apps later carries higher packaging/IPC/auth cost if boundaries are not checked early.</td>
+              <td>Use <code>docs/SPLIT-APPS-FEASIBILITY.md</code> and <code>docs/boundary-contract-audit.md</code> in <code>E5</code> to lock module boundaries before major refactoring.</td>
+            </tr>
+            <tr>
+              <td><strong>Uninspected Studio &amp; Doc Specs</strong></td>
+              <td><span class="badge badge-inferred">Epistemic Gap</span></td>
+              <td>Existing plans in <code>.arch-studio/epic-breakdown.html</code>, <code>tasks.md</code>, and <code>AGENTS.md</code> may already define conventions or priorities.</td>
+              <td>Read those files directly at the start of Gate 06 to reconcile any pre-existing epic breakdown or agent rules.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <hr class="section-rule" />
+
+      <h3>Handoff to Gate 06 (UX Mock-Up &amp; Low-Level Design)</h3>
+      <ul class="clean-list">
+        <li><strong>Feeds UX Mock-Up:</strong> Combine the epic slices with existing studio/reference assets—<code>.arch-studio/mockup-concept.html</code>, <code>.arch-studio/epics/E1/mockup-lld.html</code>, <code>app/src/main/assets/curation/index.html</code>, <code>app/src/main/res/layout/*</code>, and <code>docs/reference/*</code> (<code>epg.png</code>, <code>osd.jpg</code>, <code>recording.jpg</code>, <code>tvheadned.png</code>)—to validate TV D-pad flows, OSD/guide/recording views, and IPTV/LAN curation screens.</li>
+        <li><strong>Feeds Low-Level Design (LLD):</strong> Pair <code>.arch-studio/vision.html</code>, <code>.arch-studio/hld.html</code>, and <code>.arch-studio/epics/E1/lld.html</code> with the verified Kotlin packages (<code>htsp/</code>, <code>player/</code>, <code>player/afr/</code>, <code>sync/</code>, <code>iptv/</code>, <code>ui/</code>, <code>updater/</code>) and existing unit tests in <code>app/src/test/</code> to specify concrete class/state contracts, concurrency/threading rules, and test cases per epic.</li>
+      </ul>
+
+      <blockquote>
+        <strong>Grounding Note:</strong> All file paths and counts above reflect the 197-entry archive manifest for <code>nmaclean/android-tvheadend-tif</code>. Items marked <em>Inferred</em> or <em>Uninspected Gap</em> represent architectural slicing and uninspected file contents rather than confirmed line-level facts.
+      </blockquote>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const buttons = Array.from(document.querySelectorAll(".filter-btn[data-filter]"));
+      const panels = Array.from(document.querySelectorAll(".epic-panel[data-epic]"));
+
+      function applyFilter(filterValue) {
+        buttons.forEach((btn) => {
+          const isMatch = btn.getAttribute("data-filter") === filterValue;
+          btn.setAttribute("aria-pressed", String(isMatch));
+        });
+
+        panels.forEach((panel) => {
+          const epicId = panel.getAttribute("data-epic");
+          const shouldShow = filterValue === "all" || epicId === filterValue;
+          panel.classList.toggle("is-hidden", !shouldShow);
+        });
+      }
+
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const selected = btn.getAttribute("data-filter") || "all";
+          applyFilter(selected);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

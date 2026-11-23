@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import androidx.core.content.ContextCompat
 import androidx.leanback.widget.ImageCardView
 import androidx.leanback.widget.Presenter
+import coil.request.ImageRequest
 import com.nmaclean.tvheadend.R
 import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.ui.ChannelGuideFragment.SettingsItem
@@ -16,11 +17,12 @@ import com.nmaclean.tvheadend.ui.ChannelGuideFragment.SettingsItem
 data class ChannelCardData(
     val channel: TvhChannel,
     val currentProgramTitle: String,
-    val logo: Bitmap?
+    val logoUri: String? = null,
+    val logo: Bitmap? = null
 )
 
 /**
- * Presenter for rendering Channel Grid cards using pre-fetched EPG and logo bitmaps.
+ * Presenter for rendering Channel Grid cards using on-demand image loading.
  */
 class ChannelCardPresenter : Presenter() {
 
@@ -51,6 +53,18 @@ class ChannelCardPresenter : Presenter() {
 
             if (item.logo != null) {
                 cardView.mainImage = BitmapDrawable(ctx.resources, item.logo)
+            } else if (!item.logoUri.isNullOrEmpty()) {
+                val placeholder = ContextCompat.getDrawable(ctx, R.drawable.ic_tv_placeholder)
+                cardView.mainImage = placeholder
+                val request = ImageRequest.Builder(ctx)
+                    .data(item.logoUri)
+                    .target { drawable ->
+                        cardView.mainImage = drawable
+                    }
+                    .error(R.drawable.ic_tv_placeholder)
+                    .placeholder(R.drawable.ic_tv_placeholder)
+                    .build()
+                coil.Coil.imageLoader(ctx).enqueue(request)
             } else {
                 cardView.mainImage = ContextCompat.getDrawable(ctx, R.drawable.ic_tv_placeholder)
             }

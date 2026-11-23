@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gate 07 — Low-Level Design (E1) | android-tvheadend-tif</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #101726;
+      --surface-2: #162033;
+      --border: #25334f;
+      --border-soft: #1b263d;
+      --text: #eaf1fc;
+      --muted: #9fb0cc;
+      --faint: #6c7f9e;
+      --accent: #3b82f6;
+      --accent-bright: #60a5fa;
+      --accent-soft: rgba(59, 130, 246, 0.16);
+      --ok: #10b981;
+      --ok-soft: rgba(16, 185, 129, 0.15);
+      --warn: #f59e0b;
+      --warn-soft: rgba(245, 158, 11, 0.15);
+      --err: #ef4444;
+      --err-soft: rgba(239, 68, 68, 0.16);
+      --radius: 12px;
+      --radius-sm: 8px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      line-height: 1.55;
+      padding: 28px 20px 60px;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 22px;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent-bright);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      line-height: 1.25;
+    }
+
+    .subtitle {
+      margin: 0 0 18px;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .meta-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+    }
+
+    .meta-label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--faint);
+      margin-bottom: 3px;
+    }
+
+    .meta-val {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      margin-bottom: 22px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 15.5px;
+    }
+
+    p {
+      margin: 0 0 12px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      background: rgba(9, 13, 22, 0.72);
+      border: 1px solid var(--border-soft);
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #cfe3ff;
+    }
+
+    .mod-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .card li {
+      margin-bottom: 6px;
+    }
+
+    .badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      border-radius: 999px;
+      align-self: flex-start;
+    }
+
+    .badge-ver {
+      background: var(--ok-soft);
+      color: var(--ok);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .badge-model {
+      background: var(--accent-soft);
+      color: var(--accent-bright);
+      border: 1px solid rgba(96, 165, 250, 0.35);
+    }
+
+    .badge-edge {
+      background: var(--warn-soft);
+      color: var(--warn);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+    }
+
+    .badge-gap {
+      background: var(--err-soft);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+    }
+
+    .diagram-wrap {
+      overflow-x: auto;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+    }
+
+    .diagram-note {
+      margin-top: 10px;
+      font-size: 12.5px;
+      color: var(--muted);
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tab-btn {
+      background: var(--surface-2);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      border-color: var(--accent-bright);
+    }
+
+    .tab-btn[aria-selected="true"] {
+      background: var(--accent-soft);
+      color: var(--accent-bright);
+      border-color: var(--accent-bright);
+    }
+
+    .items-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .item-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .item-card.hidden {
+      display: none;
+    }
+
+    .handoff-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 14px;
+    }
+
+    .handoff-grid ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .handoff-grid li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="eyebrow">Gate 07 — Low-Level Design (Epic E1)</div>
+      <h1>android-tvheadend-tif: E1 Low-Level Design</h1>
+      <p class="subtitle">
+        Module specification, runtime execution sequence, contracts &amp; edge cases, and test/task handoff for Epic <code>E1</code> (HTSP Core, Channel Registry, Repositories, Sync &amp; TIF Input).
+      </p>
+      <div class="meta-grid">
+        <div class="meta-item">
+          <span class="meta-label">Repository</span>
+          <span class="meta-val">nmaclean/android-tvheadend-tif</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Remote URL</span>
+          <span class="meta-val">https://github.com/nmaclean/android-tvheadend-tif.git</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Epic &amp; Gate</span>
+          <span class="meta-val">Epic E1 · Gate 07 (lld.html)</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Grounding Scope</span>
+          <span class="meta-val">Archive entry list &amp; conversation context (file contents uninspected)</span>
+        </div>
+      </div>
+    </header>
+
+    <section id="modules">
+      <h2>1. Module &amp; Class Specification (Epic E1)</h2>
+      <p class="muted">
+        Paths and symbol names below are <strong>verified</strong> from the archive manifest; internal method signatures, wire fields, and uninspected E1/audit files (<code>.arch-studio/epics/E1/*</code>, <code>docs/*audit*.md</code>) are explicitly flagged where not read in this context.
+      </p>
+
+      <div class="mod-grid">
+        <article class="card">
+          <span class="badge badge-ver">Verified File Paths</span>
+          <h3>HTSP Protocol &amp; Connection Pool</h3>
+          <ul>
+            <li><code>app/src/main/java/com/nmaclean/tvheadend/htsp/Htsmsg.kt</code>: HTSP message encoding/decoding boundary (inferred role).</li>
+            <li><code>HtspClient.kt</code>, <code>HtspConnectionPool.kt</code>, <code>HtspConnectionState.kt</code>: client session management, pooled connections, and connection lifecycle states (inferred roles).</li>
+            <li><code>ChannelRegistry.kt</code>: in-memory/registry channel lookup for HTSP channels (inferred role).</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <span class="badge badge-ver">Verified File Paths</span>
+          <h3>Sync Orchestration &amp; Repositories</h3>
+          <ul>
+            <li><code>sync/TvhSyncManager.kt</code>, <code>TvhSyncWorker.kt</code>, <code>BackgroundSyncStrategy.kt</code>: foreground/worker sync coordination and scheduling strategy (inferred roles).</li>
+            <li><code>sync/EpgRepository.kt</code>, <code>DvrRepository.kt</code>, <code>InputChannelRepository.kt</code>, <code>TifChannelObserver.kt</code>: guide, DVR, input channel, and TIF observer state (inferred roles).</li>
+            <li><code>TvhAccountService.kt</code>, <code>SyncService.kt</code> (<code>res/xml/authenticator.xml</code>, <code>syncadapter.xml</code>): Android account &amp; sync adapter integration.</li>
+          </ul>
+        </article>
+
+        <article class="card">
+          <span class="badge badge-ver">Verified File Paths</span>
+          <h3>TIF Service &amp; Domain Models</h3>
+          <ul>
+            <li><code>TvheadendInputService.kt</code> (<code>res/xml/tv_input.xml</code>): Android TV Input Framework service for Tvheadend channels/sessions.</li>
+            <li><code>model/TvhChannel.kt</code>, <code>ChannelCapabilities.kt</code>, <code>TvhDvrModels.kt</code>, <code>TvhSettings.kt</code>, <code>TvhGeneralSettings.kt</code>, <code>TvhTifSettings.kt</code>, <code>TvhConstants.kt</code>.</li>
+            <li><strong>Gap:</strong> Exact class members, coroutine/thread dispatchers, and <code>.arch-studio/epics/E1/TASKS.md</code> details were not inspected from file contents.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="sequence-diagram">
+      <h2>2. Sequence &amp; Execution Flow Diagram</h2>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 1120 330" width="1120" height="330" role="img" aria-label="E1 Sequence and Execution Flow Diagram">
+          <defs>
+            <marker id="seq-arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#60a5fa" />
+            </marker>
+            <marker id="seq-arr-ok" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#10b981" />
+            </marker>
+            <marker id="seq-arr-err" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+            </marker>
+          </defs>
+
+          <!-- Lifeline Headers -->
+          <rect x="20" y="14" width="175" height="44" rx="6" fill="#162033" stroke="#60a5fa" stroke-width="1.6" />
+          <text x="107" y="34" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="11" font-weight="700">TvhSyncWorker /</text>
+          <text x="107" y="48" text-anchor="middle" fill="#9fb0cc" font-family="monospace" font-size="10">TvhSyncManager</text>
+
+          <rect x="245" y="14" width="185" height="44" rx="6" fill="#162033" stroke="#60a5fa" stroke-width="1.6" />
+          <text x="337" y="34" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="11" font-weight="700">HtspConnectionPool /</text>
+          <text x="337" y="48" text-anchor="middle" fill="#9fb0cc" font-family="monospace" font-size="10">HtspClient + Htsmsg</text>
+
+          <rect x="480" y="14" width="185" height="44" rx="6" fill="#162033" stroke="#10b981" stroke-width="1.6" />
+          <text x="572" y="34" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="11" font-weight="700">ChannelRegistry &amp;</text>
+          <text x="572" y="48" text-anchor="middle" fill="#9fb0cc" font-family="monospace" font-size="10">Epg / Dvr Repositories</text>
+
+          <rect x="715" y="14" width="180" height="44" rx="6" fill="#162033" stroke="#10b981" stroke-width="1.6" />
+          <text x="805" y="34" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="11" font-weight="700">TvheadendInputService</text>
+          <text x="805" y="48" text-anchor="middle" fill="#9fb0cc" font-family="monospace" font-size="10">&amp; TifChannelObserver</text>
+
+          <rect x="940" y="14" width="160" height="44" rx="6" fill="#162033" stroke="#f59e0b" stroke-width="1.6" />
+          <text x="1020" y="34" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="11" font-weight="700">HTSP Server &amp;</text>
+          <text x="1020" y="48" text-anchor="middle" fill="#9fb0cc" font-family="monospace" font-size="10">Android TIF DB</text>
+
+          <!-- Vertical Lifelines -->
+          <line x1="107" y1="58" x2="107" y2="314" stroke="#25334f" stroke-dasharray="4 4" />
+          <line x1="337" y1="58" x2="337" y2="314" stroke="#25334f" stroke-dasharray="4 4" />
+          <line x1="572" y1="58" x2="572" y2="314" stroke="#25334f" stroke-dasharray="4 4" />
+          <line x1="805" y1="58" x2="805" y2="314" stroke="#25334f" stroke-dasharray="4 4" />
+          <line x1="1020" y1="58" x2="1020" y2="314" stroke="#25334f" stroke-dasharray="4 4" />
+
+          <!-- Step 1: Acquire/Connect HTSP -->
+          <line x1="107" y1="88" x2="337" y2="88" stroke="#60a5fa" stroke-width="1.6" marker-end="url(#seq-arr)" />
+          <text x="222" y="82" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="10">1. acquire / check HtspConnectionState</text>
+
+          <!-- Step 2: Htsmsg exchange -->
+          <line x1="337" y1="122" x2="1020" y2="122" stroke="#60a5fa" stroke-width="1.6" marker-end="url(#seq-arr)" />
+          <text x="678" y="116" text-anchor="middle" fill="#eaf1fc" font-family="monospace" font-size="10">2. Htsmsg frames (channels, EPG events, DVR entries)</text>
+
+          <!-- Step 3: Update Registry & Repos -->
+          <line x1="337" y1="158" x2="572" y2="158" stroke="#10b981" stroke-width="1.6" marker-end="url(#seq-arr-ok)" />
+          <text x="454" y="152" text-anchor="middle" fill="#10b981" font-family="monospace" font-size="10">3. update ChannelRegistry, Epg &amp; Dvr repos</text>
+
+          <!-- Step 4: Publish & Observe TIF -->
+          <line x1="572" y1="194" x2="805" y2="194" stroke="#10b981" stroke-width="1.6" marker-end="url(#seq-arr-ok)" />
+          <text x="688" y="188" text-anchor="middle" fill="#10b981" font-family="monospace" font-size="10">4. sync channels &amp; observe TIF changes</text>
+
+          <line x1="805" y1="226" x2="1020" y2="226" stroke="#10b981" stroke-width="1.6" marker-end="url(#seq-arr-ok)" />
+          <text x="912" y="220" text-anchor="middle" fill="#9fb0cc" font-family="monospace" font-size="10">5. write TIF channel/program rows</text>
+
+          <!-- Error / Retry Path -->
+          <rect x="24" y="246" width="1072" height="58" rx="6" fill="rgba(245, 158, 11, 0.08)" stroke="#f59e0b" stroke-dasharray="4 2" />
+          <text x="38" y="264" fill="#f59e0b" font-family="monospace" font-size="10" font-weight="700">ERROR / RETRY PATH (Disconnected / Timeout / Audit Guard):</text>
+          <line x1="1020" y1="280" x2="337" y2="280" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#seq-arr-err)" />
+          <text x="678" y="275" text-anchor="middle" fill="#fde68a" font-family="monospace" font-size="9.5">socket drop / parse error -&gt; HtspConnectionState transition -&gt; pool reconnect / worker backoff</text>
+          <line x1="337" y1="296" x2="107" y2="296" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4 2" marker-end="url(#seq-arr-err)" />
+          <text x="222" y="294" text-anchor="middle" fill="#fde68a" font-family="monospace" font-size="9.5">report sync status / defer retry</text>
+        </svg>
+      </div>
+      <p class="diagram-note">
+        Sequence depicts <code>E1</code> component interactions inferred from verified repository file names; exact method calls and error codes are not asserted without reading the source files.
+      </p>
+    </section>
+
+    <section id="contracts-edges">
+      <h2>3. Data Models, Contracts &amp; Edge Cases</h2>
+      <div class="tabs" role="tablist" aria-label="Filter E1 LLD items">
+        <button class="tab-btn" role="tab" aria-selected="true" data-lld-filter="all">All (9)</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-lld-filter="model">Models &amp; State (3)</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-lld-filter="contract">Contracts &amp; Sync (3)</button>
+        <button class="tab-btn" role="tab" aria-selected="false" data-lld-filter="edge">Edge &amp; Lifecycle Rules (3)</button>
+      </div>
+
+      <div class="items-grid" id="lld-grid">
+        <!-- Models & State -->
+        <article class="item-card" data-lld-cat="model">
+          <span class="badge badge-model">Data Model</span>
+          <h3>Channel, Capabilities &amp; DVR Models</h3>
+          <ul>
+            <li>Verified model files: <code>TvhChannel.kt</code>, <code>ChannelCapabilities.kt</code>, <code>TvhDvrModels.kt</code>, <code>TvhConstants.kt</code> under <code>model/</code>.</li>
+            <li>Paired with <code>ChannelRegistry.kt</code> and <code>DvrRepository.kt</code> / <code>EpgRepository.kt</code>.</li>
+            <li><strong>Gap:</strong> Exact fields, nullability, and capability flags require reading the <code>model/*.kt</code> files.</li>
+          </ul>
+        </article>
+
+        <article class="item-card" data-lld-cat="model">
+          <span class="badge badge-model">Data Model</span>
+          <h3>Connection &amp; Settings Models</h3>
+          <ul>
+            <li>Connection state: <code>HtspConnectionState.kt</code> (tested in <code>HtspConnectionStateTest.kt</code>).</li>
+            <li>Settings models: <code>TvhSettings.kt</code>, <code>TvhGeneralSettings.kt</code>, <code>TvhTifSettings.kt</code> under <code>model/</code>.</li>
+            <li><strong>Gap:</strong> Enum values, persistence keys, and defaults are unverified until inspected.</li>
+          </ul>
+        </article>
+
+        <article class="item-card" data-lld-cat="model">
+          <span class="badge badge-model">Data Model</span>
+          <h3>Account &amp; Sync Metadata</h3>
+          <ul>
+            <li>Verified components: <code>TvhAccountService.kt</code>, <code>SyncService.kt</code>, <code>res/xml/authenticator.xml</code>, <code>res/xml/syncadapter.xml</code>.</li>
+            <li><strong>Gap:</strong> Account attributes, authority strings, and sync extras are not verified from file text in this pass.</li>
+          </ul>
+        </article>
+
+        <!-- Contracts -->
+        <article class="item-card" data-lld-cat="contract">
+          <span class="badge badge-contract">Contract</span>
+          <h3>HTSP Wire &amp; Pool Contract</h3>
+          <ul>
+            <li><code>Htsmsg.kt</code> + <code>HtspClient.kt</code> + <code>HtspConnectionPool.kt</code> govern message serialization, request/response correlation, and pooled connection reuse.</li>
+            <li><strong>Gap:</strong> Exact framing/serialization rules and timeout/reconnect parameters require reading <code>htsp/*.kt</code> and <code>HtsmsgTest.kt</code>.</li>
+          </ul>
+        </article>
+
+        <article class="item-card" data-lld-cat="contract">
+          <span class="badge badge-contract">Contract</span>
+          <h3>TIF Input &amp; Channel Observation Contract</h3>
+          <ul>
+            <li><code>TvheadendInputService.kt</code> (<code>res/xml/tv_input.xml</code>) bridges Tvheadend channels/EPG with Android TV's TIF framework alongside <code>TifChannelObserver.kt</code> and <code>InputChannelRepository.kt</code>.</li>
+            <li>Must align with <code>docs/TIF-CROSS-INPUT-AUDIT.md</code> and <code>docs/boundary-contract-audit.md</code>.</li>
+          </ul>
+        </article>
+
+        <article class="item-card" data-lld-cat="contract">
+          <span class="badge badge-contract">Contract</span>
+          <h3>Sync Manager &amp; Worker Contract</h3>
+          <ul>
+            <li><code>TvhSyncManager.kt</code>, <code>TvhSyncWorker.kt</code>, and <code>BackgroundSyncStrategy.kt</code> coordinate sync execution across interactive and background contexts.</li>
+            <li><strong>Gap:</strong> Concurrency policies, retry backoff, and cancellation semantics require source inspection.</li>
+          </ul>
+        </article>
+
+        <!-- Edge Cases -->
+        <article class="item-card" data-lld-cat="edge">
+          <span class="badge badge-edge">Edge &amp; Lifecycle</span>
+          <h3>Server Disconnects &amp; Reconnect Storms</h3>
+          <ul>
+            <li>When HTSP drops or times out, <code>HtspConnectionState</code> and <code>HtspConnectionPool</code> should transition cleanly without duplicate sockets or unguarded exceptions.</li>
+          </ul>
+        </article>
+
+        <article class="item-card" data-lld-cat="edge">
+          <span class="badge badge-edge">Edge &amp; Lifecycle</span>
+          <h3>Cross-Input TIF Collisions &amp; Stale Rows</h3>
+          <ul>
+            <li>Concurrent updates involving <code>TvheadendInputService</code>, <code>TifChannelObserver</code>, and multi-input TIF sync must avoid overwriting or duplicating channels across inputs.</li>
+          </ul>
+        </article>
+
+        <article class="item-card" data-lld-cat="edge">
+          <span class="badge badge-edge">Edge &amp; Lifecycle</span>
+          <h3>Service / Worker Lifecycle &amp; Partial Syncs</h3>
+          <ul>
+            <li>Handle Android service/worker teardown, process recreation, and partial EPG/DVR batches idempotently so interrupted syncs recover on next run.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="test-handoff">
+      <h2>4. Testability &amp; Handoff to Build Tasks (Gate 08)</h2>
+      <div class="handoff-grid">
+        <div class="card">
+          <h3>Unit &amp; Integration Test Seams</h3>
+          <ul>
+            <li><strong>Existing Unit Tests in Archive:</strong> <code>ChannelRegistryTest.kt</code>, <code>HtsmsgTest.kt</code>, <code>HtspConnectionStateTest.kt</code>, <code>ChannelCapabilitiesTest.kt</code>, <code>DvrRepositoryTest.kt</code>, <code>TifChannelObserverTest.kt</code>, and <code>TvhSyncManagerTest.kt</code> under <code>app/src/test/java/com/nmaclean/tvheadend/</code>.</li>
+            <li><strong>Testability Seams:</strong> Isolate <code>Htsmsg</code> message parsing, <code>ChannelRegistry</code> lookups, <code>HtspConnectionState</code> transitions, and repository/observer state updates from live network sockets and Android framework singletons where possible.</li>
+            <li><strong>Device / TIF Gap:</strong> Full <code>TvheadendInputService</code> TIF database integration and live Tvheadend server behavior require emulator/device tests beyond JVM unit tests.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <h3>Inputs for Gate 08 (TASKS.md)</h3>
+          <ul>
+            <li><strong>Inspect Before Task Lock:</strong> Read <code>.arch-studio/epics/E1/TASKS.md</code>, <code>.arch-studio/epics/E1/lld.html</code>, <code>docs/TIF-CROSS-INPUT-AUDIT.md</code>, <code>docs/boundary-contract-audit.md</code>, and <code>docs/SPLIT-APPS-FEASIBILITY.md</code> to merge existing tasks with verified code gaps.</li>
+            <li><strong>Task Decomposition Targets:</strong> Group concrete build tasks into (a) HTSP protocol/pool/state hardening, (b) registry/EPG/DVR repository &amp; sync worker behavior, (c) TIF input &amp; observer boundary fixes, and (d) JVM unit test expansion.</li>
+            <li><strong>Verification Gate:</strong> Run Gradle unit tests (<code>app/src/test/</code>) and document any remaining unverified Android TV / hardware checks.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    (function () {
+      const tabs = document.querySelectorAll(".tab-btn");
+      const cards = document.querySelectorAll("#lld-grid .item-card");
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => {
+          const filter = tab.getAttribute("data-lld-filter");
+          tabs.forEach((t) => t.setAttribute("aria-selected", t === tab ? "true" : "false"));
+          cards.forEach((card) => {
+            const cat = card.getAttribute("data-lld-cat");
+            card.classList.toggle("hidden", filter !== "all" && cat !== filter);
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

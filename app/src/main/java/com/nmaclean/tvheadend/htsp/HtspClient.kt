@@ -5,6 +5,7 @@ import com.nmaclean.tvheadend.model.TvhChannel
 import com.nmaclean.tvheadend.model.TvhConstants
 import com.nmaclean.tvheadend.model.TvhRecording
 import com.nmaclean.tvheadend.model.TvhSeriesRule
+import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.DvrStateReducer
 import java.io.BufferedInputStream
 import java.io.Closeable
@@ -639,7 +640,8 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         }
 
         if (resolvedChannel != null) {
-            val htspId = resolvedChannel.uuid.toLongOrNull() ?: resolvedChannel.id
+            val htspId = resolvedChannel.uuid.toLongOrNull()
+                ?: (if (resolvedChannel.id > 0L) resolvedChannel.id else 0L)
             subMsg["channelId"] = htspId
             Log.i(TAG, "Resolved subscription identifier '$channelIdentifier' to channelId=$htspId ('${resolvedChannel.name}')")
         } else if (chIdLong != null) {
@@ -648,9 +650,8 @@ class HtspClient(val host: String, val port: Int) : Closeable {
             subMsg["channelName"] = identifier
         }
 
-        if (!profile.isNullOrEmpty()) {
-            subMsg["profile"] = profile
-        }
+        val profileToUse = if (profile.isNullOrEmpty()) "htsp" else profile
+        subMsg["profile"] = profileToUse
 
         Log.i(TAG, "Sending HTSP subscribe message: $subMsg")
         sendMessage(subMsg)
@@ -855,7 +856,9 @@ class HtspClient(val host: String, val port: Int) : Closeable {
         }
 
         val decoded = Htsmsg.decode(payload) as Map<*, *>?
-        Log.v(TAG, "readMessage frame decoded (${length}b): method='${decoded?.get("method")}', keys=${decoded?.keys}")
+        if (TvhSettings.isStreamingDebugCached) {
+            Log.v(TAG, "readMessage frame decoded (${length}b): method='${decoded?.get("method")}'")
+        }
         return decoded
     }
 
