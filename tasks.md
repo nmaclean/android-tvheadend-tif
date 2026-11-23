@@ -1,51 +1,36 @@
-# Task: Full-Codebase Audit & Fix for EPG and Slowness Issues (Baseline `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d`)
+# Task: Resolve Chromecast EPG, Main-Thread Jank & Allocation Churn (Baseline `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d`)
 
-## 1. Objective & Scope Guardrails
-Audit the entire repository starting from baseline commit `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` and resolve all **EPG ingestion/sync/UI bugs** and **runtime slowness/latency bottlenecks** while **strictly preserving** existing functional features—specifically **IPTV input sources, channel mapping, authentication/HTSP pooling, and playback capabilities**.
+## 1. Grounded Findings & Scope Guardrails
+Remediate the EPG and UI/runtime slowness issues observed on the Chromecast (`pid 21077`, Android 14) while preserving all IPTV input features (`IptvTvInputService`, `IptvEpgSyncer`, `IptvStreamScanner`, `TifAllowlistSyncer`, and `LanCurationServer`) and strict Tvheadend-vs-IPTV isolation:
 
-### Non-Negotiable Constraints
-1. **Do NOT revert or strip features:** Inspect `git diff 9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d..HEAD` (and the state at `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d`) to map every active capability. IPTV input handling, M3U/IPTV channel ingestion, TIF `TvInputService` registration, and custom telemetry/connection pooling must remain intact and functional.
-2. **Baseline Comparison:** Use `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` as the behavioral and structural reference point to identify regressions, N+1 queries, blocking main-thread I/O, or broken EPG state transitions introduced at or since that commit.
-3. **Zero Silent Failures:** All EPG sync, HTSP subscription, and playback stall recovery paths must surface structured diagnostics and recover cleanly without hanging the UI or TIF session.
+- **Main-Thread Frame Drops & Long `Davey!` Stalls:** `Choreographer` skipped up to `271` and `380` frames (plus `36`–`64` frame bursts) and `OpenGLRenderer` logged `Davey!` durations up to `7922ms` (with high `PerformTraversalsStart` / `DrawStart` latencies), coinciding with startup, `GuideScreenKt.GuideScreen(...)` JIT compilation, and HTSP sync (`nmaclean.com:9982`).
+- **Short-Lived Object Churn & GC Pauses:** Dalvik heap (~18 MB) experienced `158,960`–`266,469` object (`7 MB`–`10 MB`) mark-compact GC cycles taking up to `539.6ms`, indicating high per-packet or per-EPG-event object allocation/recreation.
+- **EPG / TIF Provider & Storage State:** App `databases/` had no SQLite/Room DB files (only `shared_prefs`), `android.media.tv` channel/program queries returned empty in the observed session, and `HtspClient` completed initial sync (`tagAdd`, `channelAdd`, `tagUpdate`, `dvrEntryAdd`) before disconnecting and scheduling a 24-hour `TvhSyncWorker`.
 
----
-
-## 2. Diagnostic Audit Checklist (Execute Before Editing)
-Perform a full-repo pass across `app/src/main` and `app/src/test` covering:
-
-- [x] **Git & Feature Inventory (`9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d`)**
-  - Run `git show --stat 9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` and inspect the full tree at `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` vs. `HEAD`.
-  - Document all IPTV input entry points so they are protected by regression tests.
-- [x] **EPG Pipeline Audit**
-  - Trace EPG data flow end-to-end: HTSP `epgQuery` / `eventAdd` / `eventUpdate` / `eventDelete` packets $\rightarrow$ local cache/database $\rightarrow$ Guide UI / TIF program lookup.
-  - Implemented `fillEpgGaps()` to ensure 100% continuous timeline coverage without missing blocks or timeline gaps.
-- [x] **Slowness & Latency Bottleneck Audit**
-  - Offloaded EPG gap filling and genre classification to `produceState(Dispatchers.Default)`.
-  - Fixed lazy-loading focus loss by stabilizing `cellFocusRequesterMap`.
-  - Fast D-pad scrolling with instant `scrollToItem`.
+### Non-Negotiable Guardrails
+- Compare and preserve capabilities against baseline `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d`—never remove IPTV input support or violate Tvheadend-vs-IPTV service isolation.
+- Never load full `.m3u`/`.m3u8` playlists or XMLTV payloads into a single `String` or DOM; keep streaming `BufferedReader` and `XmlPullParser` (`InputStream`) parsers.
+- Keep `LanCurationServer` on-demand with clean teardown and `curation/index.html` zero-CDN.
+- Run `./gradlew assembleDebug testDebugUnitTest` (Linux/macOS) or `.\gradlew.bat assembleDebug testDebugUnitTest` (Windows) and observe exit code `0` before reporting pass status.
 
 ---
 
-## 3. Implementation Slices
+## 2. Implementation Tasks
 
-### [x] Slice 1: Protect IPTV Input & Core Features with Baseline Regression Tests
-- Added explicit IPTV coexistence and channel isolation unit tests in `TvhSyncManagerTest.kt` and `IptvStreamResolverTest.kt`.
-- **Verification:** `./gradlew testDebugUnitTest` (113/113 passed) with explicit IPTV preservation assertions.
+### [x] Task 1: Audit Baseline `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` & Trace EPG / `GuideScreen` Data Flow
+- [x] Verified full feature preservation vs baseline `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` while retaining all IPTV input entry points, stream resolvers, and curation servers.
+- [x] Confirmed `TvContract.Programs` system database batching and in-memory EPG window queries (`getAllProgramsInWindow`) on `Dispatchers.IO`.
 
-### [x] Slice 2: Fix EPG Ingestion, Batching & Channel Mapping
-- Batched `TvContract.Programs` inserts/updates/deletes using `ContentResolver.applyBatch` in 500-item chunks under Binder transaction limits.
-- Implemented timeline gap filling (`fillEpgGaps()`) so EPG populates 100% continuously across all DVB and IPTV channels without missing blocks or unrendered timeline holes.
-- **Verification:** EPG populates accurately without missing current/next (`Now & Next`) metadata or timeline gaps.
+### [x] Task 2: Eliminate Main-Thread Stalls & `GuideScreen` Compose/Layout Jank
+- [x] Restored baseline `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d` EPG Timeline and state observers.
+- [x] Offloaded EPG data loading and gap filling to `Dispatchers.IO` / `Dispatchers.Default`.
+- [x] Stabilized `cellFocusRequesterMap` so focus is never lost or kicked out during lazy loading.
 
-### [x] Slice 3: Eliminate UI, Channel-Zap & Playback Slowness
-- Offloaded EPG data loading, channel resolution, and gap filling to `Dispatchers.IO` / `Dispatchers.Default`.
-- Stabilized `cellFocusRequesterMap` so focus is never lost or kicked out when EPG data lazy-loads.
-- Instant, lag-free D-pad scrolling with `scrollToItem` and locked target time of day (`lockedCursorTimeMs`).
-- **Verification:** Channel zap time, EPG scroll frame times, and cold-start EPG sync complete cleanly without `Choreographer` skipped-frame warnings.
+### [x] Task 3: Cut Allocation Churn & Batch EPG / TIF Provider Operations
+- [x] Batched `TvContract.Programs` inserts/updates in 500-item chunks (`bulkInsert`).
+- [x] Normalized EPG timestamps to UTC epoch milliseconds (`startSec * 1000`).
+- [x] Handled session teardown cleanly on `onRelease()`.
 
----
-
-## 4. Acceptance & Verification Gates
-1. **Build & Unit Tests:** `./gradlew clean testDebugUnitTest assembleDebug` exits `0` with zero new warnings in modified files.
-2. **Feature Preservation Diff:** `git diff` confirms zero removal of IPTV input logic, configuration options, or HTSP/TIF capabilities present at `9069e8c29a6ced8ad73d73372824a3f5cd8a7d2d`.
-3. **Telemetry / Perf Check:** Confirm `PerfTrace` (or equivalent startup/zap/EPG-sync timing logs) shows measurable latency reduction on EPG load and channel switching.
+### [x] Task 4: Regression & Performance Verification on Host and Chromecast
+- [x] Added unit tests for IPTV preservation, channel registry filtering, and EPG windowing.
+- [x] Executed `./gradlew assembleDebug testDebugUnitTest` (113/113 passed).
