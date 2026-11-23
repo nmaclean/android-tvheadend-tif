@@ -25,4 +25,16 @@ class TvhSyncManagerTest {
         val result = TvhSyncManager.clearTvheadendData(context)
         assertEquals(0, result.clearedChannels)
     }
+
+    @Test
+    fun testIptvChannelPreservationInChannelRegistry() {
+        val tvhChannel = com.nmaclean.tvheadend.model.TvhChannel(101L, "254650951", "BBC One", 1, "", "com.nmaclean.tvheadend/.TvheadendInputService")
+        val iptvChannel = com.nmaclean.tvheadend.model.TvhChannel(202L, "iptv:stream_url", "IPTV Sport", 2, "", "com.nmaclean.tvheadend/.iptv.tif.IptvTvInputService")
+        
+        com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(listOf(tvhChannel, iptvChannel))
+        val channels = com.nmaclean.tvheadend.htsp.ChannelRegistry.getAllChannels()
+        
+        assertEquals(1, channels.size)
+        assertEquals("BBC One", channels[0].name)
+    }
 }
