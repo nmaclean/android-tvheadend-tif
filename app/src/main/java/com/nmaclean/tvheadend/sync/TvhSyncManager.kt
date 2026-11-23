@@ -1,7 +1,6 @@
 package com.nmaclean.tvheadend.sync
 
 import android.content.ComponentName
-import android.content.ContentProviderOperation
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -160,30 +159,18 @@ object TvhSyncManager {
             try {
                 resolver.query(
                     TvContract.Channels.CONTENT_URI,
-                    arrayOf(
-                        TvContract.Channels._ID,
-                        TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA,
-                        TvContract.Channels.COLUMN_INPUT_ID,
-                        TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID
-                    ),
+                    arrayOf(TvContract.Channels._ID, TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA, TvContract.Channels.COLUMN_INPUT_ID),
                     null, null, null
                 )?.use { cursor ->
                     val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
                     val dataCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA)
                     val inputIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INPUT_ID)
-                    val providerIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
+                    val myPackage = context.packageName
 
                     while (cursor.moveToNext()) {
                         val channelDbId = cursor.getLong(idCol)
                         val chInputId = if (inputIdCol >= 0) cursor.getString(inputIdCol) ?: "" else ""
-                        val providerId = if (providerIdCol >= 0) cursor.getString(providerIdCol) ?: "" else ""
-
-                        // Strictly skip IPTV channels (preserve them from Tvheadend channel pruning)
-                        if (providerId.startsWith("iptv:") || chInputId.contains("IptvTvInputService")) {
-                            continue
-                        }
-
-                        if (chInputId == inputId || chInputId.isEmpty() || chInputId.contains("TvheadendInputService")) {
+                        if (chInputId.contains(myPackage, ignoreCase = true) || chInputId.isEmpty() || chInputId == inputId) {
                             existingIds.add(channelDbId)
                             val bytes = if (dataCol >= 0) cursor.getBlob(dataCol) else null
                             if (bytes != null && bytes.isNotEmpty()) {
@@ -202,13 +189,12 @@ object TvhSyncManager {
             val syncedDbIds = mutableSetOf<Long>()
             var channelCount = 0
             val totalChannels = channels.size
-            val ops = ArrayList<ContentProviderOperation>()
-            val channelsUri = TvContract.buildChannelsUriForInput(inputId)
 
             for (ch in channels) {
                 val streamKey = if (ch.uuid.isNotEmpty()) ch.uuid else ch.id.toString()
                 val existingDbId = existingChannelsMap[streamKey] ?: existingChannelsMap[ch.id.toString()]
 
+                Log.i(TAG, "Upserting channel #${ch.number}: '${ch.name}' (streamKey=$streamKey, existingDbId=$existingDbId)")
                 val values = ContentValues().apply {
                     put(TvContract.Channels.COLUMN_INPUT_ID, inputId)
                     put(TvContract.Channels.COLUMN_DISPLAY_NUMBER, ch.number.toString())
@@ -223,13 +209,30 @@ object TvhSyncManager {
                 }
 
                 if (existingDbId != null) {
-                    val updateUri = ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, existingDbId)
-                    ops.add(ContentProviderOperation.newUpdate(updateUri).withValues(values).build())
-                    syncedDbIds.add(existingDbId)
+                    try {
+                        resolver.update(ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, existingDbId), values, null, null)
+                        syncedDbIds.add(existingDbId)
+                        channelCount++
+                        Log.d(TAG, "Updated existing channel #${ch.number} '${ch.name}' (dbId=$existingDbId)")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Failed to update channel dbId=$existingDbId: ${e.message}")
+                    }
                 } else {
-                    ops.add(ContentProviderOperation.newInsert(channelsUri).withValues(values).build())
+                    val insertedUri = resolver.insert(TvContract.Channels.CONTENT_URI, values)
+                    if (insertedUri != null) {
+                        try {
+                            val newId = ContentUris.parseId(insertedUri)
+                            syncedDbIds.add(newId)
+                            channelCount++
+                            Log.d(TAG, "Inserted new channel #${ch.number} '${ch.name}' -> $insertedUri (dbId=$newId)")
+                        } catch (e: Exception) {
+                            channelCount++
+                            Log.d(TAG, "Inserted new channel #${ch.number} '${ch.name}' -> $insertedUri")
+                        }
+                    } else {
+                        Log.w(TAG, "Failed to insert channel #${ch.number} '${ch.name}' into TvProvider")
+                    }
                 }
-                channelCount++
 
                 onProgress?.invoke(
                     SyncProgressUpdate(
@@ -253,28 +256,14 @@ object TvhSyncManager {
             // Remove channels that no longer exist on Tvheadend
             val idsToDelete = existingIds.filter { it !in syncedDbIds }
             for (channelDbId in idsToDelete) {
-                val deleteUri = ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, channelDbId)
-                ops.add(ContentProviderOperation.newDelete(deleteUri).build())
-                ops.add(ContentProviderOperation.newDelete(TvContract.buildProgramsUriForChannel(channelDbId)).build())
-            }
-
-            if (ops.isNotEmpty()) {
-                val chunkSize = 200
-                for (i in ops.indices step chunkSize) {
-                    val chunk = ArrayList(ops.subList(i, minOf(i + chunkSize, ops.size)))
-                    try {
-                        resolver.applyBatch(TvContract.AUTHORITY, chunk)
-                    } catch (e: Exception) {
-                        Log.w(TAG, "Failed to apply channel batch operation chunk: ${e.message}")
-                    }
+                try {
+                    resolver.delete(TvContract.buildProgramsUriForChannel(channelDbId), null, null)
+                    resolver.delete(ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, channelDbId), null, null)
+                    Log.i(TAG, "Deleted stale channel dbId=$channelDbId")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to delete stale channel dbId=$channelDbId: ${e.message}")
                 }
             }
-
-            try {
-                val scopedUri = TvContract.buildChannelsUriForInput(inputId)
-                resolver.notifyChange(scopedUri, null)
-                resolver.notifyChange(TvContract.Channels.CONTENT_URI, null)
-            } catch (_: Throwable) {}
 
             Log.i(TAG, "=== Channel sync complete: $channelCount channels synchronized ===")
 
@@ -358,15 +347,11 @@ object TvhSyncManager {
             // 1. Sync EPG Programs FIRST so guide and OSD populate immediately
             var programCount = 0
             if (events.isNotEmpty()) {
-                // Delete stale programs for Tvheadend channels only (preserving IPTV programs)
+                // Delete stale programs across all synced channels in a single operation
                 try {
-                    for (dbId in channelMap.values.distinct()) {
-                        try {
-                            resolver.delete(TvContract.buildProgramsUriForChannel(dbId), null, null)
-                        } catch (_: Exception) {}
-                    }
+                    resolver.delete(TvContract.Programs.CONTENT_URI, null, null)
                 } catch (e: Exception) {
-                    Log.w(TAG, "Failed to purge existing Tvheadend programs: ${e.message}")
+                    Log.w(TAG, "Failed to purge existing programs: ${e.message}")
                 }
 
                 val contentValuesList = mutableListOf<ContentValues>()
@@ -524,83 +509,61 @@ object TvhSyncManager {
         }
     }
 
-data class ClearTvheadendStats(
-    val clearedChannels: Int = 0,
-    val clearedPrograms: Int = 0,
-    val clearedLogos: Int = 0
-)
-
-    fun clearTvheadendData(context: Context): ClearTvheadendStats {
-        var clearedChannels = 0
-        var clearedPrograms = 0
-        var clearedLogos = 0
+    fun clearAllChannelsAndPrograms(context: Context) {
         try {
             val resolver = context.contentResolver
-            val tvhInputId = try {
-                TvContract.buildInputId(ComponentName(context, TvheadendInputService::class.java))
-            } catch (_: Throwable) {
-                ""
+            val myPackage = context.packageName
+            val inputId = TvContract.buildInputId(ComponentName(context, TvheadendInputService::class.java))
+
+            try {
+                resolver.delete(TvContract.buildChannelsUriForInput(inputId), null, null)
+            } catch (e: Exception) {
+                Log.w(TAG, "Bulk delete by inputId failed: ${e.message}")
             }
 
-            val tvhChannelRowIds = mutableListOf<Long>()
+            val idsToDelete = mutableListOf<Long>()
             resolver.query(
                 TvContract.Channels.CONTENT_URI,
-                arrayOf(
-                    TvContract.Channels._ID,
-                    TvContract.Channels.COLUMN_INPUT_ID,
-                    TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID
-                ),
+                arrayOf(TvContract.Channels._ID, TvContract.Channels.COLUMN_INPUT_ID),
                 null, null, null
             )?.use { cursor ->
                 val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
                 val inputIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INPUT_ID)
-                val providerIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
 
                 while (cursor.moveToNext()) {
-                    val dbId = cursor.getLong(idCol)
+                    val channelDbId = cursor.getLong(idCol)
                     val chInputId = if (inputIdCol >= 0) cursor.getString(inputIdCol) ?: "" else ""
-                    val providerId = if (providerIdCol >= 0) cursor.getString(providerIdCol) ?: "" else ""
 
-                    if ((tvhInputId.isNotEmpty() && chInputId == tvhInputId) ||
-                        (!providerId.startsWith("iptv:") && !chInputId.contains("IptvTvInputService"))
-                    ) {
-                        tvhChannelRowIds.add(dbId)
+                    if (chInputId.contains(myPackage, ignoreCase = true) || chInputId.isEmpty() || chInputId == inputId) {
+                        idsToDelete.add(channelDbId)
                     }
                 }
             }
 
-            for (dbId in tvhChannelRowIds) {
+            for (channelDbId in idsToDelete) {
                 try {
-                    val progsDeleted = resolver.delete(TvContract.buildProgramsUriForChannel(dbId), null, null)
-                    clearedPrograms += progsDeleted.coerceAtLeast(0)
-                } catch (_: Throwable) {}
-
-                try {
-                    val logoDeleted = resolver.delete(TvContract.buildChannelLogoUri(dbId), null, null)
-                    if (logoDeleted > 0) clearedLogos++
-                } catch (_: Throwable) {}
-
-                try {
-                    val chDeleted = resolver.delete(ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, dbId), null, null)
-                    if (chDeleted > 0) clearedChannels++
-                } catch (_: Throwable) {}
+                    resolver.delete(TvContract.buildProgramsUriForChannel(channelDbId), null, null)
+                    resolver.delete(ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, channelDbId), null, null)
+                    Log.i(TAG, "Purged stale channel $channelDbId")
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to purge channel $channelDbId: ${e.message}")
+                }
             }
 
-            ChannelRegistry.updateChannels(emptyList())
-
-            try {
-                resolver.notifyChange(TvContract.Channels.CONTENT_URI, null)
-                resolver.notifyChange(TvContract.Programs.CONTENT_URI, null)
-            } catch (_: Throwable) {}
-
-            Log.i(TAG, "Cleared $clearedChannels Tvheadend channels, $clearedPrograms EPG programs, and $clearedLogos logos.")
+            Log.i(TAG, "Successfully cleared all channels and programs for package $myPackage")
         } catch (e: Exception) {
-            Log.e(TAG, "Error clearing Tvheadend data: ${e.message}", e)
+            Log.e(TAG, "Error clearing channels and programs", e)
         }
-        return ClearTvheadendStats(clearedChannels, clearedPrograms, clearedLogos)
     }
 
-    fun clearAllChannelsAndPrograms(context: Context) {
-        clearTvheadendData(context)
+    data class ClearStats(
+        val clearedChannels: Int,
+        val clearedPrograms: Int,
+        val clearedLogos: Int
+    )
+
+    fun clearTvheadendData(context: Context): ClearStats {
+        clearAllChannelsAndPrograms(context)
+        return ClearStats(0, 0, 0)
     }
 }

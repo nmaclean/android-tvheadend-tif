@@ -1,7 +1,5 @@
 package com.nmaclean.tvheadend.ui.screens
 
-import android.os.SystemClock
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,13 +49,7 @@ fun LiveTvScreen(
     val selectedCategory = categories[selectedCategoryIdx]
 
     val filteredChannels = remember(channels, selectedCategory, currentEpg) {
-        val tFilter = SystemClock.elapsedRealtime()
-        val result = TvhUiRepository.filterChannelsByCategory(channels, selectedCategory, currentEpg)
-        val filterMs = SystemClock.elapsedRealtime() - tFilter
-        if (filterMs > 16L) {
-            Log.d("PERF_TRACE", "filterChannelsByCategory (${result.size} ch) took ${filterMs}ms")
-        }
-        result
+        TvhUiRepository.filterChannelsByCategory(channels, selectedCategory, currentEpg)
     }
 
     Column(
@@ -106,11 +98,7 @@ fun LiveTvScreen(
                         .fillMaxSize()
                         .focusRestorer()
                 ) {
-                    items(
-                        items = filteredChannels,
-                        key = { it.id },
-                        contentType = { "live_tv_card" }
-                    ) { channel ->
+                    items(filteredChannels, key = { it.id }) { channel ->
                         val epg = currentEpg[channel.id]?.currentProgram
                         val showTitle = epg?.title?.takeIf { it.isNotBlank() } ?: channel.name
                         val timeRange = if (epg != null) {

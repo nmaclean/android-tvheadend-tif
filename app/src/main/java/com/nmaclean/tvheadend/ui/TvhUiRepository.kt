@@ -1,13 +1,12 @@
 package com.nmaclean.tvheadend.ui
 
-import android.content.ComponentName
 import android.content.Context
 import android.media.tv.TvContract
 import android.util.Log
-import com.nmaclean.tvheadend.TvheadendInputService
 import com.nmaclean.tvheadend.htsp.ChannelRegistry
 import com.nmaclean.tvheadend.htsp.HtspClient
 import com.nmaclean.tvheadend.model.TvhChannel
+import com.nmaclean.tvheadend.model.TvhRecording
 import com.nmaclean.tvheadend.model.TvhSeriesRule
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.EpgRepository
@@ -53,29 +52,29 @@ object TvhUiRepository {
         val cardFocusedHex: Long,
         val accentHex: Long
     ) {
-        SPORT("SPORT", 0xFF0B1B18, 0xFF122E2A, 0xFF34D399),
-        NEWS("NEWS", 0xFF1C0D18, 0xFF2B1425, 0xFFF87171),
-        MOVIES("MOVIES", 0xFF150F24, 0xFF211738, 0xFFC084FC),
-        KIDS("KIDS", 0xFF1F160C, 0xFF2E2112, 0xFFFBBF24),
-        DRAMA("ENTERTAINMENT", 0xFF0F1726, 0xFF19253B, 0xFF60A5FA),
-        DOCUMENTARY("FACTUAL", 0xFF0C1924, 0xFF14293B, 0xFF38BDF8),
-        GENERAL("", 0xFF0E1624, 0xFF172338, 0xFF00E5FF)
+        SPORT("SPORT", 0xFF102E2A, 0xFF16403A, 0xFF22C55E),
+        NEWS("NEWS", 0xFF2E1722, 0xFF40202F, 0xFFEF4444),
+        MOVIES("MOVIES", 0xFF231938, 0xFF322450, 0xFFA855F7),
+        KIDS("KIDS", 0xFF2D2414, 0xFF40321B, 0xFFF59E0B),
+        DRAMA("ENTERTAINMENT", 0xFF182442, 0xFF22335C, 0xFF60A5FA),
+        DOCUMENTARY("FACTUAL", 0xFF12283A, 0xFF1A3852, 0xFF38BDF8),
+        GENERAL("", 0xFF162238, 0xFF1D2D49, 0x00000000)
     }
 
     fun classifyEpgGenre(
-        title: String?,
+        title: String,
         summary: String? = null,
-        channelName: String? = "",
+        channelName: String = "",
         category: String? = null
     ): EpgGenre {
-        val text = "${title?.lowercase(Locale.getDefault()) ?: ""} ${summary?.lowercase(Locale.getDefault()) ?: ""} ${channelName?.lowercase(Locale.getDefault()) ?: ""} ${category?.lowercase(Locale.getDefault()) ?: ""}"
+        val text = "${title.lowercase(Locale.getDefault())} ${summary?.lowercase(Locale.getDefault()) ?: ""} ${channelName.lowercase(Locale.getDefault())} ${category?.lowercase(Locale.getDefault()) ?: ""}"
         return when {
             listOf("sport", "football", "match of the day", "premier league", "f1", "formula 1", "racing", "rugby", "cricket", "tennis", "golf", "snooker", "athletics", "boxing", "wimbledon").any { text.contains(it) } -> EpgGenre.SPORT
-            listOf("news", "weather", "parliament", "question time", "newsnight", "politics", "breakfast", "pmqs", "world at one", "current affairs").any { text.contains(it) } -> EpgGenre.NEWS
-            listOf("film", "movie", "cinema", "premiere", "james bond", "thriller", "drama").any { text.contains(it) } -> EpgGenre.MOVIES
-            listOf("cbeebies", "cbbc", "kids", "children", "cartoon", "bluey", "peppa", "bing", "hey duggee", "octonauts", "disney", "citv", "youth").any { text.contains(it) } -> EpgGenre.KIDS
-            listOf("planet earth", "horizon", "grand designs", "countryfile", "antiques", "history", "nature", "wildlife", "documentary", "24 hours in", "panorama", "dispatches", "education", "science").any { text.contains(it) } -> EpgGenre.DOCUMENTARY
-            listOf("eastenders", "coronation street", "emmerdale", "hollyoaks", "the chase", "pointless", "university challenge", "only connect", "strictly", "the one show", "comedy", "quiz", "eggheads", "music", "entertainment").any { text.contains(it) } -> EpgGenre.DRAMA
+            listOf("news", "weather", "parliament", "question time", "newsnight", "politics", "breakfast", "pmqs", "world at one").any { text.contains(it) } -> EpgGenre.NEWS
+            listOf("film", "movie", "cinema", "premiere", "james bond", "thriller").any { text.contains(it) } -> EpgGenre.MOVIES
+            listOf("cbeebies", "cbbc", "kids", "cartoon", "bluey", "peppa", "bing", "hey duggee", "octonauts", "disney", "citv").any { text.contains(it) } -> EpgGenre.KIDS
+            listOf("planet earth", "horizon", "grand designs", "countryfile", "antiques", "history", "nature", "wildlife", "documentary", "24 hours in", "panorama", "dispatches").any { text.contains(it) } -> EpgGenre.DOCUMENTARY
+            listOf("eastenders", "coronation street", "emmerdale", "hollyoaks", "the chase", "pointless", "university challenge", "only connect", "strictly", "the one show", "drama", "comedy", "quiz", "eggheads").any { text.contains(it) } -> EpgGenre.DRAMA
             else -> EpgGenre.GENERAL
         }
     }
@@ -158,18 +157,15 @@ object TvhUiRepository {
     }
 
     fun loadChannelsSync(context: Context): List<TvhChannel> {
-        val fromTvProvider = queryChannelsFromTvProvider(context)
-        ChannelRegistry.updateChannels(fromTvProvider)
-        if (fromTvProvider.isNotEmpty()) {
-            return fromTvProvider
-        }
+        val fromProvider = queryChannelsFromTvProvider(context)
+        if (fromProvider.isNotEmpty()) return fromProvider
         return ChannelRegistry.getAllChannels()
     }
 
     suspend fun loadChannels(context: Context): List<TvhChannel> = withContext(Dispatchers.IO) {
         val fromTvProvider = queryChannelsFromTvProvider(context)
-        ChannelRegistry.updateChannels(fromTvProvider)
         if (fromTvProvider.isNotEmpty()) {
+            ChannelRegistry.updateChannels(fromTvProvider)
             return@withContext fromTvProvider
         }
 
@@ -296,7 +292,8 @@ object TvhUiRepository {
         val now = System.currentTimeMillis()
         if (!forceRefresh &&
             cachedCurrentEpg.isNotEmpty() &&
-            (now - cachedCurrentEpgAtMs) < EPG_CACHE_TTL_MS
+            (now - cachedCurrentEpgAtMs) < EPG_CACHE_TTL_MS &&
+            channels.all { cachedCurrentEpg.containsKey(it.id) || it.uuid.toLongOrNull()?.let(cachedCurrentEpg::containsKey) == true }
         ) {
             return@withContext cachedCurrentEpg
         }
@@ -304,7 +301,7 @@ object TvhUiRepository {
             context = context,
             channels = channels,
             windowStartMs = now - 30 * 60_000L,
-            windowEndMs = now + 2 * 60 * 60_000L,
+            windowEndMs = now + 12 * 60 * 60_000L,
             forceRefresh = forceRefresh
         )
         val result = deriveCurrentEpgFromWindow(channels, windowMap, now)
@@ -424,36 +421,17 @@ object TvhUiRepository {
         val channelCount: Int
     )
 
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     fun loadTvInputs(context: Context): List<TvInputEntry> {
-        cleanupStrayIptvChannelsUnderTvheadendInput(context)
         val tvInputManager = context.getSystemService(Context.TV_INPUT_SERVICE) as android.media.tv.TvInputManager
         val resolver = context.contentResolver
         val rawItems = mutableListOf<TvInputEntry>()
-
-        val tvhInputId = try { TvContract.buildInputId(ComponentName(context, TvheadendInputService::class.java)) } catch (_: Throwable) { "" }
-        val iptvInputId = try { TvContract.buildInputId(ComponentName(context, com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java)) } catch (_: Throwable) { "" }
-
         for (input in tvInputManager.tvInputList) {
             if (input.isPassthroughInput) continue
             var count = 0
             try {
                 val uri = TvContract.buildChannelsUriForInput(input.id)
-                val projection = arrayOf(TvContract.Channels._ID, TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
-                resolver.query(uri, projection, null, null, null)?.use { cursor ->
-                    val providerIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
-                    while (cursor.moveToNext()) {
-                        val providerId = if (providerIdCol >= 0) cursor.getString(providerIdCol) ?: "" else ""
-                        val isIptvRow = providerId.startsWith("iptv:")
-
-                        if (tvhInputId.isNotEmpty() && input.id == tvhInputId) {
-                            if (!isIptvRow) count++
-                        } else if (iptvInputId.isNotEmpty() && input.id == iptvInputId) {
-                            if (isIptvRow) count++
-                        } else {
-                            count++
-                        }
-                    }
+                resolver.query(uri, arrayOf(TvContract.Channels._ID), null, null, null)?.use { cursor ->
+                    count = cursor.count
                 }
             } catch (_: Exception) {}
             val label = input.loadLabel(context)?.toString()?.trim()?.ifEmpty { input.id } ?: input.id
@@ -463,38 +441,5 @@ object TvhUiRepository {
             .groupBy { it.label }
             .values
             .map { group -> group.maxByOrNull { it.channelCount } ?: group.first() }
-    }
-
-    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-    private fun cleanupStrayIptvChannelsUnderTvheadendInput(context: Context) {
-        try {
-            val tvhComponent = ComponentName(context, TvheadendInputService::class.java)
-            val tvhInputId = TvContract.buildInputId(tvhComponent)
-            val tvhChannelsUri = TvContract.buildChannelsUriForInput(tvhInputId)
-            val strayOps = ArrayList<android.content.ContentProviderOperation>()
-            context.contentResolver.query(
-                tvhChannelsUri,
-                arrayOf(TvContract.Channels._ID, TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID),
-                null, null, null
-            )?.use { cursor ->
-                val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
-                val providerIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID)
-                while (cursor.moveToNext()) {
-                    val rowId = cursor.getLong(idCol)
-                    val providerId = if (providerIdCol >= 0) cursor.getString(providerIdCol) else null
-                    if (providerId != null && providerId.startsWith("iptv:")) {
-                        strayOps.add(
-                            android.content.ContentProviderOperation.newDelete(
-                                android.content.ContentUris.withAppendedId(TvContract.Channels.CONTENT_URI, rowId)
-                            ).build()
-                        )
-                    }
-                }
-            }
-            if (strayOps.isNotEmpty()) {
-                context.contentResolver.applyBatch(TvContract.AUTHORITY, strayOps)
-                Log.i(TAG, "Cleaned up ${strayOps.size} stray IPTV channels stored under Tvheadend input namespace.")
-            }
-        } catch (_: Exception) {}
     }
 }

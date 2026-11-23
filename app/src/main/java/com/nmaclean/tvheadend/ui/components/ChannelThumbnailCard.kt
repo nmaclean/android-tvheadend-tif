@@ -30,9 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
-import androidx.compose.ui.platform.LocalContext
 import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.nmaclean.tvheadend.ui.theme.MidnightCyanTokens
 import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
 
@@ -63,24 +61,19 @@ fun TvhMediaCard(
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
                 .clip(RoundedCornerShape(MidnightCyanTokens.CardCornerRadius))
-                .background(if (isFocused) MidnightCyanTokens.CardBgElevated else MidnightCyanTokens.CardBg)
+                .background(
+                    Brush.linearGradient(
+                        listOf(MidnightCyanTokens.CardBgElevated, MidnightCyanTokens.CardBg)
+                    )
+                )
                 .focusCyanBorder(isFocused = isFocused)
                 .onFocusChanged { isFocused = it.isFocused }
                 .clickable(onClick = onClick)
         ) {
-            val context = LocalContext.current
             var imgFailed by remember(imageUrl) { mutableStateOf(false) }
-            val imageRequest = remember(imageUrl, context) {
-                if (imageUrl.isNotBlank()) {
-                    ImageRequest.Builder(context)
-                        .data(imageUrl)
-                        .crossfade(false)
-                        .build()
-                } else null
-            }
-            if (imageRequest != null && !imgFailed) {
+            if (imageUrl.isNotBlank() && !imgFailed) {
                 AsyncImage(
-                    model = imageRequest,
+                    model = imageUrl,
                     contentDescription = title,
                     contentScale = ContentScale.Fit,
                     onError = { imgFailed = true },
@@ -92,7 +85,11 @@ fun TvhMediaCard(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color(0xFF162238)),
+                        .background(
+                            Brush.linearGradient(
+                                listOf(Color(0xFF1A2942), Color(0xFF0E1728))
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -113,7 +110,11 @@ fun TvhMediaCard(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(32.dp)
-                    .background(MidnightCyanTokens.CardBottomGradient)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, Color(0xCC060A12))
+                        )
+                    )
             )
 
             if (showLiveBadge) {

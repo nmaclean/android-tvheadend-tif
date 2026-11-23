@@ -58,7 +58,6 @@ import kotlinx.coroutines.delay
 object MidnightCyanTokens {
     val BgGradientTop = Color(0xFF0B1221)
     val BgGradientBottom = Color(0xFF060A12)
-    val BackgroundSolid = Color(0xFF090E18)
     val CardBg = Color(0xFF162238)
     val CardBgElevated = Color(0xFF1D2D49)
     val RailBg = Color(0xFF080E1A)
@@ -73,9 +72,6 @@ object MidnightCyanTokens {
     val PillSelectedBg = Color(0xFFFFFFFF)
     val PillSelectedText = Color(0xFF060A12)
     val DividerSubtle = Color(0xFF1E293B)
-    val CardBottomGradient = Brush.verticalGradient(
-        listOf(Color.Transparent, Color(0xCC060A12))
-    )
 
     val OverscanHorizontal: Dp = 48.dp
     val OverscanVertical: Dp = 24.dp
@@ -234,7 +230,26 @@ fun TvTopBarWithClock(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             contentPadding = PaddingValues(end = 16.dp),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier
+                .weight(1f)
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    if (listState.canScrollForward && size.width > 0f) {
+                        val fadePx = 32.dp.toPx().coerceAtMost(size.width)
+                        val startFade = ((size.width - fadePx) / size.width).coerceIn(0f, 1f)
+                        drawRect(
+                            brush = Brush.horizontalGradient(
+                                colorStops = arrayOf(
+                                    0f to Color.Black,
+                                    startFade to Color.Black,
+                                    1f to Color.Transparent
+                                )
+                            ),
+                            blendMode = BlendMode.DstIn
+                        )
+                    }
+                }
         ) {
             itemsIndexed(pills) { index, label ->
                 var pillModifier: Modifier = Modifier

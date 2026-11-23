@@ -26,19 +26,11 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.LiveTv
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.tv.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -46,15 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
-import com.nmaclean.tvheadend.SetupActivity
-import kotlinx.coroutines.launch
 import androidx.media3.common.util.UnstableApi
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
@@ -77,15 +65,9 @@ class ScanningInputsActivity : FragmentActivity() {
     )
 
     private val inputItemsState = mutableStateOf<List<InputItem>>(emptyList())
-    private lateinit var tifChannelObserver: com.nmaclean.tvheadend.sync.TifChannelObserver
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        tifChannelObserver = com.nmaclean.tvheadend.sync.TifChannelObserver(contentResolver, "ScanningInputsActivity") {
-            loadInputs()
-        }
-        tifChannelObserver.register()
-
         setContent {
             TvTheme {
                 ScanningInputsScreen(
@@ -94,8 +76,6 @@ class ScanningInputsActivity : FragmentActivity() {
                         val setupIntent = item.inputInfo.createSetupIntent()
                         if (setupIntent != null) {
                             startActivity(setupIntent)
-                        } else if (item.inputInfo.id.contains("IptvTvInputService")) {
-                            startActivity(Intent(this, com.nmaclean.tvheadend.ui.settings.IptvSetupWizardActivity::class.java))
                         } else {
                             val intent = Intent(this, ChannelGridActivity::class.java).apply {
                                 putExtra("input_id", item.inputInfo.id)
@@ -113,13 +93,6 @@ class ScanningInputsActivity : FragmentActivity() {
         loadInputs()
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        if (::tifChannelObserver.isInitialized) {
-            tifChannelObserver.unregister()
-        }
-    }
-
     private fun loadInputs() {
         inputItemsState.value = TvhUiRepository.loadTvInputs(this).map {
             InputItem(it.inputInfo, it.label, it.channelCount)
@@ -132,45 +105,6 @@ class ScanningInputsActivity : FragmentActivity() {
         items: List<InputItem>,
         onInputClick: (InputItem) -> Unit
     ) {
-        val scope = rememberCoroutineScope()
-        val context = LocalContext.current
-
-        var showResetConfigDialog by remember { mutableStateOf(false) }
-
-        if (showResetConfigDialog) {
-            AlertDialog(
-                onDismissRequest = { showResetConfigDialog = false },
-                title = { Text("Clear All Channels, EPG & Config?", color = MidnightCyanTokens.TextPrimary) },
-                text = { Text("This will delete all registered channels, EPG programs, and reset saved server credentials, preferences, and allowlists cleanly.", color = MidnightCyanTokens.TextSecondary) },
-                confirmButton = {
-                    Button(
-                        onClick = {
-                            showResetConfigDialog = false
-                            scope.launch {
-                                val scanManager = com.nmaclean.tvheadend.iptv.scan.SourceScanManager(context)
-                                val res = scanManager.resetAllDataAndSettings()
-                                android.widget.Toast.makeText(
-                                    context,
-                                    "Full reset complete: Deleted ${res.clearedChannels} channels and reset saved configuration.",
-                                    android.widget.Toast.LENGTH_LONG
-                                ).show()
-                                loadInputs()
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679))
-                    ) {
-                        Text("Confirm Full Reset", color = Color.White)
-                    }
-                },
-                dismissButton = {
-                    androidx.compose.material3.OutlinedButton(onClick = { showResetConfigDialog = false }) {
-                        Text("Cancel", color = MidnightCyanTokens.TextPrimary)
-                    }
-                },
-                containerColor = MidnightCyanTokens.CardBgElevated
-            )
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -198,7 +132,6 @@ class ScanningInputsActivity : FragmentActivity() {
                         fontSize = 14.sp
                     )
                 }
-
                 TvClockHeader()
             }
 
@@ -222,76 +155,10 @@ class ScanningInputsActivity : FragmentActivity() {
                         .fillMaxSize()
                         .focusRestorer()
                 ) {
-                    item(key = "reset_all_config_card") {
-                        ResetAllConfigCard(onClick = { showResetConfigDialog = true })
-                    }
                     items(items, key = { it.inputInfo.id }) { item ->
                         InputSourceCard(item = item, onClick = { onInputClick(item) })
                     }
                 }
-            }
-        }
-    }
-
-    @kotlin.OptIn(ExperimentalTvMaterial3Api::class)
-    @Composable
-    private fun ResetAllConfigCard(
-        onClick: () -> Unit
-    ) {
-        var isFocused by remember { mutableStateOf(false) }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(132.dp)
-                .clip(RoundedCornerShape(MidnightCyanTokens.CardCornerRadius))
-                .background(if (isFocused) Color(0xFF4A1A24) else Color(0xFF2E1218))
-                .focusCyanBorder(isFocused = isFocused)
-                .onFocusChanged { isFocused = it.isFocused }
-                .clickable(onClick = onClick)
-                .padding(18.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Clear All Channels, EPG & Config",
-                    tint = Color(0xFFFF5252),
-                    modifier = Modifier.size(28.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Color(0xFFCF6679).copy(alpha = 0.2f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = "Reset All",
-                        color = Color(0xFFFF5252),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Column {
-                Text(
-                    text = "Clear All Channels, EPG & Config",
-                    color = MidnightCyanTokens.TextPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = "Purge channels, guide & reset settings",
-                    color = MidnightCyanTokens.TextSecondary,
-                    fontSize = 12.sp
-                )
             }
         }
     }

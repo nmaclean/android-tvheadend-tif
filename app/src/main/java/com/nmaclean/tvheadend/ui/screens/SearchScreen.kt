@@ -19,9 +19,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.nmaclean.tvheadend.sync.DvrRepository
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -56,13 +54,11 @@ import com.nmaclean.tvheadend.ui.theme.focusCyanBorder
 fun SearchScreen(
     channels: List<TvhChannel>,
     currentEpg: Map<Long, EpgRepository.ChannelEpg>,
+    recordings: List<TvhRecording> = emptyList(),
     onChannelClick: (TvhChannel) -> Unit,
     onRecordingClick: (TvhRecording) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val dvrState by DvrRepository.dvrState.collectAsState()
-    val recordings = dvrState.recordings
-
     var query by remember { mutableStateOf("") }
     var searchFocused by remember { mutableStateOf(false) }
 

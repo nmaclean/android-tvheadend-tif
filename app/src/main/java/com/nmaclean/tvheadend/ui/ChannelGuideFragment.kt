@@ -27,8 +27,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-import com.nmaclean.tvheadend.sync.TifChannelObserver
-
 /**
  * Leanback Channel Grid fragment displaying channels and live EPG in a 4-column TV grid.
  */
@@ -70,7 +68,7 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
                         putExtra("channel_id", ch.id.toString())
                         putExtra("channel_name", ch.name)
                         putExtra("channel_number", ch.number)
-                        putExtra("input_id", ch.inputId)
+                        putExtra("input_id", ch.icon)
                     }
                     startActivity(intent)
                 }
@@ -79,7 +77,7 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
                         putExtra("channel_id", item.id.toString())
                         putExtra("channel_name", item.name)
                         putExtra("channel_number", item.number)
-                        putExtra("input_id", item.inputId)
+                        putExtra("input_id", item.icon)
                     }
                     startActivity(intent)
                 }
@@ -90,32 +88,21 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
         }
     }
 
-    private var tifChannelObserver: TifChannelObserver? = null
-
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val observer = TifChannelObserver(requireContext().contentResolver, "ChannelGuideFragment") {
-            loadChannels()
-        }
-        observer.register()
-        tifChannelObserver = observer
         loadChannels()
-    }
-
-    override fun onDestroyView() {
-        super.onDestroyView()
-        tifChannelObserver?.unregister()
-        tifChannelObserver = null
     }
 
     override fun onResume() {
         super.onResume()
-        loadChannels()
+        if (mAdapter.size() == 0) {
+            loadChannels()
+        }
     }
 
     private fun loadChannels() {
         val cached = ChannelRegistry.getAllChannels()
-        if (cached.isNotEmpty() && mAdapter.size() == 0) {
+        if (cached.isNotEmpty()) {
             val cardItems = cached.map { ch -> ChannelCardData(ch, "Loading program...", null) }
             mAdapter.clear()
             cardItems.forEach { mAdapter.add(it) }
@@ -167,24 +154,38 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
             }
 
             val uniqueChannels = channelList.distinctBy {
-                if (it.id > 0L) "id_${it.id}" else if (it.uuid.isNotEmpty()) it.uuid else "name_${it.name}"
+                if (it.uuid.isNotEmpty()) it.uuid else if (it.number > 0) "num_${it.number}" else "name_${it.name}"
             }.sortedWith(compareBy({ it.number }, { it.name }))
 
             // Blazingly fast single bulk query for all current EPG programs
             val nowMs = System.currentTimeMillis()
             val programsMap = EpgRepository.getAllProgramsInWindow(ctx, nowMs, nowMs + 1000L)
 
+            // Pre-load logos in background with downsampling
+            val logoMap = mutableMapOf<Long, Bitmap>()
+            val logoOptions = BitmapFactory.Options().apply { inSampleSize = 2 }
+            for (ch in uniqueChannels) {
+                try {
+                    val logoUri = TvContract.buildChannelLogoUri(ch.id)
+                    resolver.openInputStream(logoUri)?.use { input ->
+                        val bmp = BitmapFactory.decodeStream(input, null, logoOptions)
+                        if (bmp != null) {
+                            logoMap[ch.id] = bmp
+                        }
+                    }
+                } catch (ignored: Exception) {}
+            }
+
             val cardItems = uniqueChannels.map { ch ->
                 val progs = programsMap[ch.id]
                 val currentTitle = progs?.firstOrNull { nowMs in it.startTimeMs..it.endTimeMs }?.title
                     ?: "No Program Information"
-                val logoUri = if (ch.icon.isNotBlank()) ch.icon else TvContract.buildChannelLogoUri(ch.id).toString()
-                ChannelCardData(ch, currentTitle, logoUri = logoUri)
+                ChannelCardData(ch, currentTitle, logoMap[ch.id])
             }
 
             withContext(Dispatchers.Main) {
                 mAdapter.clear()
-                mAdapter.addAll(0, cardItems)
+                cardItems.forEach { mAdapter.add(it) }
             }
 
             // Background EPG sync check if database has 0 program entries
@@ -196,12 +197,11 @@ class ChannelGuideFragment : VerticalGridSupportFragment() {
                         val progs = updatedProgs[ch.id]
                         val currentTitle = progs?.firstOrNull { nowMs in it.startTimeMs..it.endTimeMs }?.title
                             ?: "No Program Information"
-                        val logoUri = if (ch.icon.isNotBlank()) ch.icon else TvContract.buildChannelLogoUri(ch.id).toString()
-                        ChannelCardData(ch, currentTitle, logoUri = logoUri)
+                        ChannelCardData(ch, currentTitle, logoMap[ch.id])
                     }
                     withContext(Dispatchers.Main) {
                         mAdapter.clear()
-                        mAdapter.addAll(0, refreshedCardItems)
+                        refreshedCardItems.forEach { mAdapter.add(it) }
                     }
                 } catch (ignored: Exception) {}
             }

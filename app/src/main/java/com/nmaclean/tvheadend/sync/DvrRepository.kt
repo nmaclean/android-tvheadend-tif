@@ -8,7 +8,6 @@ import com.nmaclean.tvheadend.model.TvhRecordingStatus
 import com.nmaclean.tvheadend.model.TvhSeriesRule
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.model.computeWatchedPercent
-import com.nmaclean.tvheadend.telemetry.PerfTrace
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -120,15 +119,6 @@ class DvrStateReducer {
  * Reactive HTSP DVR repository managing recordings, active/scheduled timers, AutoRec series rules,
  * and local resume offsets.
  */
-data class DvrState(
-    val recordings: List<TvhRecording> = emptyList(),
-    val seriesRules: List<TvhSeriesRule> = emptyList(),
-    val scheduledEventIds: Set<Long> = emptySet(),
-    val seriesTitles: Set<String> = emptySet(),
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null
-)
-
 object DvrRepository {
     private const val TAG = "DvrRepository"
     private const val RESUME_PREFS = "tvh_dvr_resume"
@@ -136,9 +126,6 @@ object DvrRepository {
 
     @Volatile
     private var lastRefreshMs = 0L
-
-    private val _dvrState = MutableStateFlow(DvrState())
-    val dvrState: StateFlow<DvrState> = _dvrState.asStateFlow()
 
     private val _recordings = MutableStateFlow<List<TvhRecording>>(emptyList())
     val recordings: StateFlow<List<TvhRecording>> = _recordings.asStateFlow()
@@ -159,10 +146,9 @@ object DvrRepository {
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
     private fun updateDerivedFlows(context: Context?, recs: List<TvhRecording>, rules: List<TvhSeriesRule>) {
-        val prefs = context?.getSharedPreferences(RESUME_PREFS, Context.MODE_PRIVATE)
-        val mergedRecs = if (prefs != null) {
+        val mergedRecs = if (context != null) {
             recs.map { rec ->
-                val localPosMs = if (rec.id > 0L) prefs.getLong("pos_${rec.id}", 0L) else 0L
+                val localPosMs = getResumePosition(context, rec.id)
                 if (localPosMs > rec.resumePositionMs && rec.stopTimeMs > rec.startTimeMs) {
                     val durationSec = (rec.stopTimeMs - rec.startTimeMs) / 1000L
                     val pct = computeWatchedPercent(rec.playCount, localPosMs / 1000L, durationSec)
@@ -173,71 +159,82 @@ object DvrRepository {
             }
         } else recs
 
-        val eventIds = mergedRecs
+        _recordings.value = mergedRecs
+        _seriesRules.value = rules
+        _scheduledEventIds.value = mergedRecs
             .filter {
                 (it.status == TvhRecordingStatus.SCHEDULED || it.status == TvhRecordingStatus.RECORDING) &&
                     it.eventId > 0L
             }
-            .mapTo(HashSet()) { it.eventId }
-
-        val titles = rules
+            .map { it.eventId }
+            .toSet()
+        _seriesTitles.value = rules
             .filter { it.enabled }
-            .mapTo(HashSet()) { it.title.trim().lowercase() }
-
-        _recordings.value = mergedRecs
-        _seriesRules.value = rules
-        _scheduledEventIds.value = eventIds
-        _seriesTitles.value = titles
-
-        _dvrState.value = DvrState(
-            recordings = mergedRecs,
-            seriesRules = rules,
-            scheduledEventIds = eventIds,
-            seriesTitles = titles,
-            isLoading = false,
-            errorMessage = null
-        )
+            .map { it.title.trim().lowercase() }
+            .filter { it.isNotEmpty() }
+            .toSet()
     }
 
     suspend fun refresh(context: Context, force: Boolean = false) = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         if (!force &&
             now - lastRefreshMs < CACHE_TTL_MS &&
-            (_dvrState.value.recordings.isNotEmpty() || _dvrState.value.seriesRules.isNotEmpty())
+            (_recordings.value.isNotEmpty() || _seriesRules.value.isNotEmpty())
         ) {
             return@withContext
         }
-        _dvrState.value = _dvrState.value.copy(isLoading = true, errorMessage = null)
+        _isLoading.value = true
+        _errorMessage.value = null
         try {
             val settings = TvhSettings(context)
             if (settings.host.isBlank()) {
-                _dvrState.value = _dvrState.value.copy(isLoading = false, errorMessage = "Tvheadend server host is not configured in Settings.")
+                _errorMessage.value = "Tvheadend server host is not configured in Settings."
                 return@withContext
             }
-            val result = PerfTrace.section("DvrRepository", "fetchDvrState") {
-                HtspConnectionPool.withClient(context, TAG) { it.fetchDvrState() }
-            }
+            val result = HtspConnectionPool.withClient(context, TAG) { it.fetchDvrState() }
             if (result != null) {
                 lastRefreshMs = System.currentTimeMillis()
-                PerfTrace.section("DvrRepository", "updateDerivedFlows") {
-                    updateDerivedFlows(context, result.first, result.second)
-                }
+                updateDerivedFlows(context, result.first, result.second)
             } else {
-                _dvrState.value = _dvrState.value.copy(isLoading = false, errorMessage = "Unable to connect to Tvheadend HTSP (${settings.host}:${settings.htspPort}).")
+                _errorMessage.value = "Unable to connect to Tvheadend HTSP (${settings.host}:${settings.htspPort})."
             }
         } finally {
-            if (_dvrState.value.isLoading) {
-                _dvrState.value = _dvrState.value.copy(isLoading = false)
-            }
+            _isLoading.value = false
         }
     }
 
     fun resolveHtspChannelId(context: Context, channel: TvhChannel): Long {
-        if (channel.id > 0L) return channel.id
         channel.uuid.toLongOrNull()?.let { if (it > 0L) return it }
         com.nmaclean.tvheadend.htsp.ChannelRegistry.getChannelByNumber(channel.number)?.let { if (it.id > 0L) return it.id }
         com.nmaclean.tvheadend.htsp.ChannelRegistry.getChannelByName(channel.name)?.let { if (it.id > 0L) return it.id }
-        return 0L
+        try {
+            val uri = android.content.ContentUris.withAppendedId(android.media.tv.TvContract.Channels.CONTENT_URI, channel.id)
+            context.contentResolver.query(
+                uri,
+                arrayOf(
+                    android.media.tv.TvContract.Channels.COLUMN_SERVICE_ID,
+                    android.media.tv.TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA
+                ),
+                null, null, null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val dataCol = cursor.getColumnIndex(android.media.tv.TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA)
+                    if (dataCol >= 0 && !cursor.isNull(dataCol)) {
+                        val bytes = cursor.getBlob(dataCol)
+                        if (bytes != null && bytes.isNotEmpty()) {
+                            val key = String(bytes, java.nio.charset.StandardCharsets.UTF_8).trim()
+                            key.toLongOrNull()?.let { if (it > 0L) return it }
+                        }
+                    }
+                    val svcCol = cursor.getColumnIndex(android.media.tv.TvContract.Channels.COLUMN_SERVICE_ID)
+                    if (svcCol >= 0 && !cursor.isNull(svcCol)) {
+                        val svcId = cursor.getLong(svcCol)
+                        if (svcId > 0L) return svcId
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+        return if (channel.id > 0L) channel.id else 0L
     }
 
     /**

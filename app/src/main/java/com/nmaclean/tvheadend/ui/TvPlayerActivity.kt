@@ -2,6 +2,8 @@ package com.nmaclean.tvheadend.ui
 
 import android.content.ComponentName
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
@@ -47,8 +49,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
@@ -65,7 +65,6 @@ import com.nmaclean.tvheadend.model.TvhRecordingStatus
 import com.nmaclean.tvheadend.model.TvhSettings
 import com.nmaclean.tvheadend.sync.DvrRepository
 import com.nmaclean.tvheadend.sync.EpgRepository
-import com.nmaclean.tvheadend.sync.TifChannelObserver
 import com.nmaclean.tvheadend.ui.components.PlayerOsdOverlay
 import com.nmaclean.tvheadend.ui.components.ProgramDetailsModal
 import com.nmaclean.tvheadend.ui.components.TrackOption
@@ -161,17 +160,10 @@ class TvPlayerActivity : FragmentActivity() {
         updateDebugOverlay()
     }
 
-    private lateinit var tifChannelObserver: TifChannelObserver
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_tv_player)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-
-        tifChannelObserver = TifChannelObserver(contentResolver, "TvPlayerActivity") {
-            loadChannels()
-        }
-        tifChannelObserver.register()
 
         HtspConnectionPool.preconnectAsync(this)
 
@@ -223,12 +215,6 @@ class TvPlayerActivity : FragmentActivity() {
 
             override fun onConnectionFailed(inputId: String) {
                 Log.e("TvPlayerActivity", "TvView onConnectionFailed: inputId=$inputId")
-                val tvInputManager = getSystemService(TV_INPUT_SERVICE) as? TvInputManager
-                val inputInfo = tvInputManager?.getTvInputInfo(inputId)
-                Log.e("TvPlayerActivity", "ConnectionFailed Diagnostic: inputId=$inputId, inputInfo found=${inputInfo != null}")
-                tvInputManager?.tvInputList?.forEach { info ->
-                    Log.e("TvPlayerActivity", "Available TIF Input: id=${info.id}, service=${info.serviceInfo.name}")
-                }
             }
 
             override fun onContentAllowed(inputId: String) {
@@ -390,6 +376,8 @@ class TvPlayerActivity : FragmentActivity() {
                                 } catch (_: Exception) {}
                             }
                         }
+                        val scheduledIds = DvrRepository.scheduledEventIds.collectAsState()
+                        val seriesTitles = DvrRepository.seriesTitles.collectAsState()
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
@@ -398,7 +386,10 @@ class TvPlayerActivity : FragmentActivity() {
                             GuideScreen(
                                 channels = guideChannelsState.value,
                                 currentEpg = guideCurrentEpgState.value,
+                                guidePrograms = guideProgramsState.value,
                                 windowStartMs = guideWindowStartState.longValue,
+                                scheduledEventIds = scheduledIds.value,
+                                seriesTitles = seriesTitles.value,
                                 onTuneChannel = { selectedChannel ->
                                     epgChannelSelected = true
                                     guideProgramModalState.value = null
@@ -406,7 +397,7 @@ class TvPlayerActivity : FragmentActivity() {
                                     tuneToSelectedChannel(selectedChannel)
                                 },
                                 onScheduleProgram = { ch, prog ->
-                                    guideProgramModalState.value = Pair(ch, prog)
+                                    guideProgramModalState.value = ch to prog
                                 },
                                 gridFocusRequester = gridFocusRequester
                             )
@@ -423,9 +414,8 @@ class TvPlayerActivity : FragmentActivity() {
                                     title = prog.title,
                                     startTimeMs = prog.startTimeMs
                                 )
-                                val dvrState by DvrRepository.dvrState.collectAsState()
-                                val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in dvrState.scheduledEventIds)
-                                val hasSeries = prog.title.trim().lowercase() in dvrState.seriesTitles
+                                val isScheduled = existing != null || (prog.eventId > 0L && prog.eventId in scheduledIds.value)
+                                val hasSeries = prog.title.trim().lowercase() in seriesTitles.value
                                 ProgramDetailsModal(
                                     channel = ch,
                                     program = prog,
@@ -512,7 +502,8 @@ class TvPlayerActivity : FragmentActivity() {
     private fun findChannelIndex(target: TvhChannel): Int {
         return channelList.indexOfFirst {
             it.id == target.id ||
-                (it.uuid.isNotEmpty() && target.uuid.isNotEmpty() && it.uuid == target.uuid)
+                (it.uuid.isNotEmpty() && it.uuid == target.uuid) ||
+                (it.number > 0 && it.number == target.number)
         }
     }
 
@@ -530,55 +521,14 @@ class TvPlayerActivity : FragmentActivity() {
                 playCurrentChannel()
             }
         } else if (selectedChannel.id > 0L) {
-            val inputId = resolveInputIdForChannel(selectedChannel.id, selectedChannel.inputId)
+            val tifInputId = TvContract.buildInputId(ComponentName(this, TvheadendInputService::class.java))
+            val inputId = if (selectedChannel.inputId.isNotEmpty() && selectedChannel.inputId.contains("/")) selectedChannel.inputId else tifInputId
             currentlyTunedChannelId = selectedChannel.id
             currentlyTunedStreamKey = selectedChannel.uuid.ifEmpty { selectedChannel.id.toString() }
             isTuningState.value = true
             tvView.tune(inputId, TvContract.buildChannelUri(selectedChannel.id))
             showTopOsdBanner(selectedChannel)
         }
-    }
-
-    private fun resolveInputIdForChannel(channelId: Long, fallbackInputId: String = ""): String {
-        val tvInputManager = getSystemService(TV_INPUT_SERVICE) as? TvInputManager
-        val availableInputs = tvInputManager?.tvInputList ?: emptyList()
-
-        if (fallbackInputId.isNotEmpty()) {
-            val matched = availableInputs.firstOrNull { it.id == fallbackInputId }
-            if (matched != null) return matched.id
-        }
-
-        var foundInputId = ""
-        if (channelId > 0L) {
-            try {
-                contentResolver.query(
-                    TvContract.buildChannelUri(channelId),
-                    arrayOf(TvContract.Channels.COLUMN_INPUT_ID),
-                    null, null, null
-                )?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        val col = cursor.getColumnIndex(TvContract.Channels.COLUMN_INPUT_ID)
-                        if (col >= 0) {
-                            foundInputId = cursor.getString(col) ?: ""
-                        }
-                    }
-                }
-            } catch (_: Throwable) {}
-        }
-
-        if (foundInputId.isNotEmpty()) {
-            val matched = availableInputs.firstOrNull { it.id == foundInputId }
-            if (matched != null) return matched.id
-        }
-
-        val isIptv = fallbackInputId.contains("IptvTvInputService") || foundInputId.contains("IptvTvInputService")
-        val targetClass = if (isIptv) com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java.name else TvheadendInputService::class.java.name
-        val matchedByClass = availableInputs.firstOrNull { it.serviceInfo.name == targetClass || it.id.endsWith(targetClass) }
-        if (matchedByClass != null) return matchedByClass.id
-
-        return try {
-            TvContract.buildInputId(ComponentName(this, if (isIptv) com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java else TvheadendInputService::class.java))
-        } catch (_: Exception) { "" }
     }
 
     private fun handleTuneIntent(intent: Intent?) {
@@ -599,7 +549,8 @@ class TvPlayerActivity : FragmentActivity() {
 
         val idLong = channelId.toLongOrNull()
         if (idLong != null && idLong > 0L) {
-            val targetInputId = resolveInputIdForChannel(idLong, channelInputId)
+            val tifInputId = TvContract.buildInputId(ComponentName(this, TvheadendInputService::class.java))
+            val targetInputId = if (channelInputId.contains("/")) channelInputId else tifInputId
             val logoUri = TvContract.buildChannelLogoUri(idLong).toString()
             val initialChannel = TvhChannel(idLong, channelUuid, channelName, channelNum, logoUri, targetInputId)
             val streamKey = if (initialChannel.uuid.isNotEmpty()) initialChannel.uuid else initialChannel.id.toString()
@@ -639,10 +590,10 @@ class TvPlayerActivity : FragmentActivity() {
     }
 
     private fun loadChannels(
-        initialId: String = "",
-        initialUuid: String = "",
-        initialName: String = "",
-        initialNum: Int = 1,
+        initialId: String,
+        initialUuid: String,
+        initialName: String,
+        initialNum: Int,
         openEpg: Boolean = false
     ) {
         val cachedChannels = ChannelRegistry.getAllChannels()
@@ -656,11 +607,9 @@ class TvPlayerActivity : FragmentActivity() {
             channelList.addAll(mappedCached)
             currentChannelIndex = channelList.indexOfFirst {
                 it.id.toString() == initialId ||
-                    (initialUuid.isNotEmpty() && (it.uuid == initialUuid || it.id.toString() == initialUuid)) ||
-                    it.uuid == initialId
-            }
-            if (currentChannelIndex == -1 && initialNum > 0) {
-                currentChannelIndex = channelList.indexOfFirst { it.number == initialNum }
+                    (initialUuid.isNotEmpty() && it.uuid == initialUuid) ||
+                    it.uuid == initialId ||
+                    it.number == initialNum
             }
             if (currentChannelIndex == -1) currentChannelIndex = 0
             if (!openEpg && currentlyTunedChannelId == null && channelList.isNotEmpty()) {
@@ -696,15 +645,12 @@ class TvPlayerActivity : FragmentActivity() {
                     val inputIdCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INPUT_ID)
                     val dataCol = cursor.getColumnIndex(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_DATA)
 
-                    var rowIndex = 1
                     while (cursor.moveToNext()) {
                         val dbId = cursor.getLong(dbIdCol)
-                        val parsedNum = cursor.getString(numCol)?.toIntOrNull()
-                        val num = if (parsedNum != null && parsedNum > 0) parsedNum else rowIndex
-                        rowIndex++
+                        val num = cursor.getString(numCol)?.toIntOrNull() ?: 1
                         val name = cursor.getString(nameCol) ?: "Channel"
                         val serviceId = if (serviceIdCol >= 0) cursor.getLong(serviceIdCol) else dbId
-                        val chInputId = if (inputIdCol >= 0) cursor.getString(inputIdCol) ?: tifInputId else tifInputId
+                        val inputId = if (inputIdCol >= 0) cursor.getString(inputIdCol) ?: tifInputId else tifInputId
 
                         val streamKey = if (dataCol >= 0) {
                             val bytes = cursor.getBlob(dataCol)
@@ -712,42 +658,35 @@ class TvPlayerActivity : FragmentActivity() {
                         } else serviceId.toString()
 
                         val logoUri = TvContract.buildChannelLogoUri(dbId).toString()
-                        loadedChannels.add(TvhChannel(dbId, streamKey, name, num, logoUri, chInputId))
+                        loadedChannels.add(TvhChannel(dbId, streamKey, name, num, logoUri, inputId))
                     }
                 }
 
-                val uniqueChannels = loadedChannels.distinctBy { ch ->
-                    if (ch.id > 0L) "id_${ch.id}" else if (ch.uuid.isNotEmpty()) ch.uuid else "name_${ch.name}"
+                val uniqueChannels = loadedChannels.distinctBy {
+                    if (it.uuid.isNotEmpty()) it.uuid else if (it.number > 0) "num_${it.number}" else "name_${it.name}"
                 }.sortedWith(compareBy({ it.number }, { it.name }))
 
-                ChannelRegistry.updateChannels(uniqueChannels)
+                if (uniqueChannels.isNotEmpty()) {
+                    ChannelRegistry.updateChannels(uniqueChannels)
+                }
 
                 withContext(Dispatchers.Main) {
-                    channelList.clear()
                     if (uniqueChannels.isNotEmpty()) {
+                        channelList.clear()
                         channelList.addAll(uniqueChannels)
                         currentChannelIndex = channelList.indexOfFirst {
                             it.id.toString() == initialId ||
-                                (initialUuid.isNotEmpty() && (it.uuid == initialUuid || it.id.toString() == initialUuid)) ||
-                                it.uuid == initialId
-                        }
-                        if (currentChannelIndex == -1 && initialNum > 0) {
-                            currentChannelIndex = channelList.indexOfFirst { it.number == initialNum }
+                                (initialUuid.isNotEmpty() && it.uuid == initialUuid) ||
+                                it.uuid == initialId ||
+                                it.number == initialNum
                         }
                         if (currentChannelIndex == -1) currentChannelIndex = 0
-                    } else {
-                        currentChannelIndex = 0
                     }
                     val resolvedChannel = channelList.getOrNull(currentChannelIndex)
                     if (!openEpg && resolvedChannel != null) {
                         if (currentlyTunedChannelId == null || currentlyTunedChannelId != resolvedChannel.id) {
                             playCurrentChannel()
                         }
-                    } else if (resolvedChannel == null) {
-                        releasePlayer()
-                        osdChannelState.value = null
-                        osdAdjacentChannelsState.value = emptyList()
-                        topOsdBanner.visibility = View.GONE
                     }
 
                     if (openEpg && supportFragmentManager.findFragmentByTag("epg_timeline") == null) {
@@ -764,7 +703,8 @@ class TvPlayerActivity : FragmentActivity() {
         if (channelList.isEmpty()) return
         val channel = channelList[currentChannelIndex]
 
-        val inputId = resolveInputIdForChannel(channel.id, channel.inputId)
+        val tifInputId = TvContract.buildInputId(ComponentName(this, TvheadendInputService::class.java))
+        val inputId = if (channel.inputId.isNotEmpty() && channel.inputId.contains("/")) channel.inputId else tifInputId
 
         playerView.visibility = View.GONE
         tvView.visibility = View.VISIBLE
@@ -842,6 +782,55 @@ class TvPlayerActivity : FragmentActivity() {
 
     private fun showTopOsdBanner(channel: TvhChannel) {
         showComposeOsdOverlay(channel)
+        return
+        osdChannelNum.text = channel.number.toString()
+        osdChannelName.text = channel.name
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val epg = EpgRepository.getCurrentAndNextProgram(this@TvPlayerActivity, channel.id)
+            val currentProg = epg.currentProgram
+
+            var logoBitmap: Bitmap? = null
+            try {
+                val logoUri = TvContract.buildChannelLogoUri(channel.id)
+                contentResolver.openInputStream(logoUri)?.use { input ->
+                    logoBitmap = BitmapFactory.decodeStream(input)
+                }
+            } catch (ignored: Exception) {}
+
+            withContext(Dispatchers.Main) {
+                if (currentProg != null) {
+                    osdProgramTitle.text = currentProg.title
+                    val startStr = timeFormat.format(Date(currentProg.startTimeMs))
+                    val endStr = timeFormat.format(Date(currentProg.endTimeMs))
+                    val nowMs = System.currentTimeMillis()
+                    val remainingMins = ((currentProg.endTimeMs - nowMs) / 60000).coerceAtLeast(0)
+                    osdProgramTime.text = "$startStr - $endStr (${remainingMins}m left)"
+                    osdProgramProgress.progress = currentProg.progressPercent
+                    osdProgramProgress.visibility = View.VISIBLE
+                    osdProgramDescription.text = currentProg.summary ?: ""
+                    osdProgramDescription.visibility = if (currentProg.summary.isNullOrEmpty()) View.GONE else View.VISIBLE
+                } else {
+                    osdProgramTitle.text = "No Program Information"
+                    osdProgramTime.text = ""
+                    osdProgramProgress.visibility = View.GONE
+                    osdProgramDescription.visibility = View.GONE
+                }
+
+                if (logoBitmap != null) {
+                    osdChannelLogo.setImageBitmap(logoBitmap)
+                    osdChannelLogo.visibility = View.VISIBLE
+                } else {
+                    osdChannelLogo.visibility = View.GONE
+                }
+            }
+        }
+
+        topOsdBanner.visibility = View.VISIBLE
+        updateTrackButtons()
+
+        osdHandler.removeCallbacks(hideOsdRunnable)
+        osdHandler.postDelayed(hideOsdRunnable, 6000)
     }
 
     private fun updateTrackButtons() {
@@ -1229,11 +1218,11 @@ class TvPlayerActivity : FragmentActivity() {
 
         when (keyCode) {
             KeyEvent.KEYCODE_CAPTIONS -> {
-                showAudioOrSubtitlePicker()
+                showTrackSelectionDialog(TvTrackInfo.TYPE_SUBTITLE)
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_AUDIO_TRACK -> {
-                showAudioOrSubtitlePicker()
+                showTrackSelectionDialog(TvTrackInfo.TYPE_AUDIO)
                 return true
             }
             KeyEvent.KEYCODE_CHANNEL_UP -> {
@@ -1253,47 +1242,24 @@ class TvPlayerActivity : FragmentActivity() {
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
-                val currentCh = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
-                val caps = com.nmaclean.tvheadend.model.ChannelCapabilitiesResolver.resolve(currentCh)
-                if (!caps.canPause) {
-                    Toast.makeText(this, "Live stream cannot be paused on this channel", Toast.LENGTH_SHORT).show()
-                } else {
-                    toggleLivePause()
-                }
+                toggleLivePause()
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PAUSE -> {
-                val currentCh = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
-                val caps = com.nmaclean.tvheadend.model.ChannelCapabilitiesResolver.resolve(currentCh)
-                if (!caps.canPause) {
-                    Toast.makeText(this, "Live stream cannot be paused on this channel", Toast.LENGTH_SHORT).show()
-                } else {
-                    setLivePaused(true)
-                }
+                setLivePaused(true)
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_PLAY -> {
-                val currentCh = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
-                val caps = com.nmaclean.tvheadend.model.ChannelCapabilitiesResolver.resolve(currentCh)
-                if (!caps.canPause) {
-                    Toast.makeText(this, "Live stream cannot be paused on this channel", Toast.LENGTH_SHORT).show()
-                } else {
-                    setLivePaused(false)
-                }
+                setLivePaused(false)
                 return true
             }
             KeyEvent.KEYCODE_MEDIA_RECORD -> {
                 val ch = osdChannelState.value ?: channelList.getOrNull(currentChannelIndex)
-                val caps = com.nmaclean.tvheadend.model.ChannelCapabilitiesResolver.resolve(ch)
-                if (!caps.canRecord) {
-                    Toast.makeText(this, "DVR recording is not supported on this IPTV channel", Toast.LENGTH_SHORT).show()
-                } else {
-                    val htspChId = ch?.let { DvrRepository.resolveHtspChannelId(this, it) } ?: 0L
-                    val existing = DvrRepository.recordings.value.firstOrNull {
-                        it.channelId == htspChId && it.status == TvhRecordingStatus.RECORDING
-                    }
-                    toggleChannelRecording(ch, existing)
+                val htspChId = ch?.let { DvrRepository.resolveHtspChannelId(this, it) } ?: 0L
+                val existing = DvrRepository.recordings.value.firstOrNull {
+                    it.channelId == htspChId && it.status == TvhRecordingStatus.RECORDING
                 }
+                toggleChannelRecording(ch, existing)
                 return true
             }
             KeyEvent.KEYCODE_GUIDE, KeyEvent.KEYCODE_DPAD_RIGHT -> {
@@ -1369,25 +1335,10 @@ class TvPlayerActivity : FragmentActivity() {
         numberEntryRunnable?.let { osdHandler.removeCallbacks(it) }
         numberEntryRunnable = null
         val targetNumber = channelNumberEntryState.value.toIntOrNull()
-        val rawEntry = channelNumberEntryState.value.trim()
         channelNumberEntryState.value = ""
-        if (targetNumber != null && channelList.isNotEmpty()) {
-            var idx = channelList.indexOfFirst { it.number == targetNumber }
-
-            if (idx == -1) {
-                idx = channelList.indexOfFirst { ch ->
-                    ch.number.toString() == rawEntry ||
-                        ch.uuid == rawEntry ||
-                        ch.name.startsWith("$rawEntry ") ||
-                        ch.name.equals(rawEntry, ignoreCase = true)
-                }
-            }
-
-            if (idx == -1 && targetNumber > 0 && targetNumber <= channelList.size) {
-                idx = targetNumber - 1
-            }
-
-            if (idx >= 0 && idx < channelList.size) {
+        if (targetNumber != null) {
+            val idx = channelList.indexOfFirst { it.number == targetNumber }
+            if (idx >= 0) {
                 currentChannelIndex = idx
                 playCurrentChannel()
             } else {
@@ -1426,9 +1377,6 @@ class TvPlayerActivity : FragmentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (::tifChannelObserver.isInitialized) {
-            tifChannelObserver.unregister()
-        }
         releasePlayer()
     }
 

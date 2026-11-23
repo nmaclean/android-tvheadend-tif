@@ -1,7 +1,5 @@
 package com.nmaclean.tvheadend.ui.components
 
-import android.os.SystemClock
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.fadeIn
@@ -73,48 +71,42 @@ fun TvhNavigationRail(
         label = "railWidth"
     )
 
-    Box(
+    Column(
         modifier = modifier
-            .width(MidnightCyanTokens.RailCollapsedWidth)
+            .width(width)
             .fillMaxHeight()
+            .background(MidnightCyanTokens.RailBg)
+            .onFocusChanged { railHasFocus = it.hasFocus }
+            .padding(vertical = MidnightCyanTokens.OverscanVertical, horizontal = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
         Column(
-            modifier = Modifier
-                .width(width)
-                .fillMaxHeight()
-                .background(MidnightCyanTokens.RailBg)
-                .onFocusChanged { railHasFocus = it.hasFocus }
-                .padding(vertical = MidnightCyanTokens.OverscanVertical, horizontal = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                listOf(
-                    TvhNavDestination.SEARCH,
-                    TvhNavDestination.LIVE_TV,
-                    TvhNavDestination.GUIDE,
-                    TvhNavDestination.RECORDINGS
-                ).forEach { destination ->
-                    RailNavItem(
-                        destination = destination,
-                        selected = selectedDestination == destination,
-                        expanded = railHasFocus,
-                        onClick = { onSelectDestination(destination) }
-                    )
-                }
+            listOf(
+                TvhNavDestination.SEARCH,
+                TvhNavDestination.LIVE_TV,
+                TvhNavDestination.GUIDE,
+                TvhNavDestination.RECORDINGS
+            ).forEach { destination ->
+                RailNavItem(
+                    destination = destination,
+                    selected = selectedDestination == destination,
+                    expanded = railHasFocus,
+                    onClick = { onSelectDestination(destination) }
+                )
             }
-
-            RailNavItem(
-                destination = TvhNavDestination.SETTINGS,
-                selected = selectedDestination == TvhNavDestination.SETTINGS,
-                expanded = railHasFocus,
-                onClick = { onSelectDestination(TvhNavDestination.SETTINGS) }
-            )
         }
+
+        RailNavItem(
+            destination = TvhNavDestination.SETTINGS,
+            selected = selectedDestination == TvhNavDestination.SETTINGS,
+            expanded = railHasFocus,
+            onClick = { onSelectDestination(TvhNavDestination.SETTINGS) }
+        )
     }
 }
 
@@ -146,14 +138,7 @@ private fun RailNavItem(
             .clip(shape)
             .background(pillColor)
             .focusCyanBorder(isFocused = itemFocused, cornerRadius = 12.dp)
-            .onFocusChanged { state ->
-                val tFocus = SystemClock.elapsedRealtime()
-                itemFocused = state.isFocused
-                val focusMs = SystemClock.elapsedRealtime() - tFocus
-                if (focusMs > 16L) {
-                    Log.d("PERF_TRACE", "RailNavItem.onFocusChanged (${destination.label}) took ${focusMs}ms")
-                }
-            }
+            .onFocusChanged { itemFocused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,

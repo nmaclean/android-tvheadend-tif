@@ -18,9 +18,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import com.nmaclean.tvheadend.sync.DvrRepository
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,17 +54,16 @@ import java.util.Locale
 @OptIn(ExperimentalComposeUiApi::class, ExperimentalTvMaterial3Api::class)
 @Composable
 fun RecordingsScreen(
+    recordings: List<TvhRecording>,
+    seriesRules: List<TvhSeriesRule>,
+    isLoading: Boolean,
+    errorMessage: String? = null,
     onRetry: () -> Unit = {},
     onPlayRecording: (TvhRecording) -> Unit,
     onCancelScheduled: (TvhRecording) -> Unit,
     onSeriesRuleClick: (TvhSeriesRule) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dvrState by DvrRepository.dvrState.collectAsState()
-    val recordings = dvrState.recordings
-    val seriesRules = dvrState.seriesRules
-    val isLoading = dvrState.isLoading
-    val errorMessage = dvrState.errorMessage
     val recordedItems = remember(recordings) {
         recordings.filter { it.status == TvhRecordingStatus.RECORDED || it.status == TvhRecordingStatus.RECORDING }
     }
@@ -146,11 +143,7 @@ fun RecordingsScreen(
                             .fillMaxSize()
                             .focusRestorer()
                     ) {
-                        items(
-                            items = recordedItems,
-                            key = { it.id },
-                            contentType = { "recording_card" }
-                        ) { rec ->
+                        items(recordedItems, key = { it.id }) { rec ->
                             val dateStr = if (rec.startTimeMs > 0L) dateFormat.format(Date(rec.startTimeMs)) else ""
                             val watchedBadge = if (rec.watchedPercent > 0) "WATCHED ${rec.watchedPercent}%" else null
                             TvhMediaCard(
@@ -180,11 +173,7 @@ fun RecordingsScreen(
                             .fillMaxSize()
                             .focusRestorer()
                     ) {
-                        items(
-                            items = scheduledItems,
-                            key = { it.id },
-                            contentType = { "scheduled_timer_card" }
-                        ) { rec ->
+                        items(scheduledItems, key = { it.id }) { rec ->
                             val dateStr = if (rec.startTimeMs > 0L) dateFormat.format(Date(rec.startTimeMs)) else ""
                             val timeStr = TvhUiRepository.formatTimeRange(rec.startTimeMs, rec.stopTimeMs)
                             val isActive = rec.status == TvhRecordingStatus.RECORDING

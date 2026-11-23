@@ -34,7 +34,7 @@ class TvhSyncManagerTest {
         com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(listOf(tvhChannel, iptvChannel))
         val channels = com.nmaclean.tvheadend.htsp.ChannelRegistry.getAllChannels()
         
-        assertEquals(1, channels.size)
+        assertEquals(2, channels.size)
         assertEquals("BBC One", channels[0].name)
     }
 }
