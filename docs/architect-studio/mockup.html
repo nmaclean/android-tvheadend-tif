@@ -1,0 +1,1758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>android-tvheadend-tif — 10ft TV UX Mockup</title>
+<style>
+:root {
+  --bg: #080c14;
+  --tv-canvas: #0d1320;
+  --surface: #131b2e;
+  --surface-2: #19243d;
+  --surface-3: #202e4d;
+  --border: #2a3b5e;
+  --border-subtle: #1d2942;
+  --text: #eef3fb;
+  --text-muted: #96a8c7;
+  --text-dim: #687a9c;
+  --focus: #38bdf8;
+  --focus-glow: rgba(56, 189, 248, 0.28);
+  --ok: #34d399;
+  --ok-bg: rgba(52, 211, 153, 0.14);
+  --warn: #fbbf24;
+  --warn-bg: rgba(251, 191, 36, 0.14);
+  --err: #f87171;
+  --err-bg: rgba(248, 113, 113, 0.14);
+  --accent: #60a5fa;
+  --accent-bg: rgba(96, 165, 250, 0.15);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+}
+
+body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 16:9 10-foot TV Stage */
+.tv-stage {
+  width: 100%;
+  max-width: 1520px;
+  aspect-ratio: 16 / 9;
+  min-height: 760px;
+  background: var(--tv-canvas);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.72);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Overscan-safe TV padding */
+.tv-topbar {
+  height: 68px;
+  padding: 0 36px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.app-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.badge-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.badge-formfactor {
+  border-color: var(--focus);
+  color: var(--focus);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.status-pill {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.status-nominal {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: rgba(52, 211, 153, 0.35);
+}
+
+.status-syncing {
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+.status-error {
+  color: var(--err);
+  background: var(--err-bg);
+  border-color: rgba(248, 113, 113, 0.35);
+}
+
+.status-empty {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: rgba(251, 191, 36, 0.35);
+}
+
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.state-switcher {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg);
+  padding: 3px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+
+.state-btn {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.state-btn.active {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+/* Focus & Hover for 10ft D-pad / Remote */
+button, input, select {
+  font-family: inherit;
+}
+
+.tv-control {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+
+.tv-control:hover {
+  border-color: var(--text-muted);
+  background: var(--surface-3);
+}
+
+.tv-control:focus-visible,
+.tv-control.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: scale(1.03);
+}
+
+.tv-control.primary {
+  background: #1d4ed8;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+.tv-control.primary:hover,
+.tv-control.primary.dpad-focused {
+  background: #2563eb;
+  border-color: var(--focus);
+}
+
+/* Main 10ft Shell: Navigation Rail + Content Canvas */
+.tv-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  padding: 20px 36px 28px 36px;
+  gap: 24px;
+}
+
+.nav-rail {
+  width: 224px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rail-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+}
+
+.nav-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all 0.12s ease;
+}
+
+.nav-item:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--surface-2);
+  color: var(--text);
+  border-color: rgba(96, 165, 250, 0.45);
+}
+
+.nav-item:focus-visible,
+.nav-item.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  color: #ffffff;
+  transform: scale(1.02);
+}
+
+.nav-count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+}
+
+.rail-footer {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dpad-hint {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.45;
+  padding: 0 4px;
+}
+
+/* Workspace Canvas */
+.workspace {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.screen-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.screen-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.screen-sub {
+  margin: 2px 0 0 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.filter-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pill-btn {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.pill-btn.active {
+  background: var(--surface-3);
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.pill-btn:hover {
+  color: var(--text);
+  border-color: var(--text-muted);
+}
+
+.pill-btn:focus-visible,
+.pill-btn.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+/* Live TV Layout */
+.live-grid {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr;
+  gap: 20px;
+  min-height: 0;
+  flex: 1;
+}
+
+.player-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.video-viewport {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background: #04070d;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+}
+
+.signal-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 18px;
+}
+
+.signal-bar {
+  width: 4px;
+  background: var(--ok);
+  border-radius: 2px;
+}
+
+.osd-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 2;
+}
+
+.osd-center {
+  text-align: center;
+  z-index: 2;
+}
+
+.now-playing-ch {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.now-playing-prog {
+  font-size: 16px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.osd-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(8, 12, 20, 0.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  z-index: 2;
+}
+
+.osd-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.channel-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.channel-card {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: all 0.12s ease;
+}
+
+.channel-card:hover {
+  background: var(--surface-3);
+  border-color: var(--text-muted);
+}
+
+.channel-card.selected {
+  border-color: var(--accent);
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.channel-card:focus-visible,
+.channel-card.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: scale(1.015);
+}
+
+.ch-num {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 44px;
+}
+
+.ch-name {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ch-meta {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Guide Grid */
+.guide-board {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guide-row {
+  display: grid;
+  grid-template-columns: 185px repeat(3, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.guide-ch-cell {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.prog-slot {
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 11px 13px;
+  text-align: left;
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  transition: all 0.12s ease;
+}
+
+.prog-slot:hover {
+  background: var(--surface-3);
+  border-color: var(--text-muted);
+}
+
+.prog-slot:focus-visible,
+.prog-slot.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: scale(1.02);
+}
+
+.prog-title {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.prog-time {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Recordings Grid */
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+}
+
+.media-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition: all 0.12s ease;
+}
+
+.media-card:hover {
+  background: var(--surface-2);
+  border-color: var(--text-muted);
+}
+
+.media-card:focus-visible,
+.media-card.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+  transform: scale(1.02);
+}
+
+.card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.card-title {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.card-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 6px 0 0 0;
+}
+
+.card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* Search & Settings Panels */
+.search-bar-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.tv-input {
+  flex: 1;
+  background: var(--surface);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 16px;
+}
+
+.tv-input:focus-visible,
+.tv-input.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.panel-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.panel-heading {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.setting-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.setting-sub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* State Banner (Loading / Error / Empty) */
+.state-banner {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 28px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 260px;
+}
+
+.state-banner.error {
+  border-color: rgba(248, 113, 113, 0.5);
+  background: rgba(248, 113, 113, 0.06);
+}
+
+.state-banner.empty {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 36px;
+  background: var(--surface-3);
+  color: var(--text);
+  border: 1.5px solid var(--focus);
+  border-radius: var(--radius-sm);
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65);
+  z-index: 60;
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Modal & Slide-over Drawer */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 7, 13, 0.78);
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 50;
+}
+
+.backdrop.open {
+  display: flex;
+}
+
+.backdrop.center-modal {
+  justify-content: center;
+}
+
+.drawer {
+  width: 440px;
+  max-width: 92vw;
+  height: 100%;
+  background: var(--surface);
+  border-left: 1.5px solid var(--border);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+}
+
+.modal-card {
+  width: 540px;
+  max-width: 92vw;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-btn {
+  width: 100%;
+  text-align: left;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.option-btn.selected {
+  border-color: var(--ok);
+  background: var(--ok-bg);
+}
+
+.option-btn:focus-visible,
+.option-btn.dpad-focused {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+</style>
+</head>
+<body>
+<div class="tv-stage" id="tvStage">
+  <header class="tv-topbar">
+    <div class="brand-group">
+      <span class="app-title">android-tvheadend-tif</span>
+      <span class="badge-pill badge-formfactor">TV · 10-Foot</span>
+      <span class="badge-pill mono" id="backendBadge">HTSP · 192.168.1.40:9982</span>
+      <span class="status-pill status-nominal" id="statePill">NOMINAL</span>
+    </div>
+    <div class="topbar-controls">
+      <div class="state-switcher" role="group" aria-label="Simulate UI State">
+        <button type="button" class="state-btn active" data-sim-state="nominal">nominal</button>
+        <button type="button" class="state-btn" data-sim-state="syncing">syncing</button>
+        <button type="button" class="state-btn" data-sim-state="error">error</button>
+        <button type="button" class="state-btn" data-sim-state="empty">empty</button>
+      </div>
+      <button type="button" class="tv-control" id="openCurationDrawerBtn">LAN Curation</button>
+    </div>
+  </header>
+
+  <div class="tv-body">
+    <nav class="nav-rail" aria-label="10ft Primary Navigation">
+      <div class="rail-label">10ft Surfaces</div>
+      <button type="button" class="nav-item active" data-dest="live">
+        <span>Live TV</span>
+        <span class="nav-count" id="liveCount">4</span>
+      </button>
+      <button type="button" class="nav-item" data-dest="guide">
+        <span>Guide / EPG</span>
+        <span class="nav-count">12</span>
+      </button>
+      <button type="button" class="nav-item" data-dest="recordings">
+        <span>Recordings</span>
+        <span class="nav-count" id="recCount">3</span>
+      </button>
+      <button type="button" class="nav-item" data-dest="search">
+        <span>Search</span>
+        <span class="nav-count">TIF</span>
+      </button>
+      <button type="button" class="nav-item" data-dest="settings">
+        <span>Inputs &amp; AFR</span>
+        <span class="nav-count" id="afrBadge">AUTO</span>
+      </button>
+
+      <div class="rail-footer">
+        <button type="button" class="tv-control" id="stepDpadBtn">Step D-Pad Focus</button>
+        <div class="dpad-hint">Use Arrow keys + Enter/Esc or click controls directly.</div>
+      </div>
+    </nav>
+
+    <main class="workspace" id="workspace"></main>
+  </div>
+</div>
+
+<!-- Slide-over LAN Curation Drawer -->
+<div class="backdrop" id="curationBackdrop" aria-hidden="true">
+  <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="curationTitle">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2 class="modal-title" id="curationTitle">LAN Curation Server</h2>
+      <button type="button" class="tv-control" id="closeCurationBtn">Close</button>
+    </div>
+    <p class="screen-sub mono">Endpoint: http://192.168.1.55:8088/curate</p>
+    <div class="setting-row">
+      <div>
+        <div class="setting-title">Server Listener</div>
+        <div class="setting-sub">LanCurationServer · LAN Subnet Only</div>
+      </div>
+      <button type="button" class="tv-control primary" id="toggleCurationServerBtn">Active</button>
+    </div>
+    <div>
+      <div class="rail-label" style="padding-left:0;">Channel Allowlist Toggles</div>
+      <div class="option-list" id="allowlistContainer"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="tv-control primary" id="syncAllowlistBtn">Sync to TIF</button>
+    </div>
+  </aside>
+</div>
+
+<!-- Center Action Modal (Tracks / Program / Tune Error) -->
+<div class="backdrop center-modal" id="modalBackdrop" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" id="modalCard"></div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function () {
+  const state = {
+    dest: "live",
+    simState: "nominal",
+    sourceFilter: "ALL",
+    selectedChannelId: "ch-1",
+    searchQuery: "",
+    afrMode: "AUTO_SEAMLESS",
+    dvrFilter: "ALL",
+    curationRunning: true,
+    channels: [
+      {
+        id: "ch-1",
+        num: "101",
+        name: "BBC One HD",
+        source: "HTSP",
+        program: "Evening News & Regional Weather",
+        timeSlot: "20:00 – 21:00",
+        resolution: "1080p50 · MP2/AAC",
+        allowed: true,
+        audioTracks: ["English (MP2 2.0)", "Audio Described (ENG)"],
+        subtitles: ["Off", "Subtitles ENG"]
+      },
+      {
+        id: "ch-2",
+        num: "102",
+        name: "BBC Two HD",
+        source: "HTSP",
+        program: "Coast & Fjord Engineering",
+        timeSlot: "20:00 – 21:00",
+        resolution: "1080p50 · H.264",
+        allowed: true,
+        audioTracks: ["English (AC3 5.1)", "English (MP2 2.0)"],
+        subtitles: ["Off", "Subtitles ENG"]
+      },
+      {
+        id: "ch-3",
+        num: "204",
+        name: "LAN Live Feed 04",
+        source: "IPTV",
+        program: "Homelab Camera & Telemetry Mux",
+        timeSlot: "Live Stream",
+        resolution: "1080p60 · HLS/TS",
+        allowed: true,
+        audioTracks: ["Stereo PCM"],
+        subtitles: ["Off"]
+      },
+      {
+        id: "ch-4",
+        num: "309",
+        name: "Nordic Rail & Fjord",
+        source: "IPTV",
+        program: "Flåm Line Scenic Replay",
+        timeSlot: "Continuous Loop",
+        resolution: "1080p25 · H.264",
+        allowed: false,
+        audioTracks: ["Ambient Stereo"],
+        subtitles: ["Off", "Norwegian / English"]
+      }
+    ],
+    recordings: [
+      {
+        id: "rec-1",
+        title: "Match of the Day Highlights",
+        channel: "BBC One HD",
+        duration: "58 min",
+        size: "2.4 GB",
+        status: "COMPLETED",
+        summary: "Weekend fixture round-up and post-match analysis recorded via Tvheadend DVR."
+      },
+      {
+        id: "rec-2",
+        title: "Architecture of Northern Bridges",
+        channel: "BBC Two HD",
+        duration: "60 min",
+        size: "2.1 GB",
+        status: "COMPLETED",
+        summary: "Structural design documentary covering long-span crossings and wind-load testing."
+      },
+      {
+        id: "rec-3",
+        title: "Late Night Scottish Premiership Wrap",
+        channel: "BBC One HD",
+        duration: "45 min (Scheduled)",
+        size: "—",
+        status: "SCHEDULED",
+        summary: "Scheduled DVR recording starting at 22:30 on Tuner 0."
+      }
+    ],
+    inputs: [
+      { name: "Tvheadend HTSP Tuner Mux", protocol: "HTSP · 192.168.1.40:9982", status: "Connected", enabled: true },
+      { name: "IPTV M3U + XMLTV Pipeline", protocol: "StreamingM3uParser · TIF", status: "Synced", enabled: true },
+      { name: "GitHub Release Updater", protocol: "GitHubUpdateManager · v1.4.2", status: "Up to date", enabled: true }
+    ]
+  };
+
+  const workspace = document.getElementById("workspace");
+  const statePill = document.getElementById("statePill");
+  const toastEl = document.getElementById("toast");
+  const curationBackdrop = document.getElementById("curationBackdrop");
+  const modalBackdrop = document.getElementById("modalBackdrop");
+  const modalCard = document.getElementById("modalCard");
+
+  let toastTimer = null;
+  let dpadIndex = -1;
+
+  function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("visible");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("visible"), 2600);
+  }
+
+  function setSimState(newState) {
+    state.simState = newState;
+    document.querySelectorAll(".state-btn").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.simState === newState);
+    });
+    statePill.className = "status-pill status-" + newState;
+    const labels = {
+      nominal: "NOMINAL",
+      syncing: "SYNCING · TvhSyncWorker",
+      error: "ERROR · HTSP Timeout",
+      empty: "EMPTY · 0 Matched"
+    };
+    statePill.textContent = labels[newState] || newState.toUpperCase();
+    render();
+  }
+
+  function getSelectedChannel() {
+    return state.channels.find((c) => c.id === state.selectedChannelId) || state.channels[0];
+  }
+
+  function getFilteredChannels() {
+    return state.channels.filter((ch) => {
+      if (state.sourceFilter !== "ALL" && ch.source !== state.sourceFilter) return false;
+      if (state.searchQuery.trim()) {
+        const q = state.searchQuery.toLowerCase();
+        return (
+          ch.name.toLowerCase().includes(q) ||
+          ch.num.toLowerCase().includes(q) ||
+          ch.program.toLowerCase().includes(q) ||
+          ch.source.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }
+
+  function renderStateBannerIfNeeded() {
+    if (state.simState === "syncing") {
+      workspace.innerHTML = `
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">Synchronizing Tvheadend &amp; TIF Channels</h1>
+            <p class="screen-sub mono">TvhSyncManager · TifAllowlistSyncer · IptvEpgSyncWorker</p>
+          </div>
+        </div>
+        <div class="state-banner">
+          <div class="badge-pill status-syncing">IN PROGRESS</div>
+          <div style="font-size:20px;font-weight:700;">Refreshing EPG, DVR &amp; TIF Channel Registry</div>
+          <p class="screen-sub" style="max-width:520px;">Streaming XMLTV/M3U feeds and reconciling Tvheadend HTSP channel state without blocking remote input.</p>
+          <div style="display:flex;gap:12px;margin-top:8px;">
+            <button type="button" class="tv-control primary" id="finishSyncBtn">Complete Sync Now</button>
+            <button type="button" class="tv-control" id="cancelSyncBtn">Return to Nominal</button>
+          </div>
+        </div>`;
+      document.getElementById("finishSyncBtn").addEventListener("click", () => {
+        setSimState("nominal");
+        showToast("TvhSyncManager & TIF channels synced");
+      });
+      document.getElementById("cancelSyncBtn").addEventListener("click", () => setSimState("nominal"));
+      return true;
+    }
+
+    if (state.simState === "error") {
+      workspace.innerHTML = `
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">Playback &amp; Backend Connection Issue</h1>
+            <p class="screen-sub mono">HtspConnectionState.DISCONNECTED · TuneTelemetryTracker</p>
+          </div>
+        </div>
+        <div class="state-banner error">
+          <div class="badge-pill status-error">HTSP STREAM / TUNER ERROR</div>
+          <div style="font-size:20px;font-weight:700;">Unable to Acquire Stream from 192.168.1.40:9982</div>
+          <p class="screen-sub" style="max-width:540px;">Tuner mux timed out or LAN connection dropped. You can inspect diagnostics, retry tuning, or switch to a curated LAN IPTV stream.</p>
+          <div style="display:flex;gap:12px;margin-top:8px;">
+            <button type="button" class="tv-control primary" id="retryTuneBtn">Retry HTSP Tune</button>
+            <button type="button" class="tv-control" id="diagModalBtn">View Diagnostics</button>
+          </div>
+        </div>`;
+      document.getElementById("retryTuneBtn").addEventListener("click", () => {
+        setSimState("nominal");
+        showToast("Reconnected to HTSP pool and resumed playback");
+      });
+      document.getElementById("diagModalBtn").addEventListener("click", openErrorDiagnosticsModal);
+      return true;
+    }
+
+    if (state.simState === "empty") {
+      workspace.innerHTML = `
+        <div class="screen-header">
+          <div>
+            <h1 class="screen-title">No Channels or Items Available</h1>
+            <p class="screen-sub mono">AllowlistRepository · InputChannelRepository</p>
+          </div>
+        </div>
+        <div class="state-banner empty">
+          <div class="badge-pill status-empty">EMPTY STATE</div>
+          <div style="font-size:20px;font-weight:700;">No Enabled Channels Match Current Filter</div>
+          <p class="screen-sub" style="max-width:520px;">Reset filters to view all Tvheadend HTSP and IPTV channels, or open LAN Curation to enable allowlisted feeds.</p>
+          <div style="display:flex;gap:12px;margin-top:8px;">
+            <button type="button" class="tv-control primary" id="resetEmptyBtn">Restore Default Channels</button>
+            <button type="button" class="tv-control" id="openDrawerFromEmpty">Open LAN Curation</button>
+          </div>
+        </div>`;
+      document.getElementById("resetEmptyBtn").addEventListener("click", () => {
+        state.sourceFilter = "ALL";
+        state.searchQuery = "";
+        setSimState("nominal");
+        showToast("Restored channel list");
+      });
+      document.getElementById("openDrawerFromEmpty").addEventListener("click", openCurationDrawer);
+      return true;
+    }
+
+    return false;
+  }
+
+  function renderLiveTv() {
+    const ch = getSelectedChannel();
+    const list = getFilteredChannels();
+
+    workspace.innerHTML = `
+      <div class="screen-header">
+        <div>
+          <h1 class="screen-title">Live TV · 10ft Playback</h1>
+          <p class="screen-sub">TvPlayerActivity · PlayerOsdOverlay · HtspExtractor &amp; AFR (${state.afrMode})</p>
+        </div>
+        <div class="filter-pills">
+          ${["ALL", "HTSP", "IPTV"].map((src) => `
+            <button type="button" class="pill-btn ${state.sourceFilter === src ? "active" : ""}" data-src-filter="${src}">
+              ${src === "ALL" ? "All Sources" : src}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      <div class="live-grid">
+        <section class="player-panel" aria-label="Live Player Viewport">
+          <div class="video-viewport">
+            <div class="osd-top">
+              <span class="badge-pill mono">${ch.num} · ${ch.source}</span>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <span class="badge-pill mono">${ch.resolution}</span>
+                <div class="signal-bars" aria-label="Signal Strength">
+                  <span class="signal-bar" style="height:6px;"></span>
+                  <span class="signal-bar" style="height:10px;"></span>
+                  <span class="signal-bar" style="height:14px;"></span>
+                  <span class="signal-bar" style="height:18px;"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="osd-center">
+              <div class="now-playing-ch">${ch.name}</div>
+              <div class="now-playing-prog">${ch.program} · <span class="mono">${ch.timeSlot}</span></div>
+            </div>
+
+            <div class="osd-bottom">
+              <span class="mono" style="font-size:12px;color:var(--text-muted);">Audio: ${ch.audioTracks[0]}</span>
+              <div class="osd-actions">
+                <button type="button" class="tv-control primary" id="osdTracksBtn">Audio &amp; Subtitles</button>
+                <button type="button" class="tv-control" id="osdProgramBtn">Program Info</button>
+                <button type="button" class="tv-control" id="osdGuideOverlayBtn">EPG Overlay</button>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <span class="screen-sub mono">TIF Session: active · AFR match: ${state.afrMode}</span>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="tv-control" id="prevChBtn">Ch -</button>
+              <button type="button" class="tv-control" id="nextChBtn">Ch +</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="channel-list" aria-label="Channels">
+          <div class="rail-label" style="padding-left:2px;">Channels (${list.length})</div>
+          ${list.length ? list.map((item) => `
+            <button type="button" class="channel-card ${item.id === ch.id ? "selected" : ""}" data-tune-id="${item.id}">
+              <div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                  <span class="ch-num">${item.num}</span>
+                  <span class="ch-name">${item.name}</span>
+                </div>
+                <div class="ch-meta" style="padding-left:54px;">${item.program}</div>
+              </div>
+              <span class="badge-pill mono">${item.source}</span>
+            </button>
+          `).join("") : `<div class="screen-sub" style="padding:18px;">No channels match this filter.</div>`}
+        </section>
+      </div>`;
+
+    workspace.querySelectorAll("[data-src-filter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.sourceFilter = btn.dataset.srcFilter;
+        render();
+      });
+    });
+
+    workspace.querySelectorAll("[data-tune-id]").forEach((card) => {
+      card.addEventListener("click", () => {
+        state.selectedChannelId = card.dataset.tuneId;
+        const tuned = getSelectedChannel();
+        render();
+        showToast(`Tuned to ${tuned.num} ${tuned.name} (${tuned.source})`);
+      });
+    });
+
+    document.getElementById("prevChBtn")?.addEventListener("click", () => stepChannel(-1));
+    document.getElementById("nextChBtn")?.addEventListener("click", () => stepChannel(1));
+    document.getElementById("osdTracksBtn")?.addEventListener("click", () => openTracksModal(ch));
+    document.getElementById("osdProgramBtn")?.addEventListener("click", () => openProgramModal(ch.name, ch.program, ch.timeSlot, ch.source));
+    document.getElementById("osdGuideOverlayBtn")?.addEventListener("click", () => {
+      state.dest = "guide";
+      syncNavActive();
+      render();
+      showToast("Opened EPG Timeline Guide");
+    });
+  }
+
+  function stepChannel(delta) {
+    const idx = state.channels.findIndex((c) => c.id === state.selectedChannelId);
+    const nextIdx = (idx + delta + state.channels.length) % state.channels.length;
+    state.selectedChannelId = state.channels[nextIdx].id;
+    render();
+    showToast(`Switched to ${state.channels[nextIdx].name}`);
+  }
+
+  function renderGuide() {
+    const slots = ["20:00 – 21:00", "21:00 – 22:00", "22:00 – 23:00"];
+    const altTitles = {
+      "ch-1": ["Evening News & Regional Weather", "Panorama Investigation", "Late Night Film Premiere"],
+      "ch-2": ["Coast & Fjord Engineering", "University Challenge", "Archive Live Concert"],
+      "ch-3": ["Homelab Camera & Telemetry Mux", "Solar & Battery Dispatch Log", "Overnight Stream Watchdog"],
+      "ch-4": ["Flåm Line Scenic Replay", "Bergen Harbour Daylight", "Winter Timetable Loop"]
+    };
+
+    workspace.innerHTML = `
+      <div class="screen-header">
+        <div>
+          <h1 class="screen-title">Program Guide &amp; EPG Timeline</h1>
+          <p class="screen-sub">GuideScreen · EpgTimelineOverlayFragment · EpgRepository</p>
+        </div>
+        <button type="button" class="tv-control primary" id="jumpNowBtn">Jump to Current Slot</button>
+      </div>
+
+      <div class="guide-board">
+        <div class="guide-row">
+          <div class="rail-label">Channel</div>
+          ${slots.map((s) => `<div class="rail-label">${s}</div>`).join("")}
+        </div>
+        ${state.channels.map((ch) => {
+          const titles = altTitles[ch.id] || [ch.program, "Follow-up Broadcast", "Late Replay"];
+          return `
+            <div class="guide-row">
+              <div class="guide-ch-cell">
+                <div class="ch-name"><span class="ch-num">${ch.num}</span> ${ch.name}</div>
+                <div class="ch-meta">${ch.source}</div>
+              </div>
+              ${slots.map((slot, i) => `
+                <button type="button" class="prog-slot" data-g-ch="${ch.id}" data-g-title="${titles[i]}" data-g-slot="${slot}" data-g-src="${ch.source}">
+                  <div class="prog-title">${titles[i]}</div>
+                  <div class="prog-time">${slot}</div>
+                </button>
+              `).join("")}
+            </div>`;
+        }).join("")}
+      </div>`;
+
+    workspace.querySelectorAll(".prog-slot").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        openProgramModal(
+          state.channels.find((c) => c.id === btn.dataset.gCh)?.name || "Channel",
+          btn.dataset.gTitle,
+          btn.dataset.gSlot,
+          btn.dataset.gSrc
+        );
+      });
+    });
+
+    document.getElementById("jumpNowBtn")?.addEventListener("click", () => {
+      showToast("Focused current 20:00 – 21:00 broadcast window");
+    });
+  }
+
+  function renderRecordings() {
+    const filtered = state.recordings.filter((r) => state.dvrFilter === "ALL" || r.status === state.dvrFilter);
+
+    workspace.innerHTML = `
+      <div class="screen-header">
+        <div>
+          <h1 class="screen-title">DVR Recordings</h1>
+          <p class="screen-sub">RecordingsScreen · DvrPlayerActivity · HtspDvrDataSource &amp; DvrRepository</p>
+        </div>
+        <div class="filter-pills">
+          ${["ALL", "COMPLETED", "SCHEDULED"].map((st) => `
+            <button type="button" class="pill-btn ${state.dvrFilter === st ? "active" : ""}" data-dvr-filter="${st}">
+              ${st === "ALL" ? "All Recordings" : st}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+
+      <div class="cards-grid">
+        ${filtered.map((rec) => `
+          <button type="button" class="media-card" data-rec-id="${rec.id}">
+            <div>
+              <div class="card-top">
+                <div class="card-title">${rec.title}</div>
+                <span class="badge-pill mono ${rec.status === "COMPLETED" ? "status-nominal" : "status-syncing"}">${rec.status}</span>
+              </div>
+              <p class="card-desc">${rec.summary}</p>
+            </div>
+            <div class="card-foot">
+              <span>${rec.channel}</span>
+              <span>${rec.duration} · ${rec.size}</span>
+            </div>
+          </button>
+        `).join("")}
+      </div>`;
+
+    workspace.querySelectorAll("[data-dvr-filter]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.dvrFilter = btn.dataset.dvrFilter;
+        render();
+      });
+    });
+
+    workspace.querySelectorAll("[data-rec-id]").forEach((card) => {
+      card.addEventListener("click", () => {
+        const rec = state.recordings.find((r) => r.id === card.dataset.recId);
+        if (rec) {
+          showToast(rec.status === "COMPLETED" ? `Playing DVR: ${rec.title}` : `Scheduled DVR: ${rec.title}`);
+        }
+      });
+    });
+  }
+
+  function renderSearch() {
+    const matches = getFilteredChannels();
+
+    workspace.innerHTML = `
+      <div class="screen-header">
+        <div>
+          <h1 class="screen-title">Search Channels &amp; EPG</h1>
+          <p class="screen-sub">SearchScreen · TvheadendInputService &amp; IptvTvInputService</p>
+        </div>
+      </div>
+
+      <div class="search-bar-row">
+        <input type="text" class="tv-input" id="searchInput" value="${state.searchQuery}" placeholder="Filter by channel name, number, program, or HTSP/IPTV..." aria-label="Search channels or programs" />
+        <button type="button" class="tv-control" id="clearSearchBtn">Clear</button>
+      </div>
+
+      <div class="cards-grid">
+        ${matches.map((ch) => `
+          <button type="button" class="media-card" data-search-tune="${ch.id}">
+            <div>
+              <div class="card-top">
+                <div class="card-title"><span class="ch-num">${ch.num}</span> ${ch.name}</div>
+                <span class="badge-pill mono">${ch.source}</span>
+              </div>
+              <p class="card-desc">${ch.program}</p>
+            </div>
+            <div class="card-foot">
+              <span>${ch.timeSlot}</span>
+              <span>Tune Live</span>
+            </div>
+          </button>
+        `).join("")}
+      </div>`;
+
+    const inputEl = document.getElementById("searchInput");
+    inputEl.addEventListener("input", (e) => {
+      state.searchQuery = e.target.value;
+      render();
+      const refocused = document.getElementById("searchInput");
+      if (refocused) {
+        refocused.focus();
+        refocused.setSelectionRange(refocused.value.length, refocused.value.length);
+      }
+    });
+
+    document.getElementById("clearSearchBtn")?.addEventListener("click", () => {
+      state.searchQuery = "";
+      render();
+    });
+
+    workspace.querySelectorAll("[data-search-tune]").forEach((card) => {
+      card.addEventListener("click", () => {
+        state.selectedChannelId = card.dataset.searchTune;
+        state.dest = "live";
+        syncNavActive();
+        render();
+        showToast(`Tuned to ${getSelectedChannel().name}`);
+      });
+    });
+  }
+
+  function renderSettings() {
+    const afrModes = ["OFF", "AUTO_SEAMLESS", "FRAME_RATE_ONLY"];
+
+    workspace.innerHTML = `
+      <div class="screen-header">
+        <div>
+          <h1 class="screen-title">Inputs, AFR &amp; Sync</h1>
+          <p class="screen-sub">InputManagerActivity · DisplayFrameRateController · TvhSyncManager</p>
+        </div>
+        <button type="button" class="tv-control primary" id="triggerSyncBtn">Run Sync Now</button>
+      </div>
+
+      <div class="settings-grid">
+        <section class="panel-card">
+          <h2 class="panel-heading">Auto Frame Rate (AFR)</h2>
+          <p class="screen-sub">TifAfrSessionHelper · FrameRateMatcher · AfrSettingsStore</p>
+          <div class="option-list">
+            ${afrModes.map((mode) => `
+              <button type="button" class="option-btn ${state.afrMode === mode ? "selected" : ""}" data-afr-mode="${mode}">
+                <span class="mono">${mode}</span>
+                <span>${state.afrMode === mode ? "Active" : "Select"}</span>
+              </button>
+            `).join("")}
+          </div>
+        </section>
+
+        <section class="panel-card">
+          <h2 class="panel-heading">Configured Sources &amp; Services</h2>
+          ${state.inputs.map((inp, idx) => `
+            <div class="setting-row">
+              <div>
+                <div class="setting-title">${inp.name}</div>
+                <div class="setting-sub">${inp.protocol} · ${inp.status}</div>
+              </div>
+              <button type="button" class="tv-control ${inp.enabled ? "primary" : ""}" data-toggle-input="${idx}">
+                ${inp.enabled ? "Enabled" : "Disabled"}
+              </button>
+            </div>
+          `).join("")}
+        </section>
+      </div>`;
+
+    workspace.querySelectorAll("[data-afr-mode]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.afrMode = btn.dataset.afrMode;
+        document.getElementById("afrBadge").textContent = state.afrMode === "AUTO_SEAMLESS" ? "AUTO" : state.afrMode;
+        render();
+        showToast(`AFR mode set to ${state.afrMode}`);
+      });
+    });
+
+    workspace.querySelectorAll("[data-toggle-input]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.toggleInput);
+        state.inputs[idx].enabled = !state.inputs[idx].enabled;
+        render();
+        showToast(`${state.inputs[idx].name}: ${state.inputs[idx].enabled ? "Enabled" : "Disabled"}`);
+      });
+    });
+
+    document.getElementById("triggerSyncBtn")?.addEventListener("click", () => {
+      setSimState("syncing");
+    });
+  }
+
+  function render() {
+    dpadIndex = -1;
+    document.querySelectorAll(".dpad-focused").forEach((el) => el.classList.remove("dpad-focused"));
+    document.getElementById("liveCount").textContent = String(state.channels.length);
+    document.getElementById("recCount").textContent = String(state.recordings.length);
+
+    if (!renderStateBannerIfNeeded()) {
+      if (state.dest === "live") renderLiveTv();
+      else if (state.dest === "guide") renderGuide();
+      else if (state.dest === "recordings") renderRecordings();
+      else if (state.dest === "search") renderSearch();
+      else if (state.dest === "settings") renderSettings();
+    }
+  }
+
+  function syncNavActive() {
+    document.querySelectorAll(".nav-item").forEach((item) => {
+      item.classList.toggle("active", item.dataset.dest === state.dest);
+    });
+  }
+
+  /* Modals */
+  function closeModal() {
+    modalBackdrop.classList.remove("open");
+    modalBackdrop.setAttribute("aria-hidden", "true");
+    modalCard.innerHTML = "";
+  }
+
+  function openProgramModal(channelName, progTitle, slot, source) {
+    modalCard.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 class="modal-title">Program Details</h2>
+        <span class="badge-pill mono">${source}</span>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:700;">${progTitle}</div>
+        <div class="screen-sub mono" style="margin-top:4px;">${channelName} · ${slot}</div>
+        <p class="card-desc" style="margin-top:10px;">Broadcast metadata surfaced via Tvheadend EPG / TIF program provider for 10ft viewing.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="tv-control" id="modalCloseBtn">Close</button>
+        <button type="button" class="tv-control primary" id="modalScheduleDvrBtn">Schedule DVR</button>
+      </div>`;
+    modalBackdrop.classList.add("open");
+    modalBackdrop.setAttribute("aria-hidden", "false");
+    document.getElementById("modalCloseBtn").addEventListener("click", closeModal);
+    document.getElementById("modalScheduleDvrBtn").addEventListener("click", () => {
+      state.recordings.unshift({
+        id: "rec-" + Date.now(),
+        title: progTitle,
+        channel: channelName,
+        duration: "60 min (Scheduled)",
+        size: "—",
+        status: "SCHEDULED",
+        summary: `Queued from 10ft Guide (${slot}) via DvrRepository.`
+      });
+      closeModal();
+      render();
+      showToast(`Scheduled DVR recording: ${progTitle}`);
+    });
+  }
+
+  function openTracksModal(ch) {
+    modalCard.innerHTML = `
+      <h2 class="modal-title">Audio &amp; Subtitle Tracks · ${ch.name}</h2>
+      <div class="rail-label" style="padding-left:0;">Audio Streams</div>
+      <div class="option-list">
+        ${ch.audioTracks.map((t, i) => `
+          <button type="button" class="option-btn ${i === 0 ? "selected" : ""}" data-track-pick="${t}">
+            <span>${t}</span>
+            <span class="mono">${i === 0 ? "Active" : "Select"}</span>
+          </button>
+        `).join("")}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="tv-control primary" id="tracksDoneBtn">Done</button>
+      </div>`;
+    modalBackdrop.classList.add("open");
+    modalBackdrop.setAttribute("aria-hidden", "false");
+    modalCard.querySelectorAll("[data-track-pick]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        showToast(`Selected audio track: ${btn.dataset.trackPick}`);
+        closeModal();
+      });
+    });
+    document.getElementById("tracksDoneBtn").addEventListener("click", closeModal);
+  }
+
+  function openErrorDiagnosticsModal() {
+    modalCard.innerHTML = `
+      <h2 class="modal-title">HTSP Connection Diagnostics</h2>
+      <div class="setting-row">
+        <div>
+          <div class="setting-title">HtspConnectionPool</div>
+          <div class="setting-sub mono">host=192.168.1.40 port=9982 state=DISCONNECTED</div>
+        </div>
+        <span class="status-pill status-error">TIMEOUT</span>
+      </div>
+      <div class="setting-row">
+        <div>
+          <div class="setting-title">TuneTelemetryTracker</div>
+          <div class="setting-sub mono">stage=OPEN_SUBSCRIPTION elapsed=4210ms</div>
+        </div>
+        <span class="badge-pill mono">TRACE</span>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="tv-control" id="diagCloseBtn">Close</button>
+        <button type="button" class="tv-control primary" id="diagRecoverBtn">Recover Nominal</button>
+      </div>`;
+    modalBackdrop.classList.add("open");
+    modalBackdrop.setAttribute("aria-hidden", "false");
+    document.getElementById("diagCloseBtn").addEventListener("click", closeModal);
+    document.getElementById("diagRecoverBtn").addEventListener("click", () => {
+      closeModal();
+      setSimState("nominal");
+      showToast("HTSP connection pool re-established");
+    });
+  }
+
+  /* LAN Curation Drawer */
+  function renderAllowlist() {
+    const container = document.getElementById("allowlistContainer");
+    container.innerHTML = state.channels.map((ch) => `
+      <button type="button" class="option-btn ${ch.allowed ? "selected" : ""}" data-allow-id="${ch.id}">
+        <span>${ch.num} · ${ch.name} <span class="mono" style="color:var(--text-muted);">(${ch.source})</span></span>
+        <span class="mono">${ch.allowed ? "ALLOWED" : "HIDDEN"}</span>
+      </button>`).join("");
+
+    container.querySelectorAll("[data-allow-id]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = state.channels.find((c) => c.id === btn.dataset.allowId);
+        if (target) {
+          target.allowed = !target.allowed;
+          renderAllowlist();
+          showToast(`${target.name}: ${target.allowed ? "Allowed in TIF" : "Excluded from TIF"}`);
+        }
+      });
+    });
+  }
+
+  function openCurationDrawer() {
+    renderAllowlist();
+    curationBackdrop.classList.add("open");
+    curationBackdrop.setAttribute("aria-hidden", "false");
+  }
+
+  function closeCurationDrawer() {
+    curationBackdrop.classList.remove("open");
+    curationBackdrop.setAttribute("aria-hidden", "true");
+  }
+
+  document.getElementById("openCurationDrawerBtn").addEventListener("click", openCurationDrawer);
+  document.getElementById("closeCurationBtn").addEventListener("click", closeCurationDrawer);
+  document.getElementById("toggleCurationServerBtn").addEventListener("click", (e) => {
+    state.curationRunning = !state.curationRunning;
+    e.currentTarget.textContent = state.curationRunning ? "Active" : "Stopped";
+    e.currentTarget.classList.toggle("primary", state.curationRunning);
+    showToast(`LanCurationServer ${state.curationRunning ? "started" : "stopped"}`);
+  });
+  document.getElementById("syncAllowlistBtn").addEventListener("click", () => {
+    closeCurationDrawer();
+    showToast("TifAllowlistSyncer applied curated channels");
+  });
+
+  document.querySelectorAll(".nav-item").forEach((navBtn) => {
+    navBtn.addEventListener("click", () => {
+      state.dest = navBtn.dataset.dest;
+      syncNavActive();
+      render();
+    });
+  });
+
+  document.querySelectorAll(".state-btn").forEach((btn) => {
+    btn.addEventListener("click", () => setSimState(btn.dataset.simState));
+  });
+
+  /* D-Pad Stepper & Keyboard Support */
+  function getFocusableControls() {
+    const scope = modalBackdrop.classList.contains("open")
+      ? modalCard
+      : curationBackdrop.classList.contains("open")
+      ? curationBackdrop.querySelector(".drawer")
+      : document.getElementById("tvStage");
+    return Array.from(scope.querySelectorAll("button:not([disabled]), input:not([disabled])"));
+  }
+
+  function stepDpadFocus(dir) {
+    const list = getFocusableControls();
+    if (!list.length) return;
+    document.querySelectorAll(".dpad-focused").forEach((el) => el.classList.remove("dpad-focused"));
+    dpadIndex = dpadIndex < 0 ? 0 : (dpadIndex + dir + list.length) % list.length;
+    const target = list[dpadIndex];
+    target.classList.add("dpad-focused");
+    target.focus({ preventScroll: false });
+  }
+
+  document.getElementById("stepDpadBtn").addEventListener("click", () => stepDpadFocus(1));
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      if (modalBackdrop.classList.contains("open")) { closeModal(); return; }
+      if (curationBackdrop.classList.contains("open")) { closeCurationDrawer(); return; }
+    }
+    if (document.activeElement && document.activeElement.tagName === "INPUT" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      return;
+    }
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault();
+      stepDpadFocus(1);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault();
+      stepDpadFocus(-1);
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
