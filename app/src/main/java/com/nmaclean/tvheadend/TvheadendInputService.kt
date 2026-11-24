@@ -623,6 +623,7 @@ class TvheadendInputService : TvInputService() {
             }
             Log.d(TAG, "onRelease called on session.")
             sessionJob.cancel()
+            afrHelper.release(surface, null)
             releasePlayer()
             HtspConnectionPool.releaseStreamingClient()
         }
