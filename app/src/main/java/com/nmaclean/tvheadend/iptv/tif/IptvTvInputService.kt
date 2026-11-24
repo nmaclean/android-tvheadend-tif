@@ -28,7 +28,6 @@ class IptvTvInputService : TvInputService() {
         private var player: ExoPlayer? = null
         private var surface: Surface? = null
         private var currentVolume = 1.0f
-        private val afrHelper = com.nmaclean.tvheadend.player.afr.TifAfrSessionHelper(baseContext)
 
         init {
             setOverlayViewEnabled(false)
@@ -39,7 +38,6 @@ class IptvTvInputService : TvInputService() {
             if (existing != null) return existing
             val newPlayer = ExoPlayer.Builder(baseContext).build().apply {
                 addListener(this@IptvSession)
-                afrHelper.attachToPlayer(this)
             }
             player = newPlayer
             return newPlayer
@@ -47,7 +45,6 @@ class IptvTvInputService : TvInputService() {
 
         override fun onSetSurface(surface: Surface?): Boolean {
             this.surface = surface
-            afrHelper.onSetSurface(surface, null)
             player?.setVideoSurface(surface)
             return true
         }
@@ -97,7 +94,6 @@ class IptvTvInputService : TvInputService() {
         }
 
         override fun onRelease() {
-            afrHelper.release(surface, null)
             player?.removeListener(this)
             player?.clearVideoSurface()
             player?.stop()
