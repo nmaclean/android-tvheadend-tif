@@ -99,6 +99,7 @@ class TvheadendInputService : TvInputService() {
         private var isTimeShiftPaused = false
         private var pausedAtMs = 0L
         private var totalPausedMs = 0L
+        private val afrHelper = com.nmaclean.tvheadend.player.afr.TifAfrSessionHelper(baseContext)
 
         init {
             setOverlayViewEnabled(true)
@@ -226,6 +227,7 @@ class TvheadendInputService : TvInputService() {
                     setTrackSelectionParameters(trackSelectionParameters)
                     setAudioAttributes(audioAttributes, true)
                     addListener(this@TvheadendSession)
+                    afrHelper.attachToPlayer(this)
                     addAnalyticsListener(EventLogger("ExoPlayerEventLogger"))
                 }
             player = exoPlayer
@@ -315,6 +317,7 @@ class TvheadendInputService : TvInputService() {
             }
             Log.i(TAG, "=== onSetSurface called with surface: $surface, isValid=$isValid ===")
             this.surface = if (isValid) surface else null
+            afrHelper.onSetSurface(this.surface, null)
 
             if (this.surface != null) {
                 player?.let { p ->

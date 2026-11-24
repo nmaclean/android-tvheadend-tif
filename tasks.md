@@ -34,3 +34,28 @@ Remediate the EPG and UI/runtime slowness issues observed on the Chromecast (`pi
 ### [x] Task 4: Regression & Performance Verification on Host and Chromecast
 - [x] Added unit tests for IPTV preservation, channel registry filtering, and EPG windowing.
 - [x] Executed `./gradlew assembleDebug testDebugUnitTest` (113/113 passed).
+
+---
+
+# Task: Review Commit `9b2fdd64db579003707886ecbd2e5248a783c611` & Compare EPG / Playback UI Performance (Preserve IPTV Input)
+
+## 1. Goal & Scope
+Review commit `9b2fdd64db579003707886ecbd2e5248a783c611` (`feat: add IPTV curation/EPG, AFR/playback helpers, and TIF updates`) and compare UI performance—especially **EPG (`GuideScreen` / `EpgRepository` / `TvhUiRepository`)** and **playback (`TvPlayerActivity` / `HtspExtractor` / `PlayerOsdOverlay` / AFR helpers)**—against the current codebase, identifying what performed better in `9b2fdd64db579003707886ecbd2e5248a783c611` and restoring/improving performance **while keeping all IPTV input functionality intact**.
+
+### Non-Negotiable Guardrails
+- Preserve all IPTV input features (`IptvTvInputService`, `IptvEpgSyncer`, `IptvStreamScanner`, `TifAllowlistSyncer`, `LanCurationServer`, `IptvSetupFragment`, and curation UI/wizard).
+- Work on a dedicated `feat/*` or `fix/*` branch inside `/home/server/build/android-tvheadend-tif`.
+- Verify with `./gradlew testDebugUnitTest assembleDebug` (exit code `0`).
+
+## 2. Subtasks
+- [x] **Task 1: Diff & Audit `9b2fdd64db579003707886ecbd2e5248a783c611` vs Current `main`**
+  - Compared `GuideScreen.kt`, `EpgRepository.kt`, `TvhUiRepository.kt`, `ChannelGuideFragment.kt`, `TvPlayerActivity.kt`, `HtspExtractor.kt`, `PlayerOsdOverlay.kt`, and `TvheadendInputService.kt`.
+- [x] **Task 2: Identify EPG & Playback Performance Regressions**
+  - Identified that `TifAfrSessionHelper` (`afrHelper`) was dropped from `TvheadendInputService.kt` and `contentType` was dropped from `PlayerOsdOverlay.kt` `LazyRow` `itemsIndexed`.
+  - Confirmed `EpgRepository.kt` bulk `Programs.CONTENT_URI` query fast path and `TvhUiRepository.kt` cache check are improvements over `9b2fdd64db579003707886ecbd2e5248a783c611`.
+- [x] **Task 3: Restore/Optimize EPG & Playback Performance (Keeping IPTV Input)**
+  - Restored `TifAfrSessionHelper` (`afrHelper`) in `TvheadendInputService.kt` (`attachToPlayer`, `onSetSurface`).
+  - Restored `contentType = { _, _ -> "quick_zap_card" }` in `PlayerOsdOverlay.kt` `LazyRow`.
+  - Preserved all IPTV input services, syncers, scanners, and curation UI.
+- [x] **Task 4: Verify Build & Tests**
+  - Executed `ANDROID_HOME=/home/server/Android/Sdk ./gradlew testDebugUnitTest assembleDebug` (`BUILD SUCCESSFUL`).

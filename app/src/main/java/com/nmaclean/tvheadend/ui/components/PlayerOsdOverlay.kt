@@ -381,7 +381,11 @@ fun PlayerOsdOverlay(
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.weight(1f)
                         ) {
-                            itemsIndexed(adjacentChannels, key = { _, ch -> ch.id }) { index, ch ->
+                            itemsIndexed(
+                                items = adjacentChannels,
+                                key = { _, ch -> ch.id },
+                                contentType = { _, _ -> "quick_zap_card" }
+                            ) { index, ch ->
                                 val epg = adjacentEpg[ch.id]?.currentProgram
                                 QuickZapCard(
                                     channel = ch,
