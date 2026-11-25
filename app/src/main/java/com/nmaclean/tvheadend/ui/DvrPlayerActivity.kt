@@ -113,6 +113,7 @@ class DvrPlayerActivity : ComponentActivity() {
             .setEnableDecoderFallback(true)
         val exo = ExoPlayer.Builder(this, renderersFactory).build().also { p ->
             player = p
+            p.addAnalyticsListener(androidx.media3.exoplayer.util.EventLogger("DvrEventLogger"))
             p.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     isPlayingState = isPlaying
