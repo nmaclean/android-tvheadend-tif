@@ -437,7 +437,7 @@ fun GuideScreen(
                                         .fillMaxHeight()
                                 ) {
                                     if (rowPrograms.isEmpty()) {
-                                        val firstCellMod = if (rowIndex == 0) {
+                                        val firstCellMod = if (rowIndex == lazyListState.firstVisibleItemIndex) {
                                             Modifier
                                                 .focusRequester(gridFocusRequester)
                                                 .focusRequester(cellFocusRequesters[rowIndex][0])
@@ -474,7 +474,7 @@ fun GuideScreen(
                                             }
                                             val isRecordingScheduled = (prog.eventId > 0L && prog.eventId in scheduledEventIds) ||
                                                 prog.title.trim().lowercase() in seriesTitles
-                                            val cellMod = if (rowIndex == 0 && progIdx == 0) {
+                                            val cellMod = if (rowIndex == lazyListState.firstVisibleItemIndex && progIdx == 0) {
                                                 Modifier
                                                     .focusRequester(gridFocusRequester)
                                                     .focusRequester(cellFocusRequesters[rowIndex][progIdx])
