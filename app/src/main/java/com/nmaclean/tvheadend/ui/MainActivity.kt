@@ -130,8 +130,17 @@ class MainActivity : ComponentActivity() {
         val guideGridFocusRequester = remember { FocusRequester() }
         var focusGuideTick by remember { mutableIntStateOf(0) }
         val scope = rememberCoroutineScope()
+        var channelRefreshTick by remember { mutableIntStateOf(0) }
 
-        LaunchedEffect(Unit) {
+        androidx.compose.runtime.DisposableEffect(Unit) {
+            val observer = com.nmaclean.tvheadend.sync.TifChannelObserver(contentResolver, "MainActivity") {
+                channelRefreshTick++
+            }
+            observer.register()
+            onDispose { observer.unregister() }
+        }
+
+        LaunchedEffect(channelRefreshTick) {
             isLoadingChannels = true
             val loadedChannels = TvhUiRepository.loadChannels(this@MainActivity)
             channels = loadedChannels
