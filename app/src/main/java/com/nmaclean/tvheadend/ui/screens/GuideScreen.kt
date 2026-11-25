@@ -95,6 +95,7 @@ fun GuideScreen(
     currentEpg: Map<Long, EpgRepository.ChannelEpg>,
     guidePrograms: Map<Long, List<EpgRepository.ProgramInfo>>,
     windowStartMs: Long,
+    initialChannelId: Long? = null,
     scheduledEventIds: Set<Long> = emptySet(),
     seriesTitles: Set<String> = emptySet(),
     onTuneChannel: (TvhChannel) -> Unit,
@@ -286,6 +287,14 @@ fun GuideScreen(
         }
 
         val lazyListState = rememberLazyListState()
+        LaunchedEffect(initialChannelId, filteredChannels.size) {
+            if (initialChannelId != null) {
+                val idx = filteredChannels.indexOfFirst { it.id == initialChannelId }
+                if (idx >= 0) {
+                    lazyListState.scrollToItem(idx)
+                }
+            }
+        }
         val rowChannelFocusRequesters = remember(filteredChannels) {
             List(filteredChannels.size) { FocusRequester() }
         }
