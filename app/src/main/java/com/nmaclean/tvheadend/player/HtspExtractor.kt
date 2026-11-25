@@ -205,7 +205,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             codecUpper.contains("HEVC") || codecUpper.contains("H265") -> MimeTypes.VIDEO_H265
             codecUpper.contains("MPEG2AUDIO") || codecUpper.contains("MPEG1AUDIO") || codecUpper.contains("MP2") || codecUpper.contains("MPA") -> {
                 isMp2Stream[index] = true
-                MimeTypes.AUDIO_RAW
+                MimeTypes.AUDIO_MPEG_L2
             }
             codecUpper.contains("MPEG2VIDEO") || codecUpper.contains("MPEG2") -> MimeTypes.VIDEO_MPEG2
             codecUpper.contains("AAC") || codecUpper.contains("LATM") || codecUpper.contains("LOAS") || codecUpper.contains("MP4A") -> MimeTypes.AUDIO_AAC
