@@ -83,8 +83,17 @@ fun PlayerOsdOverlay(
     modifier: Modifier = Modifier
 ) {
     val guideFocusRequester = remember { FocusRequester() }
-    val firstQuickZapFocusRequester = remember { FocusRequester() }
+    val currentQuickZapFocusRequester = remember { FocusRequester() }
     val quickZapListState = rememberLazyListState()
+    val targetQuickZapIndex = remember(currentChannel?.id, adjacentChannels) {
+        currentChannel?.let { cur ->
+            adjacentChannels.indexOfFirst {
+                it.id == cur.id ||
+                    (it.uuid.isNotEmpty() && cur.uuid.isNotEmpty() && it.uuid == cur.uuid) ||
+                    (it.number > 0 && it.number == cur.number)
+            }
+        } ?: -1
+    }
 
     LaunchedEffect(visible) {
         if (visible) {
@@ -108,16 +117,9 @@ fun PlayerOsdOverlay(
         exit = fadeOut(),
         modifier = modifier.fillMaxSize()
     ) {
-        LaunchedEffect(currentChannel?.id, adjacentChannels.size) {
-            val targetIndex = currentChannel?.let { cur ->
-                adjacentChannels.indexOfFirst {
-                    it.id == cur.id ||
-                        (it.uuid.isNotEmpty() && cur.uuid.isNotEmpty() && it.uuid == cur.uuid) ||
-                        (it.number > 0 && it.number == cur.number)
-                }
-            } ?: -1
-            if (targetIndex >= 0) {
-                quickZapListState.scrollToItem(targetIndex)
+        LaunchedEffect(targetQuickZapIndex) {
+            if (targetQuickZapIndex >= 0) {
+                quickZapListState.scrollToItem(targetQuickZapIndex)
             }
         }
         Box(modifier = Modifier.fillMaxSize()) {
@@ -339,8 +341,8 @@ fun PlayerOsdOverlay(
 
                     // Center-Right: Pill Controls
                     val pillDownModifier = Modifier.focusProperties {
-                        if (adjacentChannels.isNotEmpty() && quickZapListState.firstVisibleItemIndex == 0) {
-                            down = firstQuickZapFocusRequester
+                        if (adjacentChannels.isNotEmpty()) {
+                            down = currentQuickZapFocusRequester
                         }
                     }
                     Row(
@@ -406,8 +408,11 @@ fun PlayerOsdOverlay(
                                     onClick = { onQuickZapChannel(ch) },
                                     modifier = Modifier
                                         .then(
-                                            if (index == 0) Modifier.focusRequester(firstQuickZapFocusRequester)
-                                            else Modifier
+                                            if (index == (if (targetQuickZapIndex >= 0) targetQuickZapIndex else 0)) {
+                                                Modifier.focusRequester(currentQuickZapFocusRequester)
+                                            } else {
+                                                Modifier
+                                            }
                                         )
                                         .focusProperties { up = guideFocusRequester }
                                 )
