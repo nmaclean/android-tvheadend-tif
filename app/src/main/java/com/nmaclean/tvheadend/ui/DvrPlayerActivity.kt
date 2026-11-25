@@ -108,7 +108,10 @@ class DvrPlayerActivity : ComponentActivity() {
         val autoResume = intent.getBooleanExtra(EXTRA_AUTO_RESUME, false)
         val savedResume = if (autoResume) passedResume else maxOf(passedResume, DvrRepository.getResumePosition(this, dvrId))
 
-        val exo = ExoPlayer.Builder(this).build().also { p ->
+        val renderersFactory = androidx.media3.exoplayer.DefaultRenderersFactory(this)
+            .setExtensionRendererMode(androidx.media3.exoplayer.DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            .setEnableDecoderFallback(true)
+        val exo = ExoPlayer.Builder(this, renderersFactory).build().also { p ->
             player = p
             p.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
