@@ -180,7 +180,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
                 codecUpper.contains("MP3") -> MimeTypes.AUDIO_MPEG
                 codecUpper.contains("MP2") || codecUpper.contains("MPA") || codecUpper.contains("MPEG2AUDIO") || codecUpper.contains("MPEG1AUDIO") || codecUpper.contains("MPEG") || codecUpper.contains("MPEG2") -> {
                     isMp2Stream[index] = true
-                    MimeTypes.AUDIO_RAW
+                    MimeTypes.AUDIO_MPEG_L2
                 }
                 codecUpper.contains("DTS") || codecUpper.contains("DCA") -> MimeTypes.AUDIO_DTS
                 codecUpper.contains("OPUS") -> MimeTypes.AUDIO_OPUS
@@ -293,13 +293,13 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             }
 
             if (isMp2Stream[index] == true) {
-                // Mp2Decoder always outputs 16-bit stereo PCM (even for mono MP2 tracks)
-                builder.setChannelCount(2)
+                if (channelCount > 0) {
+                    builder.setChannelCount(channelCount)
+                }
                 if (sampleRate <= 0) {
                     builder.setSampleRate(48000)
                     trackSampleRates[index] = 48000
                 }
-                builder.setPcmEncoding(C.ENCODING_PCM_16BIT)
             } else if (channelCount > 0) {
                 builder.setChannelCount(channelCount)
             }
@@ -864,7 +864,7 @@ class HtspExtractor(private val context: Context? = null) : Extractor {
             }
         }
 
-        if (isMp2Stream[streamIndex] == true) {
+        if (false && isMp2Stream[streamIndex] == true) {
             val decoder = mp2Decoders.getOrPut(streamIndex) { Mp2Decoder() }
             val pcmData = decoder.decodeFrame(buffer, payloadOffset, payloadLength)
             if (pcmData != null) {
