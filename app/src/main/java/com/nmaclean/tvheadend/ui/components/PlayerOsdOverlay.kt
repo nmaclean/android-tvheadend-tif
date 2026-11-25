@@ -86,18 +86,8 @@ fun PlayerOsdOverlay(
     val firstQuickZapFocusRequester = remember { FocusRequester() }
     val quickZapListState = rememberLazyListState()
 
-    LaunchedEffect(visible, currentChannel?.id, adjacentChannels.size) {
+    LaunchedEffect(visible) {
         if (visible) {
-            val targetIndex = currentChannel?.let { cur ->
-                adjacentChannels.indexOfFirst {
-                    it.id == cur.id ||
-                        (it.uuid.isNotEmpty() && cur.uuid.isNotEmpty() && it.uuid == cur.uuid) ||
-                        (it.number > 0 && it.number == cur.number)
-                }
-            } ?: -1
-            if (targetIndex >= 0) {
-                quickZapListState.scrollToItem(targetIndex)
-            }
             delay(60L)
             try {
                 guideFocusRequester.requestFocus()
@@ -118,6 +108,18 @@ fun PlayerOsdOverlay(
         exit = fadeOut(),
         modifier = modifier.fillMaxSize()
     ) {
+        LaunchedEffect(currentChannel?.id, adjacentChannels.size) {
+            val targetIndex = currentChannel?.let { cur ->
+                adjacentChannels.indexOfFirst {
+                    it.id == cur.id ||
+                        (it.uuid.isNotEmpty() && cur.uuid.isNotEmpty() && it.uuid == cur.uuid) ||
+                        (it.number > 0 && it.number == cur.number)
+                }
+            } ?: -1
+            if (targetIndex >= 0) {
+                quickZapListState.scrollToItem(targetIndex)
+            }
+        }
         Box(modifier = Modifier.fillMaxSize()) {
             // Top bar: LIVE badge + Clock Header
             Row(
