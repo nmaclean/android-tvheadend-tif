@@ -86,8 +86,18 @@ fun PlayerOsdOverlay(
     val firstQuickZapFocusRequester = remember { FocusRequester() }
     val quickZapListState = rememberLazyListState()
 
-    LaunchedEffect(visible) {
+    LaunchedEffect(visible, currentChannel?.id, adjacentChannels.size) {
         if (visible) {
+            val targetIndex = currentChannel?.let { cur ->
+                adjacentChannels.indexOfFirst {
+                    it.id == cur.id ||
+                        (it.uuid.isNotEmpty() && cur.uuid.isNotEmpty() && it.uuid == cur.uuid) ||
+                        (it.number > 0 && it.number == cur.number)
+                }
+            } ?: -1
+            if (targetIndex >= 0) {
+                quickZapListState.scrollToItem(targetIndex)
+            }
             delay(60L)
             try {
                 guideFocusRequester.requestFocus()
