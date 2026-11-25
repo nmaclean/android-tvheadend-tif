@@ -287,14 +287,6 @@ fun GuideScreen(
         }
 
         val lazyListState = rememberLazyListState()
-        LaunchedEffect(initialChannelId, filteredChannels.size) {
-            if (initialChannelId != null) {
-                val idx = filteredChannels.indexOfFirst { it.id == initialChannelId }
-                if (idx >= 0) {
-                    lazyListState.scrollToItem(idx)
-                }
-            }
-        }
         val rowChannelFocusRequesters = remember(filteredChannels) {
             List(filteredChannels.size) { FocusRequester() }
         }
@@ -305,6 +297,18 @@ fun GuideScreen(
             }
         }
         var focusedRowIndex by remember { mutableIntStateOf(0) }
+        LaunchedEffect(initialChannelId, filteredChannels.size) {
+            if (initialChannelId != null) {
+                val idx = filteredChannels.indexOfFirst { it.id == initialChannelId }
+                if (idx >= 0) {
+                    focusedRowIndex = idx
+                    lazyListState.scrollToItem(idx)
+                    try {
+                        cellFocusRequesters.getOrNull(idx)?.firstOrNull()?.requestFocus()
+                    } catch (_: Exception) {}
+                }
+            }
+        }
         var focusedIsChannelHeader by remember { mutableStateOf(false) }
         var isVerticalNav by remember { mutableStateOf(false) }
         var cursorTimeMs by remember(alignedStartMs, windowEndMs) {
