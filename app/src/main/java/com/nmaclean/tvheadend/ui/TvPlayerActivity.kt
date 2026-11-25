@@ -1170,6 +1170,13 @@ class TvPlayerActivity : FragmentActivity() {
         return false
     }
 
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (osdVisibleState.value && !guideOverlayVisibleState.value && !trackOverlayVisibleState.value && event.action == KeyEvent.ACTION_DOWN) {
+            osdInteractionTickState.intValue++
+        }
+        return super.dispatchKeyEvent(event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             if (consumeOverlayBackPress()) {
