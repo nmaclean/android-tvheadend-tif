@@ -75,6 +75,8 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         private const val ID_SAVE = 7L
         private const val ID_CLEAR = 8L
         private const val ID_BACK = 9L
+        private const val ID_FASTSTART = 10L
+        private const val ID_TIMESHIFT = 11L
     }
 
     private var hostValue = ""
@@ -82,6 +84,8 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     private var httpPortValue = TvhConstants.DEFAULT_HTTP_PORT
     private var usernameValue = ""
     private var passwordValue = ""
+    private var faststartValue = true
+    private var timeshiftValue = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -101,6 +105,8 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         httpPortValue = if (settings.httpPort > 0) settings.httpPort else TvhConstants.DEFAULT_HTTP_PORT
         usernameValue = settings.username
         passwordValue = settings.password
+        faststartValue = settings.isFaststartEnabled
+        timeshiftValue = settings.isTimeshiftEnabled
     }
 
     private fun refreshActionValues() {
@@ -196,6 +202,26 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
                 .description(TvhSetupInputValidator.formatPasswordDescription(passwordValue))
                 .editable(true)
                 .editInputType(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
+                .build()
+        )
+
+        actions.add(
+            GuidedAction.Builder(activity)
+                .id(ID_FASTSTART)
+                .title("HTSP Faststart")
+                .description(if (faststartValue) "Enabled (immediate playback start)" else "Disabled")
+                .checkSetId(GuidedAction.CHECKBOX_CHECK_SET_ID)
+                .checked(faststartValue)
+                .build()
+        )
+
+        actions.add(
+            GuidedAction.Builder(activity)
+                .id(ID_TIMESHIFT)
+                .title("HTSP Timeshift")
+                .description(if (timeshiftValue) "Enabled (allow pause/rewind)" else "Disabled")
+                .checkSetId(GuidedAction.CHECKBOX_CHECK_SET_ID)
+                .checked(timeshiftValue)
                 .build()
         )
 
@@ -342,6 +368,16 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
                 passwordValue = TvhSetupInputValidator.resolvePassword(trimmed, passwordValue, "Optional password")
                 action.editTitle = passwordValue
                 action.description = TvhSetupInputValidator.formatPasswordDescription(passwordValue)
+            }
+            ID_FASTSTART -> {
+                faststartValue = action.isChecked
+                TvhTifSettings(requireContext()).isFaststartEnabled = faststartValue
+                action.description = if (faststartValue) "Enabled (immediate playback start)" else "Disabled"
+            }
+            ID_TIMESHIFT -> {
+                timeshiftValue = action.isChecked
+                TvhTifSettings(requireContext()).isTimeshiftEnabled = timeshiftValue
+                action.description = if (timeshiftValue) "Enabled (allow pause/rewind)" else "Disabled"
             }
         }
         notifyActionChanged(index)

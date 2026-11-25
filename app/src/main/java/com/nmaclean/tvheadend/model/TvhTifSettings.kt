@@ -22,6 +22,16 @@ class TvhTifSettings(context: Context) {
         private const val KEY_USER = "user"
         private const val KEY_PASS = "pass"
         private const val KEY_CLEANUP_DONE = "first_install_cleanup_done"
+        private const val KEY_FASTSTART = "htsp_faststart"
+        private const val KEY_TIMESHIFT = "htsp_timeshift"
+
+        @Volatile
+        var isFaststartCached: Boolean = true
+            private set
+
+        @Volatile
+        var isTimeshiftCached: Boolean = true
+            private set
 
         @Volatile
         private var cachedSecurePrefs: SharedPreferences? = null
@@ -52,6 +62,25 @@ class TvhTifSettings(context: Context) {
 
     private val tifPrefs: SharedPreferences = context.getSharedPreferences(TIF_PREFS_NAME, Context.MODE_PRIVATE)
     private val securePrefs: SharedPreferences = getOrCreateEncryptedPrefs(context) ?: tifPrefs
+
+    init {
+        isFaststartCached = tifPrefs.getBoolean(KEY_FASTSTART, true)
+        isTimeshiftCached = tifPrefs.getBoolean(KEY_TIMESHIFT, true)
+    }
+
+    var isFaststartEnabled: Boolean
+        get() = tifPrefs.getBoolean(KEY_FASTSTART, true).also { isFaststartCached = it }
+        set(value) {
+            isFaststartCached = value
+            tifPrefs.edit().putBoolean(KEY_FASTSTART, value).apply()
+        }
+
+    var isTimeshiftEnabled: Boolean
+        get() = tifPrefs.getBoolean(KEY_TIMESHIFT, true).also { isTimeshiftCached = it }
+        set(value) {
+            isTimeshiftCached = value
+            tifPrefs.edit().putBoolean(KEY_TIMESHIFT, value).apply()
+        }
 
     var host: String
         get() = tifPrefs.getString(KEY_HOST, "") ?: ""
