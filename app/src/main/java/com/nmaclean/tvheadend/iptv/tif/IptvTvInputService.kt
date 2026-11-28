@@ -9,6 +9,7 @@ import android.view.Surface
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
@@ -153,6 +154,14 @@ class IptvTvInputService : TvInputService() {
         override fun onTimeShiftGetCurrentPosition(): Long {
             val p = player ?: return TvInputManager.TIME_SHIFT_INVALID_TIME
             return if (p.isCurrentMediaItemSeekable) p.currentPosition else TvInputManager.TIME_SHIFT_INVALID_TIME
+        }
+
+        override fun onTracksChanged(tracks: Tracks) {
+            val summary = tracks.groups.joinToString("; ") { group ->
+                val fmt = if (group.length > 0) group.getTrackFormat(0).sampleMimeType else "unknown"
+                "type=${group.type},mime=$fmt,selected=${group.isSelected}"
+            }
+            Log.i(TAG, "IPTV ExoPlayer tracks: $summary")
         }
 
         override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
