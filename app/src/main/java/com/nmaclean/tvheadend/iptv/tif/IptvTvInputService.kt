@@ -13,11 +13,21 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import android.content.ComponentName
+import android.media.tv.TvContract
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import androidx.preference.PreferenceManager
 
 @UnstableApi
 class IptvTvInputService : TvInputService() {
     companion object {
         const val TAG = "IptvTvInputService"
+    }
+
+    private fun isIptvTifEnabled(): Boolean {
+        return PreferenceManager.getDefaultSharedPreferences(this)
+            .getBoolean("iptv_tif_enabled", true)
     }
 
     override fun onCreateSession(inputId: String): Session {
@@ -36,7 +46,14 @@ class IptvTvInputService : TvInputService() {
         private fun getOrCreatePlayer(): ExoPlayer {
             val existing = player
             if (existing != null) return existing
-            val newPlayer = ExoPlayer.Builder(baseContext).build().apply {
+            val extractorsFactory = DefaultExtractorsFactory().setTsExtractorFlags(
+                DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES
+            )
+            val mediaSourceFactory = DefaultMediaSourceFactory(baseContext, extractorsFactory)
+            val newPlayer = ExoPlayer.Builder(baseContext)
+                .setMediaSourceFactory(mediaSourceFactory)
+                .build()
+                .apply {
                 addListener(this@IptvSession)
             }
             player = newPlayer
@@ -60,6 +77,12 @@ class IptvTvInputService : TvInputService() {
 
         override fun onTune(uri: Uri): Boolean {
             Log.i(TAG, "IptvSession onTune: uri=$uri")
+            if (!isIptvTifEnabled()) {
+                Log.w(TAG, "IPTV TIF is disabled; blocking tune for $uri")
+                player?.stop()
+                notifyVideoUnavailable(TvInputManager.VIDEO_UNAVAILABLE_REASON_UNKNOWN)
+                return false
+            }
             notifyContentAllowed()
 
             val resolved = IptvStreamResolver.resolve(contentResolver, uri, baseContext)
