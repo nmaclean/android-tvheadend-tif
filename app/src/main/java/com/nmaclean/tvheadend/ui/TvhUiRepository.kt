@@ -183,6 +183,11 @@ object TvhUiRepository {
     }
 
     suspend fun loadChannels(context: Context): List<TvhChannel> = withContext(Dispatchers.IO) {
+        if (!isTvheadendTifEnabled(context)) {
+            ChannelRegistry.updateChannels(emptyList())
+            invalidateCaches()
+            return@withContext emptyList()
+        }
         val fromTvProvider = queryChannelsFromTvProvider(context)
         if (fromTvProvider.isNotEmpty()) {
             ChannelRegistry.updateChannels(fromTvProvider)
@@ -213,6 +218,9 @@ object TvhUiRepository {
     }
 
     private fun queryChannelsFromTvProvider(context: Context): List<TvhChannel> {
+        if (!isTvheadendTifEnabled(context)) {
+            return emptyList()
+        }
         val result = mutableListOf<TvhChannel>()
         try {
             val projection = arrayOf(
