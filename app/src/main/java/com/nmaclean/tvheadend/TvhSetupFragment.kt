@@ -29,6 +29,7 @@ import kotlin.concurrent.thread
 class TvhWelcomeFragment : GuidedStepSupportFragment() {
     companion object {
         private const val ID_START = 1L
+        private const val ID_DISABLE = 2L
     }
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
@@ -53,11 +54,39 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
                 .description("Configure server connection and import channels")
                 .build()
         )
+        actions.add(
+            GuidedAction.Builder(activity)
+                .id(ID_DISABLE)
+                .title("Disable")
+                .description("Keep settings, remove channel list & refresh")
+                .build()
+        )
     }
 
     override fun onGuidedActionClicked(action: GuidedAction) {
-        if (action.id == ID_START) {
-            add(parentFragmentManager, TvhCredentialsFragment())
+        when (action.id) {
+            ID_START -> add(parentFragmentManager, TvhCredentialsFragment())
+            ID_DISABLE -> {
+                val ctx = requireContext().applicationContext
+                TvhSetupActions.disableAndRefresh(ctx)
+                Toast.makeText(activity, "Settings kept • Channel list removed & refreshing", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+}
+
+internal object TvhSetupActions {
+    fun disableAndRefresh(appContext: android.content.Context) {
+        val hasHost = TvhTifSettings(appContext).host.isNotBlank()
+        com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
+        TvhSyncManager.clearAllChannelsAndPrograms(appContext)
+        if (hasHost) {
+            thread(name = "tvh-disable-refresh") {
+                try {
+                    TvhSyncManager.performSync(appContext)
+                } catch (_: Throwable) {
+                }
+            }
         }
     }
 }
@@ -75,6 +104,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         private const val ID_SAVE = 7L
         private const val ID_CLEAR = 8L
         private const val ID_BACK = 9L
+        private const val ID_DISABLE = 12L
         private const val ID_FASTSTART = 10L
         private const val ID_TIMESHIFT = 11L
     }
@@ -243,6 +273,14 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
 
         actions.add(
             GuidedAction.Builder(activity)
+                .id(ID_DISABLE)
+                .title("Disable")
+                .description("Keep settings, remove channel list & refresh")
+                .build()
+        )
+
+        actions.add(
+            GuidedAction.Builder(activity)
                 .id(ID_CLEAR)
                 .title("Clear Settings")
                 .description("Reset all fields to default values")
@@ -272,6 +310,13 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
     override fun onGuidedActionClicked(action: GuidedAction) {
         if (action.id == ID_BACK) {
             requireActivity().onBackPressedDispatcher.onBackPressed()
+            return
+        }
+
+        if (action.id == ID_DISABLE) {
+            val ctx = requireContext().applicationContext
+            TvhSetupActions.disableAndRefresh(ctx)
+            Toast.makeText(activity, "Settings kept • Channel list removed & refreshing", Toast.LENGTH_SHORT).show()
             return
         }
 

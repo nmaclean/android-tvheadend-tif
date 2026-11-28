@@ -550,6 +550,12 @@ object TvhSyncManager {
                 }
             }
 
+            try {
+                context.contentResolver.notifyChange(TvContract.Channels.CONTENT_URI, null)
+                context.contentResolver.notifyChange(TvContract.Programs.CONTENT_URI, null)
+            } catch (_: Throwable) {
+            }
+
             Log.i(TAG, "Successfully cleared all channels and programs for package $myPackage")
         } catch (e: Exception) {
             Log.e(TAG, "Error clearing channels and programs", e)
