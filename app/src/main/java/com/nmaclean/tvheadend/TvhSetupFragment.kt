@@ -78,6 +78,7 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
 internal object TvhSetupActions {
     fun disableAndRefresh(appContext: android.content.Context, onComplete: (() -> Unit)? = null) {
         TvhTifSettings(appContext).isTifEnabled = false
+        com.nmaclean.tvheadend.ui.TvhUiRepository.invalidateCaches()
         com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
         thread(name = "tvh-disable-purge") {
             try {
