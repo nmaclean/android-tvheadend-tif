@@ -23,3 +23,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+
+      - name: Log release tag (1.2.75)
+        run: echo "Releasing 1.2.75"
