@@ -1,6 +1,9 @@
 package com.nmaclean.tvheadend.ui.settings
 
 import android.app.Application
+import android.content.ComponentName
+import android.media.tv.TvContract
+import androidx.preference.PreferenceManager
 import androidx.annotation.OptIn
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -33,19 +36,23 @@ data class M3uCurationUiState(
     val allowlistCount: Int = 0,
     val syncStatusMessage: String? = null,
     val isSyncing: Boolean = false,
-    val suggestedEpgUrl: String? = null
+    val suggestedEpgUrl: String? = null,
+    val isIptvTifEnabled: Boolean = true
 )
 
 class M3uCurationViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = AllowlistRepository(application.filesDir)
+    private val prefs = PreferenceManager.getDefaultSharedPreferences(application)
     private val epgSettings = IptvEpgSettingsStore(application)
+    private val iptvTifKey = "iptv_tif_enabled"
     private var curationServer: LanCurationServer? = null
 
     private val _uiState = MutableStateFlow(
         M3uCurationUiState(
             lanIp = LanNetworkUtils.findLanIpv4Address(),
             allowlistCount = repository.load().channels.size,
-            suggestedEpgUrl = epgSettings.epgUrl.takeIf { it.isNotBlank() }
+            suggestedEpgUrl = epgSettings.epgUrl.takeIf { it.isNotBlank() },
+            isIptvTifEnabled = prefs.getBoolean(iptvTifKey, true)
         )
     )
     val uiState: StateFlow<M3uCurationUiState> = _uiState.asStateFlow()
@@ -223,6 +230,94 @@ class M3uCurationViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
             onDone()
+        }
+    }
+
+
+    fun setIptvTifEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(iptvTifKey, enabled).apply()
+        TvhUiRepository.invalidateCaches()
+        _uiState.update {
+            it.copy(
+                isIptvTifEnabled = enabled,
+                syncStatusMessage = if (enabled) {
+                    "IPTV TIF input enabled."
+                } else {
+                    "IPTV TIF input disabled (saved settings and allowlist kept)."
+                }
+            )
+        }
+    }
+
+    fun clearIptvList() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true, syncStatusMessage = "Clearing IPTV channel list...") }
+            try {
+                val app = getApplication<Application>()
+                withContext(Dispatchers.IO) {
+                    repository.clear()
+                    val scanManager = SourceScanManager(app)
+                    scanManager.clearTvInputData(com.nmaclean.tvheadend.iptv.scan.ClearTarget.IPTV)
+                }
+                TvhUiRepository.invalidateCaches()
+                _uiState.update {
+                    it.copy(
+                        isSyncing = false,
+                        allowlistCount = 0,
+                        syncStatusMessage = "Cleared IPTV channel list and registered TIF channels."
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSyncing = false,
+                        syncStatusMessage = "Failed to clear IPTV list: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearIptvEpg() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isSyncing = true, syncStatusMessage = "Clearing IPTV EPG data...") }
+            try {
+                val app = getApplication<Application>()
+                withContext(Dispatchers.IO) {
+                    epgSettings.isEpgEnabled = false
+                    epgSettings.epgUrl = ""
+                    epgSettings.epgFallbackUrl = ""
+                    try {
+                        val inputId = TvContract.buildInputId(
+                            ComponentName(app, com.nmaclean.tvheadend.iptv.tif.IptvTvInputService::class.java)
+                        )
+                        val channelsUri = TvContract.buildChannelsUriForInput(inputId)
+                        app.contentResolver.query(channelsUri, arrayOf(TvContract.Channels._ID), null, null, null)?.use { cursor ->
+                            val idCol = cursor.getColumnIndex(TvContract.Channels._ID)
+                            while (idCol >= 0 && cursor.moveToNext()) {
+                                val channelId = cursor.getLong(idCol)
+                                app.contentResolver.delete(TvContract.buildProgramsUriForChannel(channelId), null, null)
+                            }
+                        }
+                        app.contentResolver.notifyChange(TvContract.Programs.CONTENT_URI, null)
+                    } catch (_: Exception) {}
+                }
+                TvhUiRepository.invalidateCaches()
+                _uiState.update {
+                    it.copy(
+                        isSyncing = false,
+                        suggestedEpgUrl = null,
+                        syncStatusMessage = "Cleared IPTV EPG URL and guide programs (channel list kept)."
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isSyncing = false,
+                        syncStatusMessage = "Failed to clear IPTV EPG: ${e.message}"
+                    )
+                }
+            }
         }
     }
 

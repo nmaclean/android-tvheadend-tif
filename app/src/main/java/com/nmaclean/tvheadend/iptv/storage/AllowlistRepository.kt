@@ -72,4 +72,11 @@ class AllowlistRepository(private val filesDir: File) {
     fun findById(id: String): AllowlistChannel? {
         return load().channels.find { it.id == id }
     }
+
+    fun clear() {
+        save(emptyList(), confirmEmpty = true)
+        if (tmpFile.exists()) {
+            tmpFile.delete()
+        }
+    }
 }

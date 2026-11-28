@@ -93,6 +93,32 @@ fun IptvSetupWizardScreen(
     }
 
     TvTheme {
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = { viewModel.setIptvTifEnabled(!uiState.isIptvTifEnabled) }
+            ) {
+                Text(if (uiState.isIptvTifEnabled) "Disable IPTV TIF" else "Enable IPTV TIF")
+            }
+            OutlinedButton(
+                onClick = {
+                    epgUrlText = ""
+                    viewModel.clearIptvEpg()
+                }
+            ) {
+                Text("Clear EPG")
+            }
+            Button(
+                onClick = { viewModel.clearIptvList() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFCF6679))
+            ) {
+                Text("Clear List", color = Color.White)
+            }
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
