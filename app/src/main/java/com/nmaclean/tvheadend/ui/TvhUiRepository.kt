@@ -171,10 +171,6 @@ object TvhUiRepository {
     }
 
     fun loadChannelsSync(context: Context): List<TvhChannel> {
-        if (!isTvheadendTifEnabled(context)) {
-            invalidateCaches()
-            return emptyList()
-        }
         val fromProvider = queryChannelsFromTvProvider(context)
         if (fromProvider.isNotEmpty()) return fromProvider
         val registryChannels = ChannelRegistry.getAllChannels()
@@ -183,11 +179,6 @@ object TvhUiRepository {
     }
 
     suspend fun loadChannels(context: Context): List<TvhChannel> = withContext(Dispatchers.IO) {
-        if (!isTvheadendTifEnabled(context)) {
-            ChannelRegistry.updateChannels(emptyList())
-            invalidateCaches()
-            return@withContext emptyList()
-        }
         val fromTvProvider = queryChannelsFromTvProvider(context)
         if (fromTvProvider.isNotEmpty()) {
             ChannelRegistry.updateChannels(fromTvProvider)
@@ -197,6 +188,7 @@ object TvhUiRepository {
         val cached = ChannelRegistry.getAllChannels()
         if (cached.isNotEmpty()) return@withContext cached
 
+        if (!isTvheadendTifEnabled(context)) return@withContext emptyList()
         val settings = TvhSettings(context)
         if (settings.host.isBlank()) return@withContext emptyList()
 
@@ -218,9 +210,12 @@ object TvhUiRepository {
     }
 
     private fun queryChannelsFromTvProvider(context: Context): List<TvhChannel> {
-        if (!isTvheadendTifEnabled(context)) {
-            return emptyList()
-        }
+        val tvhEnabled = isTvheadendTifEnabled(context)
+        val tvhInputId = try {
+            android.media.tv.TvContract.buildInputId(
+                android.content.ComponentName(context, com.nmaclean.tvheadend.TvheadendInputService::class.java)
+            )
+        } catch (_: Exception) { "" }
         val result = mutableListOf<TvhChannel>()
         try {
             val projection = arrayOf(
@@ -316,11 +311,6 @@ object TvhUiRepository {
         channels: List<TvhChannel>,
         forceRefresh: Boolean = false
     ): Map<Long, EpgRepository.ChannelEpg> = withContext(Dispatchers.IO) {
-        if (!isTvheadendTifEnabled(context)) {
-            cachedCurrentEpg = emptyMap()
-            cachedCurrentEpgAtMs = 0L
-            return@withContext emptyMap()
-        }
         if (channels.isEmpty()) return@withContext emptyMap()
         val now = System.currentTimeMillis()
         if (!forceRefresh &&
@@ -352,11 +342,6 @@ object TvhUiRepository {
         windowEndMs: Long,
         forceRefresh: Boolean = false
     ): Map<Long, List<EpgRepository.ProgramInfo>> = withContext(Dispatchers.IO) {
-        if (!isTvheadendTifEnabled(context)) {
-            cachedGuidePrograms = emptyMap()
-            cachedGuideAtMs = 0L
-            return@withContext emptyMap()
-        }
         val now = System.currentTimeMillis()
         if (!forceRefresh && cachedGuidePrograms.isNotEmpty() && (now - cachedGuideAtMs) < EPG_CACHE_TTL_MS) {
             return@withContext cachedGuidePrograms
@@ -371,7 +356,7 @@ object TvhUiRepository {
             mapped[htspId] = list
         }
 
-        if (mapped.isEmpty()) {
+        if (mapped.isEmpty() && isTvheadendTifEnabled(context)) {
             // Fallback to direct HTSP EPG fetch when TvContract.Programs is not yet populated
             com.nmaclean.tvheadend.htsp.HtspConnectionPool.withClient(context, TAG) { client ->
                 val events = client.fetchEvents(filterStartMs = windowStartMs, filterEndMs = windowEndMs)
