@@ -482,6 +482,12 @@ object TvhSyncManager {
                 logoCount = logoResults.count { it }
             }
 
+            com.nmaclean.tvheadend.ui.TvhUiRepository.invalidateCaches()
+            try {
+                context.contentResolver.notifyChange(TvContract.Channels.CONTENT_URI, null)
+                context.contentResolver.notifyChange(TvContract.Programs.CONTENT_URI, null)
+            } catch (_: Throwable) {
+            }
             Log.i(TAG, "=== EPG/Logo sync completed: $logoCount logos, $programCount EPG programs inserted ===")
             return Pair(logoCount, programCount)
         } catch (e: Exception) {
