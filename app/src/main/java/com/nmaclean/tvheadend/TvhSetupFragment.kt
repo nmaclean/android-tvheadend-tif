@@ -365,6 +365,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
 
             val settings = TvhTifSettings(requireContext())
             settings.isTifEnabled = true
+            com.nmaclean.tvheadend.ui.TvhUiRepository.invalidateCaches()
             settings.host = values.host
             settings.htspPort = values.htspPort
             settings.httpPort = values.httpPort
