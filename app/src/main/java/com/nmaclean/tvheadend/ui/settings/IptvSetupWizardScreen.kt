@@ -56,7 +56,7 @@ fun IptvSetupWizardScreen(
     var currentStep by remember { mutableStateOf(IptvWizardStep.CHOOSE_SOURCE) }
     var sourceMode by remember { mutableStateOf(M3uSourceMode.LAN_SERVER) }
     var directUrlText by remember { mutableStateOf("") }
-    var epgUrlText by remember { mutableStateOf("") }
+    var epgUrlText by remember(uiState.suggestedEpgUrl) { mutableStateOf(uiState.suggestedEpgUrl ?: "") }
     var showClearDialog by remember { mutableStateOf(false) }
 
     val primaryFocusRequester = remember { FocusRequester() }
@@ -186,7 +186,15 @@ fun IptvSetupWizardScreen(
                             directUrlText = directUrlText,
                             onDirectUrlChange = { directUrlText = it },
                             onToggleServer = { viewModel.toggleServer(!uiState.isServerRunning) },
-                            onNext = { currentStep = IptvWizardStep.SCAN_CHANNELS },
+                            onNext = {
+                                if (sourceMode == M3uSourceMode.DIRECT_URL && directUrlText.isNotBlank()) {
+                                    viewModel.importM3uUrl(directUrlText) { ok ->
+                                        if (ok) currentStep = IptvWizardStep.SCAN_CHANNELS
+                                    }
+                                } else {
+                                    currentStep = IptvWizardStep.SCAN_CHANNELS
+                                }
+                            },
                             onBack = { currentStep = IptvWizardStep.CHOOSE_SOURCE },
                             focusRequester = primaryFocusRequester
                         )
@@ -202,7 +210,11 @@ fun IptvSetupWizardScreen(
                         IptvWizardStep.EPG_CONFIG -> StepEpgConfig(
                             epgUrlText = epgUrlText,
                             onEpgUrlChange = { epgUrlText = it },
-                            onNext = { currentStep = IptvWizardStep.COMPLETE },
+                            onNext = {
+                                viewModel.saveAndSyncEpgUrl(epgUrlText) {
+                                    currentStep = IptvWizardStep.COMPLETE
+                                }
+                            },
                             onBack = { currentStep = IptvWizardStep.SCAN_CHANNELS },
                             focusRequester = primaryFocusRequester
                         )

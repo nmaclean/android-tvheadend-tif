@@ -167,22 +167,17 @@ object TvhUiRepository {
     }
 
     fun loadChannelsSync(context: Context): List<TvhChannel> {
-        if (!isTvheadendTifEnabled(context)) {
-            invalidateCaches()
-            ChannelRegistry.updateChannels(emptyList())
-            return emptyList()
-        }
         val fromProvider = queryChannelsFromTvProvider(context)
         if (fromProvider.isNotEmpty()) return fromProvider
-        return ChannelRegistry.getAllChannels()
+        val registryChannels = ChannelRegistry.getAllChannels()
+        if (registryChannels.isNotEmpty()) return registryChannels
+        if (!isTvheadendTifEnabled(context)) {
+            invalidateCaches()
+        }
+        return emptyList()
     }
 
     suspend fun loadChannels(context: Context): List<TvhChannel> = withContext(Dispatchers.IO) {
-        if (!isTvheadendTifEnabled(context)) {
-            invalidateCaches()
-            ChannelRegistry.updateChannels(emptyList())
-            return@withContext emptyList()
-        }
         val fromTvProvider = queryChannelsFromTvProvider(context)
         if (fromTvProvider.isNotEmpty()) {
             ChannelRegistry.updateChannels(fromTvProvider)
