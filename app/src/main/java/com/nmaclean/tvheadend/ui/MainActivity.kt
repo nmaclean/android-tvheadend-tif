@@ -146,7 +146,10 @@ class MainActivity : ComponentActivity() {
             channels = loadedChannels
             isLoadingChannels = false
             // Single batch 12-hour EPG query powers both Live TV cards and the Guide timeline
-            if (loadedChannels.isNotEmpty()) {
+            if (loadedChannels.isEmpty()) {
+                guidePrograms = emptyMap()
+                currentEpg = emptyMap()
+            } else {
                 val now = System.currentTimeMillis()
                 val startMs = now - 30 * 60_000L
                 windowStartMs = startMs
