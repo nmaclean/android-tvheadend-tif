@@ -120,6 +120,10 @@ object TvhSyncManager {
         onProgress: ((SyncProgressUpdate) -> Unit)? = null
     ): SyncResult {
         val settings = TvhSettings(context)
+        if (!settings.tif.isTifEnabled) {
+            Log.i(TAG, "Skipping Tvheadend sync because TIF input is disabled")
+            return SyncResult(false, error = "Tvheadend TIF is disabled")
+        }
         val host = settings.host
         val port = settings.htspPort
 

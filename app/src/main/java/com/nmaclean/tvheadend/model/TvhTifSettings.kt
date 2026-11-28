@@ -24,6 +24,7 @@ class TvhTifSettings(context: Context) {
         private const val KEY_CLEANUP_DONE = "first_install_cleanup_done"
         private const val KEY_FASTSTART = "htsp_faststart"
         private const val KEY_TIMESHIFT = "htsp_timeshift"
+        private const val KEY_TIF_ENABLED = "tif_enabled"
 
         @Volatile
         var isFaststartCached: Boolean = true
@@ -74,6 +75,10 @@ class TvhTifSettings(context: Context) {
             isFaststartCached = value
             tifPrefs.edit().putBoolean(KEY_FASTSTART, value).apply()
         }
+
+    var isTifEnabled: Boolean
+        get() = tifPrefs.getBoolean(KEY_TIF_ENABLED, true)
+        set(value) = tifPrefs.edit().putBoolean(KEY_TIF_ENABLED, value).apply()
 
     var isTimeshiftEnabled: Boolean
         get() = tifPrefs.getBoolean(KEY_TIMESHIFT, true).also { isTimeshiftCached = it }

@@ -69,22 +69,22 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
             ID_DISABLE -> {
                 val ctx = requireContext().applicationContext
                 TvhSetupActions.disableAndRefresh(ctx)
-                Toast.makeText(activity, "Settings kept • Channel list removed & refreshing", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, "Tvheadend disabled • Settings kept & channels cleared", Toast.LENGTH_SHORT).show()
             }
         }
     }
 }
 
 internal object TvhSetupActions {
-    fun disableAndRefresh(appContext: android.content.Context) {
-        val hasHost = TvhTifSettings(appContext).host.isNotBlank()
+    fun disableAndRefresh(appContext: android.content.Context, onComplete: (() -> Unit)? = null) {
+        TvhTifSettings(appContext).isTifEnabled = false
         com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
-        TvhSyncManager.clearAllChannelsAndPrograms(appContext)
-        if (hasHost) {
-            thread(name = "tvh-disable-refresh") {
-                try {
-                    TvhSyncManager.performSync(appContext)
-                } catch (_: Throwable) {
+        thread(name = "tvh-disable-purge") {
+            try {
+                TvhSyncManager.clearAllChannelsAndPrograms(appContext)
+            } finally {
+                onComplete?.let { callback ->
+                    android.os.Handler(android.os.Looper.getMainLooper()).post(callback)
                 }
             }
         }
@@ -316,7 +316,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
         if (action.id == ID_DISABLE) {
             val ctx = requireContext().applicationContext
             TvhSetupActions.disableAndRefresh(ctx)
-            Toast.makeText(activity, "Settings kept • Channel list removed & refreshing", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, "Tvheadend disabled • Settings kept & channels cleared", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -363,6 +363,7 @@ class TvhCredentialsFragment : GuidedStepSupportFragment() {
             Log.d(TAG, "Saving settings - Host: '${values.host}', Port: ${values.htspPort}, HTTP Port: ${values.httpPort}, User: '${values.username}'")
 
             val settings = TvhTifSettings(requireContext())
+            settings.isTifEnabled = true
             settings.host = values.host
             settings.htspPort = values.htspPort
             settings.httpPort = values.httpPort
