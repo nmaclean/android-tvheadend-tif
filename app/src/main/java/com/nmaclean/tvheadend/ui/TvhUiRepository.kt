@@ -43,8 +43,12 @@ object TvhUiRepository {
         cachedGuideAtMs = 0L
     }
 
-    private fun isTvheadendTifEnabled(context: Context): Boolean =
-        com.nmaclean.tvheadend.model.TvhTifSettings(context).host.isNotBlank()
+    private fun isTvheadendTifEnabled(context: Context): Boolean {
+        val enabledPref = androidx.preference.PreferenceManager
+            .getDefaultSharedPreferences(context)
+            .getBoolean("tvheadend_tif_enabled", true)
+        return enabledPref && com.nmaclean.tvheadend.model.TvhTifSettings(context).host.isNotBlank()
+    }
 
     val CHANNEL_CATEGORIES = listOf(
         "All Channels",
@@ -167,13 +171,14 @@ object TvhUiRepository {
     }
 
     fun loadChannelsSync(context: Context): List<TvhChannel> {
+        if (!isTvheadendTifEnabled(context)) {
+            invalidateCaches()
+            return emptyList()
+        }
         val fromProvider = queryChannelsFromTvProvider(context)
         if (fromProvider.isNotEmpty()) return fromProvider
         val registryChannels = ChannelRegistry.getAllChannels()
         if (registryChannels.isNotEmpty()) return registryChannels
-        if (!isTvheadendTifEnabled(context)) {
-            invalidateCaches()
-        }
         return emptyList()
     }
 

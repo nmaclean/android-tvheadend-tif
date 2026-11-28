@@ -76,10 +76,19 @@ class TvhWelcomeFragment : GuidedStepSupportFragment() {
 }
 
 internal object TvhSetupActions {
+    fun setTvheadendTifEnabled(appContext: android.content.Context, enabled: Boolean) {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(appContext)
+        prefs.edit().putBoolean("tvheadend_tif_enabled", enabled).apply()
+        if (!enabled) {
+            com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
+            TvhSyncManager.clearAllChannelsAndPrograms(appContext)
+            com.nmaclean.tvheadend.ui.TvhUiRepository.invalidateCaches()
+        }
+    }
+
     fun disableAndRefresh(appContext: android.content.Context) {
-        val hasHost = TvhTifSettings(appContext).host.isNotBlank()
-        com.nmaclean.tvheadend.htsp.ChannelRegistry.updateChannels(emptyList())
-        TvhSyncManager.clearAllChannelsAndPrograms(appContext)
+        setTvheadendTifEnabled(appContext, false)
+        val hasHost = false
         if (hasHost) {
             thread(name = "tvh-disable-refresh") {
                 try {

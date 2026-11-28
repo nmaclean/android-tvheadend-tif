@@ -27,6 +27,8 @@ class TvheadendSyncStrategy : BackgroundSyncStrategy {
     override val componentName: ComponentName = ComponentName("com.nmaclean.tvheadend", "com.nmaclean.tvheadend.TvheadendInputService")
 
     override fun isEnabled(context: Context): Boolean {
+        val prefs = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+        if (!prefs.getBoolean("tvheadend_tif_enabled", true)) return false
         val settings = TvhSettings(context)
         return settings.host.isNotBlank()
     }
