@@ -36,6 +36,16 @@ object TvhUiRepository {
     @Volatile
     private var cachedGuideAtMs: Long = 0L
 
+    fun invalidateCaches() {
+        cachedCurrentEpg = emptyMap()
+        cachedCurrentEpgAtMs = 0L
+        cachedGuidePrograms = emptyMap()
+        cachedGuideAtMs = 0L
+    }
+
+    private fun isTvheadendTifEnabled(context: Context): Boolean =
+        com.nmaclean.tvheadend.model.TvhTifSettings(context).host.isNotBlank()
+
     val CHANNEL_CATEGORIES = listOf(
         "All Channels",
         "Favourites",
@@ -159,7 +169,12 @@ object TvhUiRepository {
     fun loadChannelsSync(context: Context): List<TvhChannel> {
         val fromProvider = queryChannelsFromTvProvider(context)
         if (fromProvider.isNotEmpty()) return fromProvider
-        return ChannelRegistry.getAllChannels()
+        val registryChannels = ChannelRegistry.getAllChannels()
+        if (registryChannels.isNotEmpty()) return registryChannels
+        if (!isTvheadendTifEnabled(context)) {
+            invalidateCaches()
+        }
+        return emptyList()
     }
 
     suspend fun loadChannels(context: Context): List<TvhChannel> = withContext(Dispatchers.IO) {
@@ -288,6 +303,11 @@ object TvhUiRepository {
         channels: List<TvhChannel>,
         forceRefresh: Boolean = false
     ): Map<Long, EpgRepository.ChannelEpg> = withContext(Dispatchers.IO) {
+        if (!isTvheadendTifEnabled(context)) {
+            cachedCurrentEpg = emptyMap()
+            cachedCurrentEpgAtMs = 0L
+            return@withContext emptyMap()
+        }
         if (channels.isEmpty()) return@withContext emptyMap()
         val now = System.currentTimeMillis()
         if (!forceRefresh &&
@@ -319,6 +339,11 @@ object TvhUiRepository {
         windowEndMs: Long,
         forceRefresh: Boolean = false
     ): Map<Long, List<EpgRepository.ProgramInfo>> = withContext(Dispatchers.IO) {
+        if (!isTvheadendTifEnabled(context)) {
+            cachedGuidePrograms = emptyMap()
+            cachedGuideAtMs = 0L
+            return@withContext emptyMap()
+        }
         val now = System.currentTimeMillis()
         if (!forceRefresh && cachedGuidePrograms.isNotEmpty() && (now - cachedGuideAtMs) < EPG_CACHE_TTL_MS) {
             return@withContext cachedGuidePrograms

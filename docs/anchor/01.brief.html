@@ -1,19 +1,19 @@
-# Project Brief: android-tvheadend-tif
+<!doctype html><html><head><meta charset=utf-8><title>android-tvheadend-tif</title><style>body{font-family:system-ui,sans-serif;background:#090d16;color:#e2e8f0;max-width:860px;margin:32px auto;padding:0 20px}pre{white-space:pre-wrap}</style></head><body><h1>android-tvheadend-tif — Brief</h1><pre># Project Brief: android-tvheadend-tif
 
-## 1. Title & Metadata
+## 1. Title &amp; Metadata
 - **Project / Repository Name:** `nmaclean/android-tvheadend-tif`
 - **Remote Git URL:** `https://github.com/nmaclean/android-tvheadend-tif.git`
 - **Target Tech Stack:** Android / Android TV (10ft TV experience) and Tvheadend TV Input Framework (TIF) integration *(inferred baseline from repository name `android-tvheadend-tif`, prompt context, and domain conventions; exact SDK versions, Gradle setup, and language mix are unverified because no repository archive was present in the prompt context)*
-- **Gate & Deliverable:** Gate 01 — Brainstorm & Framing (`brief.md`)
-- **Mode:** Inspect Existing Code & Target System Framing *(hybrid framing requested by scope: summarize implemented vs. missing code once verified, while establishing target 10ft TV boundaries; exact repository contents are currently unverified due to missing attached archive)*
+- **Gate &amp; Deliverable:** Gate 01 — Brainstorm &amp; Framing (`brief.md`)
+- **Mode:** Inspect Existing Code &amp; Target System Framing *(hybrid framing requested by scope: summarize implemented vs. missing code once verified, while establishing target 10ft TV boundaries; exact repository contents are currently unverified due to missing attached archive)*
 
-## 2. Problem Statement & Core Outcomes
+## 2. Problem Statement &amp; Core Outcomes
 - **Problem Statement:** Watching live television and DVR/recorded media managed by a Tvheadend backend on a 10ft Android TV / living-room television environment requires reliable TV Input Framework (TIF) integration, low-friction D-pad/remote navigation, and resilient LAN playback. Without clear framing and verified repository visibility, it is unclear which TIF channels, EPG/guide data, playback pipelines, and 10ft TV UI surfaces are already built versus incomplete or absent in `nmaclean/android-tvheadend-tif`.
 - **Target Users:** Living-room / 10ft Android TV viewers operating the interface with a TV remote / D-pad, alongside self-hosters or home-media administrators running a Tvheadend server on a local network.
 - **Measurable Outcomes (Target Baseline — To Be Calibrated Against Verified Code):**
-  1. **Channel & Stream Acquisition:** Achieve reliable channel discovery, tuning, and playback from Tvheadend through Android TIF on 10ft TV hardware with clear error states when streams or tuners are unavailable.
+  1. **Channel &amp; Stream Acquisition:** Achieve reliable channel discovery, tuning, and playback from Tvheadend through Android TIF on 10ft TV hardware with clear error states when streams or tuners are unavailable.
   2. **10ft Navigation Ergonomics:** Enable full primary viewing and channel/guide navigation using standard TV remote / D-pad controls without pointer/touch-only dependencies.
-  3. **Codebase & Gap Transparency:** Establish a verified inventory of implemented vs. missing modules, TIF services/receivers, and TV UI components once the repository archive or Git checkout is inspected.
+  3. **Codebase &amp; Gap Transparency:** Establish a verified inventory of implemented vs. missing modules, TIF services/receivers, and TV UI components once the repository archive or Git checkout is inspected.
   4. **LAN Fault Tolerance:** Surface actionable recovery or retry behavior during transient Tvheadend reachability drops, tuner contention, or stream interruptions.
 
 ## 3. Current State vs Target Scope
@@ -23,55 +23,55 @@
   - *Missing / Incomplete:* Unverified. Cannot confirm whether Tvheadend protocol/API clients, TIF `TvInputService` components, EPG sync jobs, DVR/recording views, or leanback/10ft UI screens are complete, partial, or stubbed.
 - **Target Scope — In-Scope (10ft TV Focus):**
   - Android TV / 10ft user experience and remote/D-pad navigation ergonomics for Tvheadend-backed TV viewing.
-  - Android TV Input Framework (TIF) integration concepts connecting Tvheadend channels, metadata, and streams to Android TV's TV provider/input model *(inferred from `tif` in repository name; exact implementation scope requires code verification)*.
+  - Android TV Input Framework (TIF) integration concepts connecting Tvheadend channels, metadata, and streams to Android TV&#x27;s TV provider/input model *(inferred from `tif` in repository name; exact implementation scope requires code verification)*.
   - Clear documentation of repository baselines, integration boundaries, non-functional guardrails, and architectural risks ahead of `vision.html` and `hld.html`.
 - **Target Scope — Out-of-Scope (Gate 01):**
   - Writing production application code, modifying repository files, or locking final system designs before verifying the codebase and resolving open questions.
   - Non-10ft form factors (such as desktop workstations, mobile-first touch interfaces, or watch/wearable apps) unless explicitly added later.
   - Inventing unverified repository file paths, endpoints, credentials, or third-party integrations as if observed in the codebase.
 
-## 4. Key Screens, Surfaces & User Flows
-- **Primary Views & Surfaces (Inferred 10ft TV Baseline — Unverified in Repo):**
+## 4. Key Screens, Surfaces &amp; User Flows
+- **Primary Views &amp; Surfaces (Inferred 10ft TV Baseline — Unverified in Repo):**
   - **Live TV Playback Surface:** Full-screen 10ft video playback with overlay controls (channel switching, audio/subtitle or status indicators if supported, error/buffering feedback).
-  - **Channel / Guide & Discovery Surface:** 10ft browsable channel list or Electronic Program Guide (EPG) / live TV home integration tailored for D-pad focus and readable television viewing distances.
+  - **Channel / Guide &amp; Discovery Surface:** 10ft browsable channel list or Electronic Program Guide (EPG) / live TV home integration tailored for D-pad focus and readable television viewing distances.
   - **Settings / Backend Connection Surface:** 10ft-accessible configuration or status view for Tvheadend host reachability, input/channel sync status, and diagnostics.
-- **Navigation Structure & Inputs/Controls:**
+- **Navigation Structure &amp; Inputs/Controls:**
   - Primary input via Android TV D-pad (Up/Down/Left/Right), Select/OK, Back, and media/channel keys *(inferred 10ft TV requirement; exact key handling in the repo is unverified)*.
   - Clear focus states, high-contrast legibility at 10ft distance, and predictable back-stack behavior.
-- **End-to-End User & Data Flows (Inferred Baseline — Unverified in Repo):**
-  - **Flow 1 — Channel Sync & TIF Registration:** Tvheadend channel/service metadata is queried/ingested and exposed to Android TV / TIF so channels appear for selection.
-  - **Flow 2 — Live Channel Tune & Playback:** User selects a channel on the 10ft TV surface -> Tvheadend stream/tuner is requested -> media player initializes and renders video/audio with status feedback on failure.
-  - **Flow 3 — Reconnection & Error Recovery:** Network drop, stream timeout, or tuner unavailability occurs -> user receives clear 10ft feedback and can retry or switch channels without app lockup.
+- **End-to-End User &amp; Data Flows (Inferred Baseline — Unverified in Repo):**
+  - **Flow 1 — Channel Sync &amp; TIF Registration:** Tvheadend channel/service metadata is queried/ingested and exposed to Android TV / TIF so channels appear for selection.
+  - **Flow 2 — Live Channel Tune &amp; Playback:** User selects a channel on the 10ft TV surface -&gt; Tvheadend stream/tuner is requested -&gt; media player initializes and renders video/audio with status feedback on failure.
+  - **Flow 3 — Reconnection &amp; Error Recovery:** Network drop, stream timeout, or tuner unavailability occurs -&gt; user receives clear 10ft feedback and can retry or switch channels without app lockup.
 
-## 5. System & Integration Boundaries
-- **Local Persistence & Storage:**
+## 5. System &amp; Integration Boundaries
+- **Local Persistence &amp; Storage:**
   - Unverified in repository. Potential areas (to be confirmed in code) include local preferences/settings, cached channel/EPG state, and Android TV / TIF provider storage.
 - **LAN or External API Protocols:**
   - Communication with a **Tvheadend** instance (typically over LAN HTTP/HTTPS, Tvheadend HTTP/HTSP APIs, and media streaming endpoints) and **Android TV Input Framework (TIF)** APIs *(inferred from `tvheadend` and `tif` in repository name; exact protocols, authentication modes, and ports used by the repo are unverified)*.
-- **Hardware & Service Dependencies:**
+- **Hardware &amp; Service Dependencies:**
   - **Android TV / 10ft Hardware:** Media codecs/decoders, network interface (Ethernet/Wi-Fi), and remote/D-pad input hardware.
   - **External Service:** A running, reachable Tvheadend server with configured tuners/muxes/channels/streams.
 
 ## 6. Non-Functional Guardrails
-- **Latency & Boot Budgets:**
+- **Latency &amp; Boot Budgets:**
   - Exact numeric budgets are not yet defined in the repository; target 10ft expectations prioritize responsive D-pad focus transitions, prompt app launch/resume, and minimal channel-tune startup latency bounded by LAN and Tvheadend tuner/stream readiness.
 - **Offline / LAN Resilience:**
   - Living-room setups commonly experience transient Wi-Fi hiccups, Tvheadend restarts, or tuner busy states. The system should degrade gracefully, avoid unhandled crashes on network/stream errors, and surface clear recovery options rather than silent hangs.
-- **Security & Privacy Constraints:**
+- **Security &amp; Privacy Constraints:**
   - Avoid hardcoding secrets or credentials in source control; handle Tvheadend connection details and any authentication cleanly on local/LAN networks; respect Android permission and component exposure boundaries (especially for TIF services/receivers).
 - **Operational Simplicity:**
   - Keep setup and troubleshooting straightforward from a 10ft TV screen (where text entry via remote is slow), with clear diagnostic signals when a Tvheadend backend or stream fails.
 
-## 7. Assumptions, Risks & Open Questions
+## 7. Assumptions, Risks &amp; Open Questions
 - **Key Assumptions:**
   - The repository `nmaclean/android-tvheadend-tif` (`https://github.com/nmaclean/android-tvheadend-tif.git`) is intended to bridge Tvheadend with Android TV / TIF for a 10ft television experience.
   - The missing archive in this prompt is an input delivery gap rather than proof that the repository is empty.
-- **Technical Risks & Failure Modes:**
+- **Technical Risks &amp; Failure Modes:**
   - **Unverified Codebase State:** Designing around assumed classes or TIF hooks before inspecting the repo risks mismatching existing architecture, Android/TIF API levels, or incomplete features.
-  - **Stream & Tuner Fragility:** Live TV over LAN can fail due to codec incompatibility, tuner contention, stream stalls, or unreachable Tvheadend endpoints, degrading the 10ft viewing experience.
-  - **10ft UX & Remote Friction:** Complex forms, small text, or ambiguous focus states make TV apps frustrating to use with a standard remote.
+  - **Stream &amp; Tuner Fragility:** Live TV over LAN can fail due to codec incompatibility, tuner contention, stream stalls, or unreachable Tvheadend endpoints, degrading the 10ft viewing experience.
+  - **10ft UX &amp; Remote Friction:** Complex forms, small text, or ambiguous focus states make TV apps frustrating to use with a standard remote.
 - **Open Questions to Resolve Before Locking `vision.html` and `hld.html`:**
   1. **Repository Contents:** Once the archive or Git repository (`https://github.com/nmaclean/android-tvheadend-tif.git`) is available, which components are already implemented (e.g., `TvInputService`, EPG/channel sync, custom 10ft Leanback/Compose UI, DVR/recordings) vs. missing or stubbed?
-  2. **Target Android & Tvheadend Versions:** Which minimum/target Android (TV) SDK versions, UI toolkit, and Tvheadend server versions/APIs (HTTP API vs. HTSP, authentication method) are targeted?
+  2. **Target Android &amp; Tvheadend Versions:** Which minimum/target Android (TV) SDK versions, UI toolkit, and Tvheadend server versions/APIs (HTTP API vs. HTSP, authentication method) are targeted?
   3. **Core Feature Priority for V1:** Is V1 focused strictly on live TV channels and TIF integration, or does it also require EPG grid browsing, DVR/recordings playback, or multi-server management?
-  4. **Performance & Error Targets:** Are there specific acceptable thresholds for channel-change time, EPG sync intervals, and automatic retry/reconnect behavior on LAN errors?
+  4. **Performance &amp; Error Targets:** Are there specific acceptable thresholds for channel-change time, EPG sync intervals, and automatic retry/reconnect behavior on LAN errors?</pre></body></html>
