@@ -51,21 +51,20 @@ jobs:
 
       - name: Decode release keystore (if configured)
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_BASE64 || secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "$KEYSTORE_BASE64" | base64 --decode > "${{ runner.temp }}/release.jks"
-            test -s "${{ runner.temp }}/release.jks"
             echo "KEYSTORE_PATH=${{ runner.temp }}/release.jks" >> "$GITHUB_ENV"
           else
-            echo "Warning: No keystore secret found; release APK will use fallback debug signing."
+            echo "KEYSTORE_BASE64 not set; release APK will use fallback debug signing."
           fi
 
       - name: Run unit tests and build release APK
         env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD != '' && secrets.KEYSTORE_PASSWORD || secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS != '' && secrets.KEY_ALIAS || secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD != '' && secrets.KEY_PASSWORD || secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           ./gradlew testDebugUnitTest assembleRelease \
             -PversionName="${{ steps.version.outputs.version_name }}" \
